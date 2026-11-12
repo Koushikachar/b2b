@@ -17,6 +17,7 @@ export async function AllProductsSection({
           title="All products"
           description="Browse the full catalogue from verified suppliers, with live customer pricing and MOQs."
           storeId={storeId}
+          showCategoryRail
         />
       </div>
     </section>

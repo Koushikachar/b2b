@@ -1,7 +1,7 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
-// Local dev stack only — never the remote project. Start it with `pnpm dlx
+// Local dev stack only — never the remote project. Start it with `npx
 // supabase start`. Tests skip with a hint when it is not reachable.
 const URL = "http://127.0.0.1:54421";
 const ANON_KEY =
@@ -29,7 +29,7 @@ if (!available) {
   console.log(
     "[order-lifecycle] Local Supabase stack not reachable at " +
       URL +
-      ". Start it with `pnpm dlx supabase start`.",
+      ". Start it with `npx supabase start`.",
   );
 }
 

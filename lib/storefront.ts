@@ -370,6 +370,7 @@ export type CatalogueCategory = {
   id: string;
   name: string;
   slug: string;
+  imagePath: string | null;
   productCount: number;
 };
 
@@ -378,7 +379,7 @@ export async function getCatalogueCategories(
 ): Promise<CatalogueCategory[]> {
   const { data } = await supabase
     .from("categories")
-    .select("id, name, slug")
+    .select("id, name, slug, image_path")
     .eq("is_active", true)
     .order("sort_order")
     .order("name");
@@ -387,6 +388,7 @@ export async function getCatalogueCategories(
     id: string;
     name: string;
     slug: string;
+    image_path: string | null;
   }[];
   const counts = await getCategoryProductCounts(
     supabase,
@@ -397,6 +399,7 @@ export async function getCatalogueCategories(
     id: row.id,
     name: row.name,
     slug: row.slug,
+    imagePath: row.image_path,
     productCount: counts[row.id] ?? 0,
   }));
 }
@@ -742,13 +745,18 @@ export async function getProduct(supabase: SupabaseClient, productId: string) {
 
   if (!data) return null;
 
-  const [supplierMap, priceMap] = await Promise.all([
+  const [supplierMap, priceMap, mrpResult] = await Promise.all([
     fetchSupplierMap(supabase, [data.supplier_id as string]),
     fetchCustomerPriceMap(supabase, [data.id as string]),
+    // Separate read so a database without the `mrp` column yet (migration
+    // 20261111000000 not applied) still renders the product, just without
+    // the strike-through price.
+    supabase.from("products").select("mrp").eq("id", productId).maybeSingle(),
   ]);
 
   return {
     ...data,
+    mrp: mrpResult.error ? null : ((mrpResult.data?.mrp as number | null) ?? null),
     supplier: supplierMap.get(data.supplier_id as string) ?? null,
     pricing: priceMap.get(data.id as string) ?? null,
   };

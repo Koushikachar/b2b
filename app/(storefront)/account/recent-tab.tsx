@@ -14,7 +14,7 @@ import {
   PaginationPrevious,
 } from "@/components/ui/pagination";
 
-export async function RecentTab() {
+export async function RecentTab({ page: requestedPage = 1 }: { page?: number } = {}) {
   const supabase = await createClient();
   const user = await getSessionUser(supabase);
 
@@ -23,6 +23,7 @@ export async function RecentTab() {
   const { products, total, page, totalPages } = await getBuyerRecentlyViewed(
     supabase,
     user.id,
+    requestedPage,
   );
 
   if (products.length === 0) {
@@ -59,7 +60,7 @@ export async function RecentTab() {
               {page > 1 && (
                 <PaginationItem>
                   <PaginationPrevious
-                    href={`/account?tab=recent&page=${page - 1}`}
+                    href={`/account/recent?page=${page - 1}`}
                   />
                 </PaginationItem>
               )}
@@ -68,7 +69,7 @@ export async function RecentTab() {
                 return (
                   <PaginationItem key={p}>
                     <PaginationLink
-                      href={`/account?tab=recent&page=${p}`}
+                      href={`/account/recent?page=${p}`}
                       isActive={p === page}
                     >
                       {p}
@@ -79,7 +80,7 @@ export async function RecentTab() {
               {page < totalPages && (
                 <PaginationItem>
                   <PaginationNext
-                    href={`/account?tab=recent&page=${page + 1}`}
+                    href={`/account/recent?page=${page + 1}`}
                   />
                 </PaginationItem>
               )}

@@ -2,7 +2,7 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { plainTextLength } from "../lib/supplier/rich-text";
 
-// Local dev stack only — never the remote project. Start it with `pnpm dlx
+// Local dev stack only — never the remote project. Start it with `npx
 // supabase start` (ports override in supabase/config.toml when another stack
 // occupies the defaults). Tests skip with a hint when it is not reachable.
 const URL = "http://127.0.0.1:54421";
@@ -29,7 +29,7 @@ const available = await probeLocal();
 
 if (!available) {
   console.log(
-    "[lifecycle] Local Supabase stack not reachable at " + URL + ". Start it with `pnpm dlx supabase start`.",
+    "[lifecycle] Local Supabase stack not reachable at " + URL + ". Start it with `npx supabase start`.",
   );
 }
 

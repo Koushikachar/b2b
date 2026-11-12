@@ -1,6 +1,7 @@
 "use client"
 
 import { useId, useState, useTransition } from "react"
+import Image from "next/image"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { HugeiconsIcon } from "@hugeicons/react"
@@ -51,6 +52,8 @@ import {
 import { Slider } from "@/components/ui/slider"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { InfiniteCatalogueGrid } from "@/components/storefront/infinite-catalogue-grid"
+import { CategoryFilterRail } from "@/components/storefront/category-tiles"
+import { publicTransformedImageUrl } from "@/lib/storage"
 
 const SORT_OPTIONS = [
   { value: "newest", label: "Newest" },
@@ -294,7 +297,24 @@ function FilterPanel({
                       : "font-medium text-foreground/80 hover:bg-muted hover:text-foreground",
                   )}
                 >
-                  <span className="truncate">{category.name}</span>
+                  <span className="flex min-w-0 items-center gap-2">
+                    <span className="relative size-7 shrink-0 overflow-hidden rounded-sm border border-border bg-brand-50">
+                      {category.imagePath ? (
+                        <Image
+                          src={publicTransformedImageUrl("category_images", category.imagePath, { width: 64, height: 64 })}
+                          alt=""
+                          fill
+                          sizes="28px"
+                          className="object-cover"
+                        />
+                      ) : (
+                        <span aria-hidden className="flex h-full w-full items-center justify-center text-[11px] font-bold text-brand-700">
+                          {category.name.charAt(0).toUpperCase()}
+                        </span>
+                      )}
+                    </span>
+                    <span className="truncate">{category.name}</span>
+                  </span>
                   <span
                     className={cn(
                       "shrink-0 text-[11px] font-normal tabular-nums",
@@ -521,6 +541,7 @@ export function Catalogue({
   title,
   description,
   headingLevel = "h2",
+  showCategoryRail = false,
 }: {
   categoryData: CatalogueCategory[]
   filters: CatalogueFilters
@@ -529,6 +550,8 @@ export function Catalogue({
   title: string
   description?: string
   headingLevel?: "h1" | "h2"
+  /** "Shop by category" image tiles under the filter row; tap filters in place. */
+  showCategoryRail?: boolean
 }) {
   const router = useRouter()
   const [filtersOpen, setFiltersOpen] = useState(false)
@@ -688,6 +711,21 @@ export function Catalogue({
             </Select>
           </div>
         </div>
+
+        {showCategoryRail ? (
+          <CategoryFilterRail
+            categories={categoryData.map((c) => ({
+              id: c.id,
+              name: c.name,
+              slug: c.slug,
+              image_path: c.imagePath,
+              product_count: c.productCount,
+            }))}
+            activeSlug={filters.categorySlug}
+            hrefFor={(slug) => buildCatalogueUrl(basePath, filters, { categorySlug: slug })}
+            clearHref={buildCatalogueUrl(basePath, filters, { categorySlug: "" })}
+          />
+        ) : null}
 
         {hasImageSearch ? (
           <div className="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-md border border-primary/30 bg-primary/10 px-3 py-2">

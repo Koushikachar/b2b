@@ -92,10 +92,10 @@ Before declaring a task complete, run the relevant checks.
 
 Typical checks:
 
-- `pnpm typecheck`
-- `pnpm lint`
-- `pnpm test`
-- `pnpm build`
+- `npm run typecheck`
+- `npm run lint`
+- `npm test`
+- `npm run build`
 
 Use the smallest sufficient set while iterating, but run the full appropriate validation before completion.
 

@@ -35,6 +35,7 @@ type Product = {
   seller_sku: string
   hsn_code: string
   unit: string
+  mrp: number | string | null
   moq: number
   stock_qty: number
   negotiable: boolean
@@ -110,6 +111,12 @@ export function ProductDetail({ product }: { product: Product }) {
   const variantPrices = new Map(
     (pricing?.customer_variant_prices ?? []).map((v) => [v.id, v.customer_price]),
   )
+  // Strike-through MRP only when it is genuinely above the buyer price.
+  const mrp = product.mrp != null ? Number(product.mrp) : null
+  const discountPct =
+    pricing && mrp != null && mrp > pricing.customer_price
+      ? Math.round(((mrp - pricing.customer_price) / mrp) * 100)
+      : 0
   const sortedVariants = [...product.variants]
     .map((v) => ({ ...v, customer_price: variantPrices.get(v.id) }))
     .sort((a, b) => a.sort - b.sort)
@@ -155,12 +162,23 @@ export function ProductDetail({ product }: { product: Product }) {
               {product.title}
             </h1>
             <div className="mt-3 flex flex-wrap items-baseline gap-x-2 gap-y-1">
+              {discountPct > 0 && (
+                <span className="text-2xl font-normal text-destructive tabular-nums">
+                  <span className="sr-only">Discount </span>-{discountPct}%
+                </span>
+              )}
               <span className="text-3xl font-bold tracking-tight text-primary tabular-nums">
                 {pricing ? formatRupees(pricing.customer_price) : "Price on request"}
               </span>
               <span className="text-sm text-muted-foreground">/ {product.unit}</span>
               {product.negotiable && <Badge className="ml-auto">Price Negotiable</Badge>}
             </div>
+            {discountPct > 0 && mrp != null && (
+              <p className="mt-1 text-sm text-muted-foreground">
+                M.R.P.:{" "}
+                <span className="line-through tabular-nums">{formatRupees(mrp)}</span>
+              </p>
+            )}
             <p className="mt-1.5 text-xs text-muted-foreground">
               {stockLabel(product.stock_qty)}
               {product.sample_available ? " · Sample available" : ""}

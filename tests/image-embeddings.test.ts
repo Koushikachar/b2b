@@ -24,7 +24,7 @@ import {
  * This downloads ~89 MB of quantised weights on first run, and a cold load was
  * measured at ~440 s on this machine, so it is opt-in:
  *
- *   IMAGE_SEARCH_MODEL_TESTS=1 pnpm vitest run tests/image-embeddings.test.ts
+ *   IMAGE_SEARCH_MODEL_TESTS=1 npx vitest run tests/image-embeddings.test.ts
  *
  * Everything below the gate uses real inference on real pixels. Nothing is
  * mocked — there is no value in a test that stubs the model it exists to check.
@@ -145,7 +145,7 @@ describe("normalizeVector", () => {
 describe("image model source", () => {
   it("resolves models/<org>/<model> when the weights are vendored", () => {
     const dir = resolveLocalModelDir();
-    // Populated by `pnpm embeddings:fetch-model`, which `prebuild` runs. When
+    // Populated by `npm run embeddings:fetch-model`, which `prebuild` runs. When
     // absent, the loader deliberately falls back to downloading.
     expect(dir === null || dir.endsWith(join("models", IMAGE_EMBEDDING_MODEL))).toBe(true);
   });
@@ -179,7 +179,7 @@ describe("image search native dependencies", () => {
     // The binding is required through a template literal, so a deployed function
     // that did not trace it fails here instead, on the first inference.
     //
-    // Resolved from Transformers.js rather than by package name: pnpm keeps
+    // Resolved from Transformers.js rather than by package name: npm run keeps
     // `onnxruntime-node` next to its single dependent, so only the import path
     // Transformers.js itself uses finds it.
     const requireFromTransformers = createRequire(
@@ -219,7 +219,7 @@ const SEARCH_ROUTE_TRACE = resolve(
 );
 
 describe.skipIf(!existsSync(SEARCH_ROUTE_TRACE))("deployed image search function", () => {
-  // Read lazily inside the tests: the trace only exists after `pnpm build`,
+  // Read lazily inside the tests: the trace only exists after `npm run build`,
   // and eager reads break collection when `.next` is absent or stale.
   const tracedFiles = (): string[] =>
     JSON.parse(readFileSync(SEARCH_ROUTE_TRACE, "utf8")).files;

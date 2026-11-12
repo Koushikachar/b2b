@@ -39,6 +39,7 @@ export default async function ProductsPage({
             title="All products"
             description="Live wholesale pricing and MOQs from verified suppliers."
             headingLevel="h1"
+            showCategoryRail
           />
         </Suspense>
       </div>

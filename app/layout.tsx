@@ -85,7 +85,10 @@ export default function RootLayout({
         inter.variable
       )}
     >
-      <body>
+      {/* Browser extensions (e.g. ColorZilla's `cz-shortcut-listen`) add
+          attributes to <body> before hydration. This only silences attribute
+          mismatches on <body> itself, not on anything rendered inside it. */}
+      <body suppressHydrationWarning>
         {/* Motion honours prefers-reduced-motion app-wide (apple-design §14). */}
         <MotionConfig reducedMotion="user">
           {children}

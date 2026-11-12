@@ -1,8 +1,6 @@
-import Link from "next/link"
 import { getCachedHomeCategories } from "@/lib/storefront-cache"
-import { publicTransformedImageUrl } from "@/lib/storage"
 import { SectionHeader } from "@/components/storefront/section-header"
-import { ProductImage } from "@/components/storefront/product-image"
+import { CategoryTile } from "@/components/storefront/category-tiles"
 
 const MAX_TILES = 8
 
@@ -20,37 +18,14 @@ export async function TopCategoriesSection() {
       <SectionHeader title="Top categories" />
       <div className={RAIL_CLASS}>
         {visible.map((category, index) => (
-          <Link
+          <CategoryTile
             key={category.id}
-            href={`/category/${category.slug}`}
-            className="group w-[84px] shrink-0 snap-start press md:w-auto"
-          >
-            <div className="relative aspect-square w-full overflow-hidden rounded-lg border border-border bg-muted">
-              {category.image_path ? (
-                <ProductImage
-                  src={publicTransformedImageUrl(
-                    "category_images",
-                    category.image_path,
-                    { width: 200, height: 200 }
-                  )}
-                  alt=""
-                  sizes="(min-width: 1024px) 12vw, (min-width: 768px) 18vw, 84px"
-                  priority={index === 0}
-                  unoptimized
-                />
-              ) : (
-                <span
-                  aria-hidden="true"
-                  className="flex h-full w-full items-center justify-center bg-brand-50 text-lg font-bold text-brand-700"
-                >
-                  {category.name.charAt(0).toUpperCase()}
-                </span>
-              )}
-            </div>
-            <p className="mt-1.5 line-clamp-2 text-center text-[11px] leading-snug font-semibold text-foreground">
-              {category.name}
-            </p>
-          </Link>
+            category={category}
+            priority={index === 0}
+            showCount={false}
+            sizes="(min-width: 1024px) 12vw, (min-width: 768px) 18vw, 84px"
+            className="w-[84px] md:w-auto"
+          />
         ))}
       </div>
     </section>

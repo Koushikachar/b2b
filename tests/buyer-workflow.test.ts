@@ -26,7 +26,7 @@ const available = await probeLocal();
 
 if (!available) {
   console.log(
-    "[buyer-workflow] Local Supabase stack not reachable at " + URL + ". Start it with `pnpm dlx supabase start`.",
+    "[buyer-workflow] Local Supabase stack not reachable at " + URL + ". Start it with `npx supabase start`.",
   );
 }
 

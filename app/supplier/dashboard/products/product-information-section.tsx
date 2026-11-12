@@ -124,6 +124,12 @@ export function ProductInformationSection({
             <Input id="price_per_unit" name="price_per_unit" required type="number" min={0.01} step="0.01" aria-invalid={invalidFor("price_per_unit")} value={v("price_per_unit")} onChange={(e) => onValueChange("price_per_unit", e.target.value)} placeholder="100" />
             {errorFor("price_per_unit")}
           </Field>
+          <Field>
+            <FieldLabel htmlFor="mrp">MRP per unit (optional)</FieldLabel>
+            <Input id="mrp" name="mrp" type="number" min={0.01} step="0.01" aria-invalid={invalidFor("mrp")} value={v("mrp")} onChange={(e) => onValueChange("mrp", e.target.value)} placeholder="120" />
+            <FieldDescription>Shown crossed out on the product page with the discount when it is higher than the buyer price.</FieldDescription>
+            {errorFor("mrp")}
+          </Field>
         </FieldGroup>
       </FieldSet>
       <FieldSet>

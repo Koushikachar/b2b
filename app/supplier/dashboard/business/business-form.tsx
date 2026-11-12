@@ -1,7 +1,6 @@
 "use client";
 
 import { useActionState, useState, useTransition, useRef } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { Delete02Icon } from "@hugeicons/core-free-icons";

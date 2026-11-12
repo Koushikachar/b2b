@@ -98,6 +98,7 @@ function ProductRowMenu({
     start(async () => {
       const result = await deleteProduct(productId);
       if (result.ok) {
+        toast.add({ type: "success", title: "Product deleted" });
         router.refresh();
       } else {
         toast.add({
@@ -158,6 +159,14 @@ function ProductRowMenu({
               <DropdownMenuItem disabled={pending} onClick={toggleVisibility}>
                 <HugeiconsIcon icon={isHidden ? EyeIcon : EyeOffIcon} strokeWidth={2} />
                 {isHidden ? "Show listing" : "Hide listing"}
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                variant="destructive"
+                disabled={pending}
+                onClick={() => setDeleteOpen(true)}
+              >
+                <HugeiconsIcon icon={Delete02Icon} strokeWidth={2} />
+                Delete
               </DropdownMenuItem>
             </>
           ) : status === "pending" ? (

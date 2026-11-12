@@ -15,7 +15,7 @@ import {
 } from "@/components/ui/pagination";
 import { UnsaveButton } from "./unsave-button";
 
-export async function SavedTab() {
+export async function SavedTab({ page: requestedPage = 1 }: { page?: number } = {}) {
   const supabase = await createClient();
   const user = await getSessionUser(supabase);
 
@@ -24,6 +24,7 @@ export async function SavedTab() {
   const { products, total, page, totalPages } = await getBuyerSavedProducts(
     supabase,
     user.id,
+    requestedPage,
   );
 
   if (products.length === 0) {
@@ -63,7 +64,7 @@ export async function SavedTab() {
               {page > 1 && (
                 <PaginationItem>
                   <PaginationPrevious
-                    href={`/account?tab=saved&page=${page - 1}`}
+                    href={`/account/wishlist?page=${page - 1}`}
                   />
                 </PaginationItem>
               )}
@@ -72,7 +73,7 @@ export async function SavedTab() {
                 return (
                   <PaginationItem key={p}>
                     <PaginationLink
-                      href={`/account?tab=saved&page=${p}`}
+                      href={`/account/wishlist?page=${p}`}
                       isActive={p === page}
                     >
                       {p}
@@ -83,7 +84,7 @@ export async function SavedTab() {
               {page < totalPages && (
                 <PaginationItem>
                   <PaginationNext
-                    href={`/account?tab=saved&page=${page + 1}`}
+                    href={`/account/wishlist?page=${page + 1}`}
                   />
                 </PaginationItem>
               )}
