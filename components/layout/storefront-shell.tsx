@@ -26,11 +26,9 @@ export function StorefrontShell({
   children: ReactNode
 }) {
   const pathname = usePathname()
-  // Hide the bottom nav (and its reserved padding) on product detail pages
-  // and on the D2H Select page and its sub-routes.
-  const hideBottomNav =
-    /^\/products\/[^/]+$/.test(pathname ?? "") ||
-    /^\/select(\/|$)/.test(pathname ?? "")
+  // Product detail pages own a sticky buy bar, so the bottom nav (and its
+  // reserved padding) is hidden there.
+  const hideBottomNav = /^\/products\/[^/]+$/.test(pathname ?? "")
 
   return (
     <div

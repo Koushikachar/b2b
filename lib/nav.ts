@@ -1,8 +1,9 @@
 export const NAV_LINKS = [
-  { label: "Categories", href: "/products" },
-  { label: "Suppliers", href: "/products" },
-  { label: "Wholesale Deals", href: "/products" },
-  { label: "New Arrivals", href: "/products" },
+  { label: "Categories", href: "/categories" },
+  { label: "Suppliers", href: "/suppliers" },
+  { label: "Wholesale Deals", href: "/select" },
+  { label: "New Arrivals", href: "/products?sort=newest" },
+  { label: "Store", href: "/stores" },
 ]
 
 type NavUser = { user_type: string; isStaff?: boolean } | null
@@ -26,7 +27,7 @@ export function dashboardHref(userType: string, isStaff = false): string {
 }
 
 export type StorefrontTab =
-  "home" | "categories" | "products" | "search" | "account" | "select"
+  "home" | "categories" | "products" | "search" | "account" | "select" | "store"
 
 /**
  * Shared active-state contract for the storefront's mobile navigation.
@@ -51,5 +52,14 @@ export function isStorefrontTabActive(
       return pathname.startsWith("/auth") || pathname.startsWith("/account")
     case "select":
       return pathname === "/select" || pathname.startsWith("/select/")
+    case "store":
+      return (
+        pathname === "/stores" ||
+        pathname.startsWith("/stores/") ||
+        pathname.startsWith("/store/") ||
+        pathname === "/select" ||
+        pathname.startsWith("/select/") ||
+        pathname.startsWith("/events/")
+      )
   }
 }

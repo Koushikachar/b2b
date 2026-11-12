@@ -57,6 +57,17 @@ export function PricingSection({
             <FieldDescription>Variants can override this with their own absolute price. Margin is added to variant prices too.</FieldDescription>
             {errorFor("price_per_unit")}
           </Field>
+          <Field>
+            <FieldLabel htmlFor="mrp">MRP per unit (optional)</FieldLabel>
+            <InputGroup>
+              <InputGroupInput id="mrp" name="mrp" type="number" min={0.01} step="0.01" aria-invalid={invalidFor("mrp")} value={v("mrp")} onChange={(e) => onValueChange("mrp", e.target.value)} />
+              <InputGroupAddon align="inline-start">
+                <InputGroupText>₹</InputGroupText>
+              </InputGroupAddon>
+            </InputGroup>
+            <FieldDescription>Shown crossed out on the product page with the discount when it is higher than the buyer price.</FieldDescription>
+            {errorFor("mrp")}
+          </Field>
           <Field orientation="horizontal">
             <Switch id="negotiable-switch" checked={negotiable} onCheckedChange={onNegotiableChange} />
             <FieldLabel htmlFor="negotiable-switch">Price negotiable</FieldLabel>

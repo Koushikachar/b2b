@@ -7,7 +7,7 @@ Load the `next-dev-loop` skill and verify that $ARGUMENTS works at runtime.
 Steps:
 
 1. Confirm `next dev` is running by reading `.next/dev/lock`. If it is not
-   running, start it with `pnpm dev` and wait for the ready line. Never start a
+   running, start it with `npm run dev` and wait for the ready line. Never start a
    second dev server.
 2. Use the `next-devtools` MCP tools for the framework view: `get_errors`,
    `get_compilation_issues`, and `compile_route` for the route under test.

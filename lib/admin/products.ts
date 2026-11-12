@@ -6,9 +6,6 @@ import { requireAdmin } from "@/lib/auth/guard";
 import type { AdminActionState } from "@/lib/admin/actions";
 
 const idSchema = z.object({ id: z.string().uuid("Invalid product.") });
-const rejectSchema = idSchema.extend({
-  note: z.string().trim().min(10, "Write at least a sentence so the supplier knows what to fix."),
-});
 
 export async function unpublishProduct(
   _prev: AdminActionState,

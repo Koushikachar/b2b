@@ -42,7 +42,7 @@ export const IMAGE_SEARCH_UPLOAD_FIELD = "image";
 
 /**
  * How long a product save waits for image embeddings before giving up and
- * leaving the catalog images un-indexed for `pnpm embeddings:backfill` to pick
+ * leaving the catalog images un-indexed for `npm run embeddings:backfill` to pick
  * up. Bounded because the first request after a cold start pays a model
  * download that can take minutes, and a product save must not hang on it.
  */

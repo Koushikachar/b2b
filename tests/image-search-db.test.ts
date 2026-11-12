@@ -10,8 +10,8 @@ import { getProducts } from "../lib/storefront";
  *
  * Runs against the local dev stack only — never the remote project — using the
  * same hard-coded URL and keys as tests/lifecycle.test.ts. Start it with
- * `pnpm dlx supabase start`; the suite skips with a hint when it is unreachable.
- * The migration must be applied first (`pnpm db:reset` or `pnpm db:push`).
+ * `npx supabase start`; the suite skips with a hint when it is unreachable.
+ * The migration must be applied first (`npm run db:reset` or `npm run db:push`).
  *
  * Embeddings are written directly with synthetic vectors rather than by running
  * CLIP. The RPC's ranking, threshold, visibility and cascade behaviour does not
@@ -53,7 +53,7 @@ if (!available) {
   console.log(
     "[image-search-db] Local Supabase stack not reachable at " +
       URL +
-      ". Start it with `pnpm dlx supabase start`.",
+      ". Start it with `npx supabase start`.",
   );
 }
 

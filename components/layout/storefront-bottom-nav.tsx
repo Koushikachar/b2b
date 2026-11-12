@@ -5,16 +5,21 @@ import Link from "next/link"
 import { usePathname, useSearchParams } from "next/navigation"
 import { HugeiconsIcon, type IconSvgElement } from "@hugeicons/react"
 import {
+  ArrowRight01Icon,
+  CustomerSupportIcon,
+  DashboardSquare01Icon,
+  FavouriteIcon,
+  GridViewIcon,
   Home01Icon,
+  Menu01Icon,
   Package01Icon,
-  Search01Icon,
   ShoppingCart01Icon,
-  UserCircleIcon,
-  ListIcon,
+  Store01Icon,
+  Tag01Icon,
+  UserIcon,
 } from "@hugeicons/core-free-icons"
 import { cn } from "cn"
-import { isStorefrontTabActive } from "@/lib/nav"
-import { AccountMenu } from "@/components/layout/account-menu"
+import { dashboardHref, isStorefrontTabActive } from "@/lib/nav"
 import {
   Sheet,
   SheetContent,
@@ -112,15 +117,35 @@ function useKeyboardViewport(active: boolean) {
   return active ? viewport : CLOSED_VIEWPORT
 }
 
+type MoreLink = { label: string; href: string; icon: IconSvgElement }
+
 /**
- * Search tab + bottom sheet. The shell persists across navigation, so the
- * parent remounts this component (keyed by route + query) and an open sheet
- * cannot stay over the results page. Search results cover both text (`q`) and
- * image (`img`) search.
+ * "More" tab: a bottom sheet with search on top and the secondary
+ * destinations below. The shell persists across navigation, so the parent
+ * remounts this component (keyed by route + query) and an open sheet closes as
+ * soon as the buyer navigates.
  */
-function BottomSearchSheet({ active }: { active: boolean }) {
+function MoreSheet({ active, user }: { active: boolean; user: User }) {
   const [open, setOpen] = useState(false)
   const keyboard = useKeyboardViewport(open)
+
+  const links: MoreLink[] = [
+    { label: "All Products", href: "/products", icon: Package01Icon },
+    { label: "Categories", href: "/categories", icon: GridViewIcon },
+    { label: "D2H Select deals", href: "/select", icon: Tag01Icon },
+    { label: "Suppliers", href: "/suppliers", icon: Store01Icon },
+    ...(user
+      ? [
+          { label: "My Orders", href: "/orders", icon: Package01Icon },
+          { label: "Wishlist", href: "/account/wishlist", icon: FavouriteIcon },
+          { label: "Contact Us", href: "/account/contact", icon: CustomerSupportIcon },
+        ]
+      : []),
+  ]
+  const workspace = user ? dashboardHref(user.user_type, user.isStaff) : "/"
+  if (workspace !== "/") {
+    links.push({ label: "Workspace dashboard", href: workspace, icon: DashboardSquare01Icon })
+  }
 
   return (
     <Sheet open={open} onOpenChange={setOpen}>
@@ -129,25 +154,49 @@ function BottomSearchSheet({ active }: { active: boolean }) {
           <button
             type="button"
             aria-current={active ? "page" : undefined}
-            className={itemClass(active)}
+            className={itemClass(active || open)}
           />
         }
       >
-        <ItemContent icon={Search01Icon} label="Search" active={active} />
+        <ItemContent icon={Menu01Icon} label="More" active={active || open} />
       </SheetTrigger>
       <SheetContent
         side="bottom"
-        className="overflow-y-auto pb-(--safe-area-bottom)"
+        className="max-h-[85dvh] overflow-y-auto rounded-t-2xl pb-(--safe-area-bottom)"
         style={{
           bottom: keyboard.inset > 0 ? keyboard.inset : undefined,
           maxHeight: keyboard.height > 0 ? keyboard.height : undefined,
         }}
       >
         <SheetHeader>
-          <SheetTitle>Search products</SheetTitle>
+          <SheetTitle>More</SheetTitle>
         </SheetHeader>
-        <div className="px-6 pb-10">
-          <StorefrontSearchForm autoFocus inlineSuggestions />
+        <div className="px-4 pb-6">
+          <StorefrontSearchForm inlineSuggestions />
+          <ul className="mt-4 divide-y divide-border overflow-hidden rounded-xl border border-border">
+            {links.map((link) => (
+              <li key={link.href}>
+                <Link
+                  href={link.href}
+                  onClick={() => setOpen(false)}
+                  className="press flex min-h-12 items-center gap-3 px-4 text-sm font-medium hover:bg-muted/60"
+                >
+                  <HugeiconsIcon icon={link.icon} strokeWidth={1.8} className="size-5 text-foreground/80" />
+                  <span className="flex-1">{link.label}</span>
+                  <HugeiconsIcon icon={ArrowRight01Icon} strokeWidth={2} className="size-4 text-muted-foreground" />
+                </Link>
+              </li>
+            ))}
+          </ul>
+          {!user ? (
+            <Link
+              href="/auth/login"
+              onClick={() => setOpen(false)}
+              className="press mt-4 flex h-11 items-center justify-center rounded-lg bg-primary text-sm font-bold text-primary-foreground hover:bg-brand-dark"
+            >
+              Sign in
+            </Link>
+          ) : null}
         </div>
       </SheetContent>
     </Sheet>
@@ -167,18 +216,17 @@ export function StorefrontBottomNav({
     Boolean(searchParams.get("q")) || Boolean(searchParams.get("img"))
 
   const homeActive = isStorefrontTabActive("home", pathname)
-  const allProductsActive = isStorefrontTabActive(
-    "products",
-    pathname,
-    hasSearch
-  )
-  const selectActive = isStorefrontTabActive("select", pathname)
-  const searchActive = isStorefrontTabActive("search", pathname, hasSearch)
+  const storeActive = isStorefrontTabActive("store", pathname)
   const cartActive = pathname === "/cart"
   const accountActive = isStorefrontTabActive("account", pathname)
+  // "More" holds search + catalogue destinations.
+  const moreActive =
+    isStorefrontTabActive("products", pathname, hasSearch) ||
+    isStorefrontTabActive("search", pathname, hasSearch) ||
+    isStorefrontTabActive("categories", pathname)
 
   return (
-    <div className="fixed inset-x-0 bottom-0 z-40 overflow-hidden bg-card pb-(--safe-area-bottom) before:pointer-events-none before:absolute before:inset-x-0 before:top-0 before:h-px before:bg-border before:content-[''] lg:hidden">
+    <div className="fixed inset-x-0 bottom-0 z-40 overflow-hidden bg-card pb-(--safe-area-bottom) shadow-[0_-4px_16px_-8px_color-mix(in_oklch,var(--foreground)_18%,transparent)] before:pointer-events-none before:absolute before:inset-x-0 before:top-0 before:h-px before:bg-border before:content-[''] lg:hidden">
       <nav
         aria-label="Storefront"
         className="mx-auto flex h-(--bottom-nav-height) max-w-7xl items-stretch"
@@ -192,67 +240,16 @@ export function StorefrontBottomNav({
         </Link>
 
         <Link
-          href="/products"
-          aria-current={allProductsActive ? "page" : undefined}
-          className={itemClass(allProductsActive)}
+          href="/stores"
+          aria-current={storeActive ? "page" : undefined}
+          className={itemClass(storeActive)}
         >
-          <ItemContent
-            icon={Package01Icon}
-            label="All Products"
-            active={allProductsActive}
-          />
+          <ItemContent icon={Store01Icon} label="Store" active={storeActive} />
         </Link>
-
-        <Link
-          href="/select"
-          aria-current={selectActive ? "page" : undefined}
-          className={itemClass(selectActive)}
-        >
-          <ItemContent icon={ListIcon} label="Select" active={selectActive} />
-        </Link>
-
-        <BottomSearchSheet
-          key={`${pathname}?${searchParams.toString()}`}
-          active={searchActive}
-        />
-
-        {user ? (
-          <AccountMenu
-            user={user}
-            side="top"
-            trigger={
-              <button
-                type="button"
-                aria-label="Account"
-                aria-current={accountActive ? "page" : undefined}
-                className={itemClass(accountActive)}
-              />
-            }
-          >
-            <ItemContent
-              icon={UserCircleIcon}
-              label="Account"
-              active={accountActive}
-            />
-          </AccountMenu>
-        ) : (
-          <Link
-            href="/auth/login"
-            aria-current={accountActive ? "page" : undefined}
-            className={itemClass(accountActive)}
-          >
-            <ItemContent
-              icon={UserCircleIcon}
-              label="Account"
-              active={accountActive}
-            />
-          </Link>
-        )}
-
-        <span className="w-px self-stretch bg-border" aria-hidden="true" />
 
         <Link
           href="/cart"
+          aria-label={cartCount > 0 ? `Cart, ${cartCount} items` : "Cart"}
           aria-current={cartActive ? "page" : undefined}
           className={itemClass(cartActive)}
         >
@@ -263,13 +260,27 @@ export function StorefrontBottomNav({
               className={cn("size-6", cartActive ? "text-primary" : undefined)}
             />
             {cartCount > 0 ? (
-              <span className="absolute -right-2 -top-1.5 flex min-w-4 items-center justify-center rounded-sm bg-primary px-1 text-[10px] font-bold text-primary-foreground">
+              <span className="absolute -top-1.5 -right-2 flex min-w-4 items-center justify-center rounded-sm bg-primary px-1 text-[10px] font-bold text-primary-foreground">
                 {cartCount > 99 ? "99+" : cartCount}
               </span>
             ) : null}
           </span>
           <span>Cart</span>
         </Link>
+
+        <Link
+          href={user ? "/account" : "/auth/login?next=/account"}
+          aria-current={accountActive ? "page" : undefined}
+          className={itemClass(accountActive)}
+        >
+          <ItemContent icon={UserIcon} label="My Account" active={accountActive} />
+        </Link>
+
+        <MoreSheet
+          key={`${pathname}?${searchParams.toString()}`}
+          active={moreActive}
+          user={user}
+        />
       </nav>
     </div>
   )

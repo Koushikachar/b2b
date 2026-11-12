@@ -159,6 +159,7 @@ export const productSchema = z.object({
     ),
   unit: z.enum(PRODUCT_UNITS),
   price_per_unit: z.coerce.number().positive("Price must be positive."),
+  mrp: optionalPositiveNumber("MRP must be positive."),
   negotiable: z.coerce.boolean().default(false),
   is_winning: z.coerce.boolean().default(false),
   is_hot_selling: z.coerce.boolean().default(false),
@@ -184,7 +185,7 @@ export type ProductVariantValues = z.output<typeof productVariantSchema>;
 
 export const PRODUCT_STEP_FIELDS = [
   ["title", "category_id", "seller_sku", "hsn_code", "gst_rate", "carton_units", "carton_dimensions", "carton_weight_kg", "description"],
-  ["unit", "price_per_unit", "negotiable"],
+  ["unit", "price_per_unit", "mrp", "negotiable"],
   ["packaging_details", "warranty_return", "youtube_url"],
 ] as const;
 
@@ -203,6 +204,7 @@ export const productStepSchemas = [
   productSchema.pick({
     unit: true,
     price_per_unit: true,
+    mrp: true,
     negotiable: true,
   }),
   productSchema.pick({ packaging_details: true, warranty_return: true, youtube_url: true }),

@@ -101,7 +101,7 @@ function withTimeout<T>(work: Promise<T>, ms: number, label: string): Promise<T 
   return new Promise<T | null>((resolve) => {
     const timer = setTimeout(() => {
       console.warn(
-        `[image-search] ${label} exceeded ${ms}ms and was abandoned; run \`pnpm embeddings:backfill\` to finish it.`,
+        `[image-search] ${label} exceeded ${ms}ms and was abandoned; run \`npm run embeddings:backfill\` to finish it.`,
       );
       resolve(null);
     }, ms);
@@ -130,7 +130,7 @@ function withTimeout<T>(work: Promise<T>, ms: number, label: string): Promise<T 
  * an un-indexed image is a silently degraded search. The bounded timeout is
  * what keeps the admin UI responsive: with a warm model this is ~100 ms per
  * image, while a cold start would otherwise block the save on a model download.
- * Anything the timeout drops stays re-indexable via `pnpm embeddings:backfill`.
+ * Anything the timeout drops stays re-indexable via `npm run embeddings:backfill`.
  */
 export async function indexProductImages(
   supabase: SupabaseClient,

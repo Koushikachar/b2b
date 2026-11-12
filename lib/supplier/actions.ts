@@ -8,7 +8,6 @@ import {
   businessProfileSchema,
   kybSchema,
   marginPctSchema,
-  validateDocFile,
   validateLogoFile,
 } from "@/lib/supplier/kyb";
 
@@ -16,29 +15,6 @@ export type KybActionState = {
   ok: boolean;
   message: string;
 };
-
-const DOC_FIELDS = [
-  { field: "gst_certificate", column: "gst_certificate_path", label: "GST certificate" },
-  { field: "pan_card", column: "pan_card_path", label: "PAN card" },
-  { field: "license", column: "license_path", label: "Business license" },
-] as const;
-
-async function uploadDoc(
-  supabase: Awaited<ReturnType<typeof requireUser>>["supabase"],
-  userId: string,
-  field: string,
-  file: File,
-): Promise<string> {
-  const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
-  const path = `${userId}/${field}_${Date.now()}_${safeName}`;
-  const { error } = await supabase.storage
-    .from("company_docs")
-    .upload(path, file, { contentType: file.type, upsert: false });
-  if (error) {
-    throw new Error(`Could not upload ${field}. Try again.`);
-  }
-  return path;
-}
 
 export async function submitKyb(
   _prevState: KybActionState,

@@ -175,6 +175,7 @@ export function ProductForm({
       set("description", product.description);
       set("unit", product.unit);
       set("price_per_unit", product.price_per_unit);
+      set("mrp", product.mrp);
       set("packaging_details", product.packaging_details);
       set("warranty_return", product.warranty_return);
       set("youtube_url", product.youtube_url);
@@ -329,10 +330,15 @@ export function ProductForm({
     setSeoDescriptionTouched(false);
   }
 
-  function commitStagedFiles(files: File[]) {
+  function commitFilesToInput(input: HTMLInputElement | null, files: File[]) {
+    if (!input) return;
     const dt = new DataTransfer();
     for (const f of files) dt.items.add(f);
-    if (fileInputRef.current) fileInputRef.current.files = dt.files;
+    input.files = dt.files;
+  }
+
+  function commitStagedFiles(files: File[]) {
+    commitFilesToInput(fileInputRef.current, files);
     for (const url of objectUrlsRef.current) URL.revokeObjectURL(url);
     const urls = files.map((f) => URL.createObjectURL(f));
     objectUrlsRef.current = urls;
@@ -423,9 +429,7 @@ export function ProductForm({
   }
 
   function syncSeoInput(file: File | null) {
-    const dt = new DataTransfer();
-    if (file) dt.items.add(file);
-    if (seoImageInputRef.current) seoImageInputRef.current.files = dt.files;
+    commitFilesToInput(seoImageInputRef.current, file ? [file] : []);
   }
 
   function removeSeoImage() {
@@ -534,6 +538,12 @@ export function ProductForm({
       pinpoint(bad);
       return;
     }
+    // React resets the <form> after every server-action submit, which empties
+    // the file inputs while the previews (React state) stay on screen. Re-sync
+    // both inputs from state so a retry after any failed save still uploads
+    // the images the supplier can see.
+    commitFilesToInput(fileInputRef.current, newFiles);
+    commitFilesToInput(seoImageInputRef.current, seoFile ? [seoFile] : []);
     if (autoSubmitRef.current) {
       const input = document.createElement("input");
       input.type = "hidden";

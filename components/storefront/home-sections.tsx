@@ -14,6 +14,7 @@ export async function AllProductsSection({
           basePath="/"
           title="All products"
           description="Browse the full catalogue from verified suppliers, with live customer pricing and MOQs."
+          showCategoryRail
         />
       </div>
     </section>

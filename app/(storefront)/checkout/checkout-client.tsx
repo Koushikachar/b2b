@@ -114,7 +114,7 @@ export function CheckoutClient({
               <Alert>
                 <AlertDescription>
                   You have no saved addresses yet.{" "}
-                  <Link href="/account?tab=addresses" className="font-medium underline">
+                  <Link href="/account/addresses" className="font-medium underline">
                     Add a delivery address
                   </Link>{" "}
                   to place your order.
@@ -148,7 +148,7 @@ export function CheckoutClient({
             )}
             <p className="mt-2 text-xs text-muted-foreground">
               Need a different address?{" "}
-              <Link href="/account?tab=addresses" className="underline">
+              <Link href="/account/addresses" className="underline">
                 Manage addresses
               </Link>
             </p>

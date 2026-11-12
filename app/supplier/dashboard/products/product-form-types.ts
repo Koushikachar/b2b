@@ -29,6 +29,7 @@ export type ExistingProduct = {
   description: string;
   unit: string;
   price_per_unit: number;
+  mrp: number | null;
   negotiable: boolean;
   is_winning: boolean;
   is_hot_selling: boolean;

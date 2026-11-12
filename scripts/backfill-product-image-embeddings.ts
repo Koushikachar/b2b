@@ -1,7 +1,7 @@
 /**
  * Backfill CLIP embeddings for catalog product images.
  *
- *   pnpm embeddings:backfill
+ *   npm run embeddings:backfill
  *
  * Explicitly invoked only. Never runs during `next build`, `next dev` startup or
  * a migration, because it embeds the whole catalog.

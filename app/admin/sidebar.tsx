@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useSearchParams } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { HugeiconsIcon } from "@hugeicons/react";
 import {
   DashboardSquare01Icon,
@@ -9,7 +9,6 @@ import {
   LayoutDashboardIcon,
   Package01Icon,
   SaleTag01Icon,
-  ShieldCheckIcon,
 } from "@hugeicons/core-free-icons";
 import {
   Sidebar,
@@ -20,7 +19,6 @@ import {
   SidebarGroupLabel,
   SidebarHeader,
   SidebarMenu,
-  SidebarMenuBadge,
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarRail,
@@ -28,14 +26,12 @@ import {
 import { NavUser } from "@/components/layout/nav-user";
 
 export function AdminSidebar({
-  pendingCount,
   user,
 }: {
   pendingCount: number;
   user: { name: string; email: string };
 }) {
   const pathname = usePathname();
-  const searchParams = useSearchParams();
   const overviewActive =
     pathname === "/admin/dashboard" || pathname === "/admin/dashboard/";
   const categoriesActive = pathname.startsWith("/admin/dashboard/categories");

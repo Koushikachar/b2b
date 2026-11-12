@@ -15,7 +15,6 @@ import {
   PercentIcon,
   PuzzleIcon,
   SettingsIcon,
-  ShieldCheckIcon,
   ShoppingCart01Icon,
   UserGroup02Icon,
   Wallet01Icon,

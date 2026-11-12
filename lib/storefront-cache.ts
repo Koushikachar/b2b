@@ -25,6 +25,7 @@ import {
   catalogueFiltersKey,
   type CatalogueFilters,
 } from "./catalogue";
+import { PRICE_LIMITS, type PriceLimit, type PromoEvent } from "./promotions";
 
 /**
  * Cookie-less public client for cached catalog reads. `lib/supabase/server.ts`
@@ -237,3 +238,126 @@ export async function getCachedProducts(params: ProductListParams) {
   );
   return cached();
 }
+
+// ---------------------------------------------------------------------------
+// D2H Select promotional sliders + festival events
+// ---------------------------------------------------------------------------
+
+const PROMO_ROW_LIMIT = 4;
+
+/**
+ * Everything the Select slider row needs in one cached call: winning,
+ * hot-selling and the four "Under ₹X" buckets. All six reads run in parallel
+ * and share one cache entry, so the slider costs a single cache lookup.
+ */
+export const getCachedPromoCollections = unstable_cache(
+  async () => {
+    const client = makePublicClient() as unknown as AnyClient;
+    const [winning, hotSelling, ...under] = await Promise.all([
+      getWinningProducts(client, PROMO_ROW_LIMIT),
+      getHotSellingProducts(client, PROMO_ROW_LIMIT),
+      ...PRICE_LIMITS.map((maxPrice) =>
+        getProducts(client, normalizeProductParams({
+          maxPrice,
+          perPage: PROMO_ROW_LIMIT,
+          sort: "newest",
+        })).then((page) => page.products),
+      ),
+    ]);
+    return {
+      winning,
+      hotSelling,
+      under: Object.fromEntries(
+        PRICE_LIMITS.map((limit, index) => [limit, under[index] ?? []]),
+      ) as Record<PriceLimit, (typeof under)[number]>,
+    };
+  },
+  ["select-promo-collections"],
+  { revalidate: 120, tags: ["products", "prices", "home"] },
+);
+
+type PromoEventRow = {
+  key: string;
+  theme: PromoEvent["theme"];
+  title: string;
+  starts_at: string;
+  ends_at: string;
+  max_reward: number;
+};
+
+/** Events that have not ended yet; callers check the live window at render. */
+export const getCachedPromoEvents = unstable_cache(
+  async (): Promise<PromoEvent[]> => {
+    const { data, error } = await makePublicClient()
+      .from("promo_events")
+      .select("key, theme, title, starts_at, ends_at, max_reward")
+      .gte("ends_at", new Date().toISOString())
+      .order("starts_at", { ascending: true })
+      .limit(5);
+    if (error) {
+      console.error("getCachedPromoEvents failed:", error.code, error.message);
+      return [];
+    }
+    return ((data ?? []) as PromoEventRow[]).map((row) => ({
+      key: row.key,
+      theme: row.theme,
+      title: row.title,
+      startsAt: row.starts_at,
+      endsAt: row.ends_at,
+      maxReward: Number(row.max_reward),
+    }));
+  },
+  ["promo-events"],
+  { revalidate: 300, tags: ["promo-events"] },
+);
+
+// ---------------------------------------------------------------------------
+// Supplier directory (/suppliers)
+// ---------------------------------------------------------------------------
+
+export type DirectorySupplier = {
+  id: string;
+  business_name: string;
+  city: string | null;
+  state: string | null;
+  logo_path: string | null;
+  created_at: string;
+  /** null when the directory view is not migrated yet (count unknown). */
+  product_count: number | null;
+  category_names: string[];
+};
+
+/**
+ * Every verified supplier with live product counts, in one cached read.
+ * Search / state filter / sort run in memory on this list (a few hundred rows),
+ * so changing filters never costs another database round trip.
+ */
+export const getCachedSupplierDirectory = unstable_cache(
+  async (): Promise<DirectorySupplier[]> => {
+    const client = makePublicClient();
+    const { data, error } = await client
+      .from("storefront_supplier_directory")
+      .select("id, business_name, city, state, logo_path, created_at, product_count, category_names")
+      .limit(1000);
+
+    if (!error) {
+      return ((data ?? []) as DirectorySupplier[]).map((row) => ({
+        ...row,
+        product_count: Number(row.product_count ?? 0),
+        category_names: row.category_names ?? [],
+      }));
+    }
+
+    // Directory view not migrated yet: fall back to the base supplier view.
+    console.error("getCachedSupplierDirectory failed:", error.code, error.message);
+    const fallback = await client
+      .from("storefront_suppliers")
+      .select("id, business_name, city, state, logo_path, created_at")
+      .limit(1000);
+    return ((fallback.data ?? []) as Omit<DirectorySupplier, "product_count" | "category_names">[]).map(
+      (row) => ({ ...row, product_count: null, category_names: [] }),
+    );
+  },
+  ["supplier-directory"],
+  { revalidate: 600, tags: ["suppliers", "products"] },
+);

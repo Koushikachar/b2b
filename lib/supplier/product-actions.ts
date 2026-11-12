@@ -29,6 +29,15 @@ function boolOf(v: FormDataEntryValue | null): boolean {
   return v === "on" || v === "true" || v === "1";
 }
 
+/** PostgREST error for a write that names the not-yet-migrated `mrp` column. */
+function isMissingMrpColumn(error: { code?: string; message?: string } | null): boolean {
+  return (
+    !!error &&
+    (error.code === "PGRST204" || error.code === "42703") &&
+    /\bmrp\b/.test(error.message ?? "")
+  );
+}
+
 function nullIfEmpty(v: FormDataEntryValue | null): string | null {
   if (v === null || v === undefined) return null;
   const s = String(v).trim();
@@ -120,7 +129,7 @@ function rpcMessage(error: { message?: string } | null, fallback: string): strin
  * Called after the last database mutation of a save, so a rolled-back product is
  * never embedded. Strictly best-effort: missing service-role credentials, a
  * model that cannot load, or a storage error are logged and left to
- * `pnpm embeddings:backfill`, which is resumable. A product save must never
+ * `npm run embeddings:backfill`, which is resumable. A product save must never
  * fail because the search index did not update.
  *
  * Uses the service-role client because product_image_embeddings grants nothing
@@ -272,6 +281,7 @@ export async function createProduct(
     description: formData.get("description"),
     unit: formData.get("unit"),
     price_per_unit: formData.get("price_per_unit"),
+    mrp: formData.get("mrp"),
     negotiable: boolOf(formData.get("negotiable")),
     is_winning: boolOf(formData.get("is_winning")),
     is_hot_selling: boolOf(formData.get("is_hot_selling")),
@@ -330,6 +340,9 @@ export async function createProduct(
       carton_weight_kg: parsed.data.carton_weight_kg,
       unit: parsed.data.unit,
       price_per_unit: parsed.data.price_per_unit,
+      // Omitted when blank (column defaults to null), so creating products
+      // keeps working on a database without the `mrp` column yet.
+      ...(parsed.data.mrp != null ? { mrp: parsed.data.mrp } : {}),
       // No longer collected in the form; defaults keep existing storefront and
       // cart behaviour working (MOQ floor of 1, no stock, one-week lead time).
       moq: 1,
@@ -465,6 +478,7 @@ export async function updateProduct(
     description: formData.get("description"),
     unit: formData.get("unit"),
     price_per_unit: formData.get("price_per_unit"),
+    mrp: formData.get("mrp"),
     negotiable: boolOf(formData.get("negotiable")),
     is_winning: boolOf(formData.get("is_winning")),
     is_hot_selling: boolOf(formData.get("is_hot_selling")),
@@ -521,9 +535,7 @@ const removedPaths = parseRemovedPaths(String(formData.get("removed_image_paths"
   const oldSeoPath = existing.seo_image_path ?? null;
   const seoImagePath = newSeoPath ?? (seoClear ? null : oldSeoPath);
 
-  const { error: updateError, data: updatedRows } = await supabase
-    .from("products")
-    .update({
+  const updateRow = {
       category_id: parsed.data.category_id,
       title: parsed.data.title.trim(),
       description: sanitizeRichText(parsed.data.description),
@@ -536,6 +548,7 @@ const removedPaths = parseRemovedPaths(String(formData.get("removed_image_paths"
       carton_weight_kg: parsed.data.carton_weight_kg,
       unit: parsed.data.unit,
       price_per_unit: parsed.data.price_per_unit,
+      mrp: parsed.data.mrp,
       negotiable: parsed.data.negotiable,
       is_winning: parsed.data.is_winning,
       is_hot_selling: parsed.data.is_hot_selling,
@@ -546,9 +559,17 @@ const removedPaths = parseRemovedPaths(String(formData.get("removed_image_paths"
       seo_title: seoText(parsed.data.seo_title) ?? defaultSeoTitle(parsed.data.title),
       seo_description: seoText(parsed.data.seo_description) ?? defaultSeoDescription(parsed.data.description),
       seo_image_path: seoImagePath,
-    })
-    .eq("id", productId)
-    .select("id");
+  };
+  const runUpdate = (row: Partial<typeof updateRow>) =>
+    supabase.from("products").update(row).eq("id", productId).select("id");
+  let { error: updateError, data: updatedRows } = await runUpdate(updateRow);
+  // Database without the `mrp` column yet (migration 20261111000000 not
+  // applied): save everything else when no MRP was entered.
+  if (isMissingMrpColumn(updateError) && parsed.data.mrp == null) {
+    const { mrp: _omit, ...withoutMrp } = updateRow;
+    void _omit;
+    ({ error: updateError, data: updatedRows } = await runUpdate(withoutMrp));
+  }
   if (updateError) {
     console.error("updateProduct failed:", updateError);
     if (updateError.code === "23505") {
@@ -665,6 +686,24 @@ export async function deleteProduct(productId: string): Promise<ProductActionSta
   const supplierId = await getVerifiedSupplierId(supabase, user.id);
   if (!supplierId) return { ok: false, message: "Only suppliers can list products." };
 
+  // order_items.product_id is ON DELETE CASCADE: deleting an ordered product
+  // would silently strip those lines from buyers' and the supplier's order
+  // history. Ordered products are hidden instead.
+  const { count: orderedCount, error: orderedError } = await supabase
+    .from("order_items")
+    .select("id", { count: "exact", head: true })
+    .eq("product_id", productId);
+  if (orderedError) {
+    console.error("deleteProduct order check failed:", orderedError);
+    return { ok: false, message: "Could not delete. Try again." };
+  }
+  if ((orderedCount ?? 0) > 0) {
+    return {
+      ok: false,
+      message: "This product has orders, so it can't be deleted. Use Hide listing to take it off the store instead.",
+    };
+  }
+
   const { data: images } = await supabase
     .from("product_images")
     .select("path")
@@ -674,22 +713,43 @@ export async function deleteProduct(productId: string): Promise<ProductActionSta
     .delete()
     .eq("id", productId)
     .eq("supplier_id", supplierId)
-    .in("status", ["draft", "rejected"])
+    .in("status", ["draft", "rejected", "approved"])
     .select("id");
   if (error) {
     console.error("deleteProduct failed:", error);
     return { ok: false, message: "Could not delete. Try again." };
   }
   if (!deletedRows || deletedRows.length === 0) {
-    return { ok: false, message: "Only draft or returned products can be deleted." };
+    // Nothing matched: say why instead of guessing.
+    const { data: current } = await supabase
+      .from("products")
+      .select("status, supplier_id")
+      .eq("id", productId)
+      .maybeSingle();
+    if (!current || current.supplier_id !== supplierId) {
+      return { ok: false, message: "Product not found." };
+    }
+    if (current.status === "pending") {
+      return { ok: false, message: "Products under review can't be deleted." };
+    }
+    return { ok: false, message: "You don't have permission to delete this product." };
   }
   if (images && images.length > 0) {
-    await removeStoredPaths(
-      supabase,
-      images.map((i) => i.path as string),
-    );
+    // Storage only lets a user delete files in their own folder, so photos a
+    // teammate uploaded would be orphaned. The product row is already gone
+    // (authorised above via RLS) and these paths were read under the user's
+    // own permissions, so remove them with the service role.
+    const { error: storageError } = await createAdminClient()
+      .storage.from("product_images")
+      .remove(images.map((i) => i.path as string));
+    if (storageError) console.error("deleteProduct storage cleanup failed:", storageError);
   }
   revalidatePath("/supplier/dashboard/products");
+  // A live product disappears from the storefront too.
+  revalidateTag("products", "max");
+  revalidateTag("prices", "max");
+  revalidatePath("/products");
+  revalidatePath(`/products/${productId}`);
   return { ok: true, message: "Deleted." };
 }
 

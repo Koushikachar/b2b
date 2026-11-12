@@ -23,6 +23,7 @@ const FIELD_RULES: FieldRule[] = [
   { match: "hsn must be", field: "hsn_code" },
   { match: "hsn code must be", field: "hsn_code" },
   { match: "enter a valid youtube", field: "youtube_url" },
+  { match: "mrp must be", field: "mrp" },
   { match: "price must be", field: "price_per_unit" },
   { match: "units per carton must be", field: "carton_units" },
   { match: "carton weight must be", field: "carton_weight_kg" },

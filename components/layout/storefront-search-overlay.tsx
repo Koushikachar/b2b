@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { Dialog as DialogPrimitive } from "@base-ui/react/dialog"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { Search01Icon } from "@hugeicons/core-free-icons"
@@ -25,6 +25,23 @@ export function StorefrontSearchOverlay({
   categories: MegaMenuCategory[]
 }) {
   const [open, setOpen] = useState(false)
+  const triggerRef = useRef<HTMLButtonElement>(null)
+  // The store tabs row sits above the sticky header, so the header's bottom
+  // edge moves with scroll. Measure it on open instead of assuming the header
+  // starts at the top of the viewport (which made the header cover the input).
+  const [top, setTop] = useState<number | null>(null)
+
+  useEffect(() => {
+    if (!open) return
+    const measure = () => {
+      const header = triggerRef.current?.closest("header")
+      if (header) setTop(Math.max(0, Math.round(header.getBoundingClientRect().bottom)))
+    }
+    measure()
+    window.addEventListener("resize", measure)
+    return () => window.removeEventListener("resize", measure)
+  }, [open])
+  const offsetStyle = top == null ? undefined : { top, maxHeight: `calc(100dvh - ${top}px)` }
 
   // The dialog traps focus but intentionally allows pointer interaction
   // outside (so the header stays usable); lock page scroll while it is open.
@@ -47,6 +64,7 @@ export function StorefrontSearchOverlay({
   return (
     <DialogPrimitive.Root open={open} onOpenChange={setOpen} modal="trap-focus">
       <DialogPrimitive.Trigger
+        ref={triggerRef}
         render={
           <Button
             variant="ghost"
@@ -61,10 +79,12 @@ export function StorefrontSearchOverlay({
       <DialogPrimitive.Portal>
         <DialogPrimitive.Backdrop
           data-slot="storefront-search-backdrop"
+          style={top == null ? undefined : { top }}
           className="fixed inset-x-0 top-(--storefront-header-offset) bottom-0 z-40 bg-black/20 backdrop-blur-sm transition-opacity duration-200 ease-(--motion-settle) data-ending-style:opacity-0 data-starting-style:opacity-0"
         />
         <DialogPrimitive.Popup
           data-slot="storefront-search-popup"
+          style={offsetStyle}
           className="fixed inset-x-0 top-(--storefront-header-offset) z-40 max-h-[calc(100dvh-var(--storefront-header-offset))] overflow-y-auto border-b border-border bg-card shadow-lg transition duration-200 ease-(--motion-settle) outline-none data-ending-style:-translate-y-2 data-ending-style:opacity-0 data-starting-style:-translate-y-2 data-starting-style:opacity-0"
           onClick={(event) => {
             if (
@@ -82,6 +102,8 @@ export function StorefrontSearchOverlay({
             categories={categories}
             trending={TRENDING_SEARCHES}
             autoFocus
+            showCategoryList={false}
+            showCategoryChips={false}
           />
         </DialogPrimitive.Popup>
       </DialogPrimitive.Portal>

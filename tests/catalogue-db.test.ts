@@ -32,7 +32,7 @@ if (!available) {
   console.log(
     "[catalogue-db] Local Supabase stack not reachable at " +
       URL +
-      ". Start it with `pnpm dlx supabase start`.",
+      ". Start it with `npx supabase start`.",
   );
 }
 

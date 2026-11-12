@@ -2,14 +2,16 @@
 
 import Link from "next/link"
 import { usePathname, useSearchParams } from "next/navigation"
-import { navLinksFor } from "@/lib/nav"
-import { AccountMenu } from "@/components/layout/account-menu"
+import { dashboardHref, navLinksFor } from "@/lib/nav"
 import { Logo } from "@/components/layout/logo"
 import { MobileNav } from "@/components/layout/mobile-nav"
 import { StorefrontSearchOverlay } from "@/components/layout/storefront-search-overlay"
 import { CartIconLink } from "@/components/storefront/cart-icon-link"
 import type { MegaMenuCategory } from "@/components/storefront/search-mega-menu"
 import { Button } from "@/components/ui/button"
+import { HugeiconsIcon } from "@hugeicons/react"
+import { DashboardSquare01Icon, UserIcon } from "@hugeicons/core-free-icons"
+import { cn } from "@/lib/utils"
 
 type User = { email: string; user_type: string; isStaff?: boolean } | null
 type NavCategory = { slug: string; name: string }
@@ -63,13 +65,41 @@ export function StorefrontHeader({
 
           {/* Right actions (desktop; mobile uses the bottom navigation) */}
           <div className="ml-auto hidden shrink-0 items-center gap-2 lg:flex">
-            <StorefrontSearchOverlay
-              key={routeKey}
-              categories={megaCategories}
-            />
+            {/* The homepage hero already has the full search bar. */}
+            {pathname !== "/" ? (
+              <StorefrontSearchOverlay
+                key={routeKey}
+                categories={megaCategories}
+              />
+            ) : null}
             <CartIconLink count={cartCount} />
+            {user && dashboardHref(user.user_type, user.isStaff) !== "/" ? (
+              <Link
+                href={dashboardHref(user.user_type, user.isStaff)}
+                aria-current={pathname?.startsWith(dashboardHref(user.user_type, user.isStaff)) ? "page" : undefined}
+                className={cn(
+                  "press flex h-9 items-center gap-2 rounded-lg px-2.5 text-sm font-semibold hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
+                  pathname?.startsWith(dashboardHref(user.user_type, user.isStaff))
+                    ? "text-primary"
+                    : "text-foreground"
+                )}
+              >
+                <HugeiconsIcon icon={DashboardSquare01Icon} strokeWidth={2} className="size-5" />
+                Dashboard
+              </Link>
+            ) : null}
             {user ? (
-              <AccountMenu user={user} />
+              <Link
+                href="/account"
+                aria-current={pathname?.startsWith("/account") ? "page" : undefined}
+                className={cn(
+                  "press flex h-9 items-center gap-2 rounded-lg px-2.5 text-sm font-semibold hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
+                  pathname?.startsWith("/account") ? "text-primary" : "text-foreground"
+                )}
+              >
+                <HugeiconsIcon icon={UserIcon} strokeWidth={2} className="size-5" />
+                My Account
+              </Link>
             ) : (
               <>
                 <Link href="/supplier/onboarding" className="hidden md:block">
