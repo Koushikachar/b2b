@@ -1,6 +1,16 @@
-import { useMemo, useState, type RefObject } from "react";
+import { useMemo, useRef, useState, type PointerEvent as ReactPointerEvent, type RefObject } from "react";
 import { HugeiconsIcon } from "@hugeicons/react";
-import { ArrowRight01Icon, CheckmarkCircle01Icon, CloudUploadIcon, Delete02Icon, Edit02Icon, PlusSignIcon, StarIcon } from "@hugeicons/core-free-icons";
+import {
+  ArrowLeft01Icon,
+  ArrowRight01Icon,
+  CheckmarkCircle01Icon,
+  CloudUploadIcon,
+  Delete02Icon,
+  DragDropIcon,
+  Edit02Icon,
+  PlusSignIcon,
+  StarIcon,
+} from "@hugeicons/core-free-icons";
 import {
   Attachment,
   AttachmentActions,
@@ -62,7 +72,8 @@ export function ProductMediaSection({
   removedImagePaths,
   totalImages,
   canAddMore,
-  primaryImageKey,
+  orderedKeys,
+  onReorder,
   onMakePrimary,
   onRemoveStaged,
   onRemoveExisting,
@@ -83,7 +94,9 @@ export function ProductMediaSection({
   removedImagePaths: string[];
   totalImages: number;
   canAddMore: boolean;
-  primaryImageKey: string | null;
+  /** Gallery keys in display order; the first one is the cover. */
+  orderedKeys: string[];
+  onReorder: (keys: string[]) => void;
   onMakePrimary: (key: string) => void;
   onRemoveStaged: (index: number) => void;
   onRemoveExisting: (path: string) => void;
@@ -100,7 +113,8 @@ export function ProductMediaSection({
     () => existingImages.filter((img) => !removedImagePaths.includes(img.path)),
     [existingImages, removedImagePaths],
   );
-  const gallery = useMemo<GalleryItem[]>(
+  const primaryImageKey = orderedKeys[0] ?? null;
+  const unordered = useMemo<GalleryItem[]>(
     () => [
       ...visibleExisting.map((image, index) => ({
         key: existingImageKey(image.path),
@@ -122,12 +136,50 @@ export function ProductMediaSection({
     ],
     [visibleExisting, newFiles, previewUrls, productImageUrl],
   );
+  const gallery = useMemo(
+    () => [...unordered].sort((a, b) => orderedKeys.indexOf(a.key) - orderedKeys.indexOf(b.key)),
+    [unordered, orderedKeys],
+  );
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
   const selected =
     gallery.find((item) => item.key === selectedKey) ??
     gallery.find((item) => item.key === primaryImageKey) ??
     gallery[0] ??
     null;
+  const selectedIndex = selected ? gallery.findIndex((item) => item.key === selected.key) : -1;
+
+  // Drag-to-reorder with pointer events, so mouse, pen and touch all work.
+  const [dragKey, setDragKey] = useState<string | null>(null);
+  const dragStart = useRef<{ x: number; y: number; moved: boolean } | null>(null);
+
+  function moveKey(key: string, toIndex: number) {
+    const keys = gallery.map((item) => item.key).filter((k) => k !== key);
+    keys.splice(Math.max(0, Math.min(toIndex, keys.length)), 0, key);
+    onReorder(keys);
+  }
+
+  function onThumbPointerDown(e: ReactPointerEvent<HTMLButtonElement>, key: string) {
+    if (e.pointerType === "mouse" && e.button !== 0) return;
+    e.currentTarget.setPointerCapture(e.pointerId);
+    dragStart.current = { x: e.clientX, y: e.clientY, moved: false };
+    setDragKey(key);
+  }
+
+  function onThumbPointerMove(e: ReactPointerEvent<HTMLButtonElement>) {
+    const start = dragStart.current;
+    if (!dragKey || !start) return;
+    if (!start.moved && Math.hypot(e.clientX - start.x, e.clientY - start.y) < 6) return;
+    start.moved = true;
+    const over = document
+      .elementFromPoint(e.clientX, e.clientY)
+      ?.closest<HTMLElement>("[data-image-key]")?.dataset.imageKey;
+    if (!over || over === dragKey) return;
+    moveKey(dragKey, gallery.findIndex((item) => item.key === over));
+  }
+
+  function endDrag() {
+    setDragKey(null);
+  }
   const [cropTarget, setCropTarget] = useState<
     { kind: "existing"; path: string } | { kind: "staged"; index: number } | null
   >(null);
@@ -220,13 +272,15 @@ export function ProductMediaSection({
                 {selected.key === primaryImageKey ? (
                   <Badge className="absolute top-2 left-2 gap-1" variant="default">
                     <HugeiconsIcon icon={StarIcon} strokeWidth={2} className="size-3.5" />
-                    Primary
+                    Cover
                   </Badge>
                 ) : null}
               </div>
               <div className="flex min-w-0 flex-1 flex-col gap-3">
                 <div className="min-w-0">
-                  <p className="truncate text-sm font-medium">{selected.name}</p>
+                  <p className="truncate text-sm font-medium">
+                    Image {selectedIndex + 1} of {gallery.length} · {selected.name}
+                  </p>
                   <p className="text-xs text-muted-foreground">{selected.meta}</p>
                 </div>
                 <div className="flex flex-wrap gap-2">
@@ -237,8 +291,32 @@ export function ProductMediaSection({
                   {selected.key !== primaryImageKey ? (
                     <Button type="button" variant="outline" size="sm" onClick={() => onMakePrimary(selected.key)}>
                       <HugeiconsIcon icon={StarIcon} strokeWidth={2} data-icon="inline-start" />
-                      Make primary
+                      Make cover
                     </Button>
+                  ) : null}
+                  {gallery.length > 1 ? (
+                    <>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="icon-sm"
+                        aria-label="Move image earlier"
+                        disabled={selectedIndex <= 0}
+                        onClick={() => moveKey(selected.key, selectedIndex - 1)}
+                      >
+                        <HugeiconsIcon icon={ArrowLeft01Icon} strokeWidth={2} />
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="icon-sm"
+                        aria-label="Move image later"
+                        disabled={selectedIndex >= gallery.length - 1}
+                        onClick={() => moveKey(selected.key, selectedIndex + 1)}
+                      >
+                        <HugeiconsIcon icon={ArrowRight01Icon} strokeWidth={2} />
+                      </Button>
+                    </>
                   ) : null}
                   <Button
                     type="button"
@@ -252,50 +330,69 @@ export function ProductMediaSection({
                   </Button>
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  The primary image is the cover used in listings, search and product cards.
+                  Image 1 is the cover used in listings, search and product cards. Buyers see the
+                  rest in this order.
                 </p>
               </div>
             </div>
             {gallery.length > 1 ? (
-              <div className="mt-4 flex gap-2 overflow-x-auto pb-1">
-                {gallery.map((item, index) => {
-                  const isSelected = item.key === selected.key;
-                  const isPrimary = item.key === primaryImageKey;
-                  return (
-                    <button
-                      key={item.key}
-                      type="button"
-                      onClick={() => setSelectedKey(item.key)}
-                      aria-label={`Preview image ${index + 1}`}
-                      aria-current={isSelected}
-                      className={cn(
-                        "relative size-16 shrink-0 overflow-hidden rounded-md border-2 bg-muted outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50",
-                        isSelected ? "border-primary" : "border-border hover:border-primary/50",
-                      )}
-                    >
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
-                        loading="lazy"
-                        decoding="async"
-                        src={item.url}
-                        alt=""
-                        className="h-full w-full object-cover"
-                      />
-                      {isPrimary ? (
-                        <span className="absolute top-1 left-1 flex size-5 items-center justify-center rounded-sm bg-primary text-primary-foreground">
-                          <HugeiconsIcon icon={StarIcon} strokeWidth={2} className="size-3.5" />
-                          <span className="sr-only">Primary</span>
-                        </span>
-                      ) : null}
-                      {isSelected ? (
-                        <span className="absolute right-1 bottom-1 flex size-5 items-center justify-center rounded-sm bg-primary text-primary-foreground">
-                          <HugeiconsIcon icon={CheckmarkCircle01Icon} strokeWidth={2} className="size-3.5" />
-                          <span className="sr-only">Selected</span>
-                        </span>
-                      ) : null}
-                    </button>
-                  );
-                })}
+              <div className="mt-4">
+                <p className="mb-2 flex items-center gap-1.5 text-xs text-muted-foreground">
+                  <HugeiconsIcon icon={DragDropIcon} strokeWidth={2} className="size-3.5 shrink-0" />
+                  Drag images to change their order. Image 1 is the cover.
+                </p>
+                <ol className="grid grid-cols-4 gap-2 min-[420px]:grid-cols-5 sm:grid-cols-8">
+                  {gallery.map((item, index) => {
+                    const isSelected = item.key === selected.key;
+                    const isPrimary = item.key === primaryImageKey;
+                    return (
+                      <li key={item.key} data-image-key={item.key}>
+                        <button
+                          type="button"
+                          onPointerDown={(e) => onThumbPointerDown(e, item.key)}
+                          onPointerMove={onThumbPointerMove}
+                          onPointerUp={endDrag}
+                          onPointerCancel={endDrag}
+                          onClick={() => {
+                            if (!dragStart.current?.moved) setSelectedKey(item.key);
+                          }}
+                          aria-label={`Image ${index + 1}${isPrimary ? " (cover)" : ""}. Select to preview, drag to reorder.`}
+                          aria-current={isSelected}
+                          className={cn(
+                            "relative block aspect-square w-full cursor-grab touch-none overflow-hidden rounded-md border-2 bg-muted outline-none select-none focus-visible:ring-[3px] focus-visible:ring-ring/50 active:cursor-grabbing",
+                            isSelected ? "border-primary" : "border-border hover:border-primary/50",
+                            item.key === dragKey && "scale-95 opacity-60 shadow-lg",
+                          )}
+                        >
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            loading="lazy"
+                            decoding="async"
+                            draggable={false}
+                            src={item.url}
+                            alt=""
+                            className="pointer-events-none h-full w-full object-cover"
+                          />
+                          <span className="absolute right-1 bottom-1 flex size-5 items-center justify-center rounded-sm bg-foreground/70 text-[11px] font-bold text-background tabular-nums">
+                            {index + 1}
+                          </span>
+                          {isPrimary ? (
+                            <span className="absolute top-1 left-1 flex size-5 items-center justify-center rounded-sm bg-primary text-primary-foreground">
+                              <HugeiconsIcon icon={StarIcon} strokeWidth={2} className="size-3.5" />
+                              <span className="sr-only">Cover</span>
+                            </span>
+                          ) : null}
+                          {isSelected ? (
+                            <span className="absolute top-1 right-1 flex size-5 items-center justify-center rounded-sm bg-primary text-primary-foreground">
+                              <HugeiconsIcon icon={CheckmarkCircle01Icon} strokeWidth={2} className="size-3.5" />
+                              <span className="sr-only">Selected</span>
+                            </span>
+                          ) : null}
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ol>
               </div>
             ) : null}
           </div>

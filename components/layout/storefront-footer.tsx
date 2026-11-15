@@ -51,7 +51,8 @@ export function StorefrontFooter() {
           links={[
             { label: "Browse Products", href: "/products" },
             { label: "Browse Categories", href: "/categories" },
-            { label: "Wholesale Deals", href: "/products" },
+            { label: "Wholesale Deals", href: "/select" },
+            { label: "More Services", href: "/services" },
           ]}
         />
         <LinkColumn
@@ -78,9 +79,11 @@ export function StorefrontFooter() {
         <span>
           &copy; {new Date().getFullYear()} D2B. All rights reserved.
         </span>
-        <span className="font-medium text-white/70">
-          Made in India for India&apos;s wholesale trade
-        </span>
+        <nav aria-label="Legal" className="flex flex-wrap items-center gap-x-4 gap-y-1">
+          <Link href="/privacy" className="hover:text-white">Privacy Policy</Link>
+          <Link href="/terms" className="hover:text-white">Terms &amp; Conditions</Link>
+          <Link href="/account/contact" className="hover:text-white">Contact</Link>
+        </nav>
       </div>
     </footer>
   );

@@ -58,6 +58,16 @@ export function StorefrontHeader({
                 {link.label}
               </Link>
             ))}
+            <Link
+              href="/services"
+              aria-current={pathname === "/services" ? "page" : undefined}
+              className={cn(
+                "rounded-md px-3 py-1.5 text-sm font-medium transition-colors hover:bg-muted hover:text-foreground",
+                pathname === "/services" ? "text-primary" : "text-foreground/80"
+              )}
+            >
+              More Services
+            </Link>
           </nav>
 
           {/* Cart (mobile; desktop has it in right actions) */}

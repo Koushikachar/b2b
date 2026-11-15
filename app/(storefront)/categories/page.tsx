@@ -100,6 +100,7 @@ async function CategoryGrid() {
           <Link href={`/category/${cat.slug}`} className="block press">
             <div className="relative aspect-[4/3] w-full overflow-hidden bg-muted">
               <ProductImage
+                fit="cover"
                 src={categoryImageUrl(cat.image_path)}
                 alt=""
                 priority={index < 4}

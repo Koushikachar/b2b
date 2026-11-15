@@ -25,6 +25,17 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: absolute("/"), lastModified: now, changeFrequency: "daily", priority: 1 },
     { url: absolute("/products"), lastModified: now, changeFrequency: "daily", priority: 0.9 },
     { url: absolute("/categories"), lastModified: now, changeFrequency: "weekly", priority: 0.7 },
+    ...["/stores", "/stores/d2h-core", "/select", "/suppliers", "/services"].map((path) => ({
+      url: absolute(path),
+      lastModified: now,
+      changeFrequency: "weekly" as const,
+      priority: 0.7,
+    })),
+    ...["/privacy", "/terms"].map((path) => ({
+      url: absolute(path),
+      changeFrequency: "yearly" as const,
+      priority: 0.2,
+    })),
     ...((categories ?? []) as { slug: string }[]).map((category) => ({
       url: absolute(`/category/${category.slug}`),
       lastModified: now,

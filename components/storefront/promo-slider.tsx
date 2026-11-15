@@ -43,6 +43,52 @@ export function PromoSlider({
     }
   }, [measure])
 
+  // Mouse drag-to-scroll (touch and trackpads already scroll natively). Snap
+  // is suspended while dragging so the track follows the cursor, and the click
+  // that ends a drag is swallowed so it never opens a product by accident.
+  const drag = useRef<{ x: number; left: number; moved: boolean } | null>(null)
+  const [dragging, setDragging] = useState(false)
+
+  const onPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (e.pointerType !== "mouse" || e.button !== 0 || !trackRef.current) return
+    drag.current = { x: e.clientX, left: trackRef.current.scrollLeft, moved: false }
+  }
+
+  const onPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    const state = drag.current
+    const el = trackRef.current
+    if (!state || !el) return
+    const dx = e.clientX - state.x
+    if (!state.moved) {
+      if (Math.abs(dx) < 6) return
+      state.moved = true
+      setDragging(true)
+      el.setPointerCapture(e.pointerId)
+    }
+    el.scrollLeft = state.left - dx
+  }
+
+  const endDrag = () => {
+    if (!drag.current) return
+    const moved = drag.current.moved
+    drag.current = null
+    if (!moved) return
+    setDragging(false)
+    // Re-snap to the nearest card once the drag ends.
+    const el = trackRef.current
+    const card = el?.querySelector<HTMLElement>("[data-slide]")
+    if (el && card) {
+      const step = card.offsetWidth + 16
+      el.scrollTo({ left: Math.round(el.scrollLeft / step) * step, behavior: "smooth" })
+    }
+    const swallow = (event: MouseEvent) => {
+      event.preventDefault()
+      event.stopPropagation()
+    }
+    window.addEventListener("click", swallow, { capture: true, once: true })
+    window.setTimeout(() => window.removeEventListener("click", swallow, { capture: true }), 0)
+  }
+
   const scrollBy = (direction: 1 | -1) => {
     const el = trackRef.current
     if (!el) return
@@ -58,7 +104,15 @@ export function PromoSlider({
         role="region"
         aria-label={label}
         tabIndex={0}
-        className="no-scrollbar relative flex snap-x snap-mandatory scroll-px-4 gap-4 overflow-x-auto overscroll-x-contain px-4 pt-1 pb-3 focus-visible:outline-none"
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={endDrag}
+        onPointerCancel={endDrag}
+        onDragStart={(e) => e.preventDefault()}
+        className={cn(
+          "no-scrollbar relative flex scroll-px-4 gap-4 overflow-x-auto overscroll-x-contain px-4 pt-1 pb-3 focus-visible:outline-none lg:cursor-grab",
+          dragging ? "cursor-grabbing snap-none select-none" : "snap-x snap-mandatory"
+        )}
       >
         {children}
       </div>

@@ -20,6 +20,8 @@ export function publicTransformedImageUrl(
   },
 ): string {
   const quality = opts.quality ?? 75;
+  // Default fills the frame (avatars, logos, category tiles). Product photos
+  // pass fit: "contain" so they are never cropped.
   const fit = opts.fit ?? "cover";
   const height = opts.height ? `&height=${opts.height}` : "";
   return `${SUPABASE_URL}/storage/v1/render/image/public/${bucket}/${path}?width=${opts.width}${height}&quality=${quality}&resize=${fit}`;

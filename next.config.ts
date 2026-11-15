@@ -1,6 +1,29 @@
 import type { NextConfig } from "next"
 
+/**
+ * Security headers on every response. HSTS makes browsers use HTTPS only (it
+ * is ignored on http://localhost). frame-ancestors / X-Frame-Options stop
+ * clickjacking; camera + geolocation stay allowed for this site only (photo
+ * search, address detection).
+ */
+const SECURITY_HEADERS = [
+  { key: "Strict-Transport-Security", value: "max-age=63072000; includeSubDomains; preload" },
+  { key: "X-Content-Type-Options", value: "nosniff" },
+  { key: "X-Frame-Options", value: "DENY" },
+  { key: "Content-Security-Policy", value: "frame-ancestors 'none'; base-uri 'self'; object-src 'none'" },
+  { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+  {
+    key: "Permissions-Policy",
+    value: "camera=(self), geolocation=(self), microphone=(), payment=(), usb=(), interest-cohort=()",
+  },
+  { key: "Cross-Origin-Opener-Policy", value: "same-origin" },
+]
+
 const nextConfig: NextConfig = {
+  poweredByHeader: false,
+  async headers() {
+    return [{ source: "/:path*", headers: SECURITY_HEADERS }]
+  },
   images: {
     // Image optimization enabled: AVIF/WebP conversion + auto-resizing via
     // Next.js Image Optimization API. Remote images from Supabase storage are

@@ -14,13 +14,13 @@ const GRID_CLASS = "grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-4"
  * Personalized when the buyer has viewed/saved products; otherwise the newest
  * approved listings. Both paths are real catalogue data.
  */
-export async function RecommendedProductsSection() {
+export async function RecommendedProductsSection({ storeId = null }: { storeId?: string | null }) {
   const supabase = await createClient()
   const user = await getSessionUser(supabase)
   const categoryIds = user
     ? await getBuyerInterestCategoryIds(supabase, user.id)
     : []
-  const products = await getCachedRecommendedProducts(categoryIds)
+  const products = await getCachedRecommendedProducts(categoryIds, storeId)
 
   if (products.length === 0) return null
 

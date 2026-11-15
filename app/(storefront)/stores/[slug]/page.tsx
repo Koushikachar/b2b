@@ -321,7 +321,7 @@ async function StoreCatalogue({ storeId }: { storeId?: string }) {
               <Link href={`/category/${category.slug}`} className="press block rounded-lg border border-border p-1.5 text-center hover:border-brand-300">
                 <span className="relative block aspect-square overflow-hidden rounded-md bg-muted">
                   {category.image_path ? (
-                    <ProductImage src={publicTransformedImageUrl("category_images", category.image_path, { width: 160 })} alt="" sizes="84px" />
+                    <ProductImage fit="cover" src={publicTransformedImageUrl("category_images", category.image_path, { width: 160 })} alt="" sizes="84px" />
                   ) : (
                     <span aria-hidden className="flex h-full items-center justify-center bg-brand-50 text-lg font-bold text-brand-700">
                       {category.name.charAt(0)}

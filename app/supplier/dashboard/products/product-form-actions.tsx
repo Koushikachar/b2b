@@ -1,73 +1,70 @@
 "use client"
 
 import { HugeiconsIcon } from "@hugeicons/react"
-import { SendIcon } from "@hugeicons/core-free-icons"
+import { LinkSquare02Icon, SendIcon } from "@hugeicons/core-free-icons"
 import { Button } from "@/components/ui/button"
 import { Spinner } from "@/components/ui/spinner"
 
-export function ProductFormActions({
-  pending,
-  pendingAction,
-  onSaveDraft,
-  onSaveSubmit,
-  showSubmit = true,
-  saveLabel = "Save draft",
-}: {
+type ActionsProps = {
   pending: boolean
   pendingAction: "draft" | "submit" | null
   onSaveDraft: () => void
   onSaveSubmit: () => void
   showSubmit?: boolean
   saveLabel?: string
-}) {
+  /** Edit page of a live product: opens the storefront page in a new tab. */
+  liveHref?: string
+}
+
+/** Publish / save buttons (+ live view), shared by the sidebar and sticky bar. */
+function ActionButtons({
+  pending,
+  pendingAction,
+  onSaveDraft,
+  onSaveSubmit,
+  showSubmit = true,
+  saveLabel = "Save draft",
+  liveHref,
+}: ActionsProps) {
+  const submitting = pending && pendingAction === "submit"
+  const saving = pending && pendingAction === "draft"
+
   return (
     <div className="flex flex-col gap-2">
       {showSubmit ? (
         <Button type="button" disabled={pending} onClick={onSaveSubmit}>
-          {pending && pendingAction === "submit" ? (
+          {submitting ? (
             <Spinner data-icon="inline-start" />
           ) : (
-            <HugeiconsIcon
-              icon={SendIcon}
-              strokeWidth={2}
-              data-icon="inline-start"
-            />
+            <HugeiconsIcon icon={SendIcon} strokeWidth={2} data-icon="inline-start" />
           )}
-          {pending && pendingAction === "submit"
-            ? "Submitting…"
-            : "Save & publish"}
+          {submitting ? "Submitting…" : "Save & publish"}
         </Button>
       ) : null}
-      <Button
-        type="button"
-        variant="outline"
-        disabled={pending}
-        onClick={onSaveDraft}
-      >
-        {pending && pendingAction === "draft" ? (
-          <Spinner data-icon="inline-start" />
-        ) : null}
-        {pending && pendingAction === "draft" ? "Saving…" : saveLabel}
+      <Button type="button" variant="outline" disabled={pending} onClick={onSaveDraft}>
+        {saving ? <Spinner data-icon="inline-start" /> : null}
+        {saving ? "Saving…" : saveLabel}
       </Button>
+      {liveHref ? (
+        <Button
+          variant="ghost"
+          nativeButton={false}
+          render={<a href={liveHref} target="_blank" rel="noopener noreferrer" />}
+          className="text-primary hover:text-primary"
+        >
+          <HugeiconsIcon icon={LinkSquare02Icon} strokeWidth={2} data-icon="inline-start" />
+          View live product
+        </Button>
+      ) : null}
     </div>
   )
 }
 
-export function ProductFormStickyActions({
-  pending,
-  pendingAction,
-  onSaveDraft,
-  onSaveSubmit,
-  showSubmit = true,
-  saveLabel = "Save draft",
-}: {
-  pending: boolean
-  pendingAction: "draft" | "submit" | null
-  onSaveDraft: () => void
-  onSaveSubmit: () => void
-  showSubmit?: boolean
-  saveLabel?: string
-}) {
+export function ProductFormActions(props: ActionsProps) {
+  return <ActionButtons {...props} />
+}
+
+export function ProductFormStickyActions(props: ActionsProps) {
   return (
     <div className="@3xl/content:hidden">
       <div
@@ -75,35 +72,7 @@ export function ProductFormStickyActions({
         data-edge="above"
         className="scroll-edge sticky bottom-0 z-10 -mx-4 mt-4 bg-background px-4 py-3"
       >
-        <div className="flex flex-col gap-2">
-          {showSubmit ? (
-            <Button type="button" disabled={pending} onClick={onSaveSubmit}>
-              {pending && pendingAction === "submit" ? (
-                <Spinner data-icon="inline-start" />
-              ) : (
-                <HugeiconsIcon
-                  icon={SendIcon}
-                  strokeWidth={2}
-                  data-icon="inline-start"
-                />
-              )}
-              {pending && pendingAction === "submit"
-                ? "Submitting…"
-                : "Save & publish"}
-            </Button>
-          ) : null}
-          <Button
-            type="button"
-            variant="outline"
-            disabled={pending}
-            onClick={onSaveDraft}
-          >
-            {pending && pendingAction === "draft" ? (
-              <Spinner data-icon="inline-start" />
-            ) : null}
-            {pending && pendingAction === "draft" ? "Saving…" : saveLabel}
-          </Button>
-        </div>
+        <ActionButtons {...props} />
       </div>
     </div>
   )

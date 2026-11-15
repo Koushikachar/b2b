@@ -7,17 +7,10 @@ import { useRouter } from "next/navigation";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { ShoppingCart01Icon } from "@hugeicons/core-free-icons";
 import { Button } from "@/components/ui/button";
-import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { toast } from "@/components/ui/toast";
 import { addToCart, type BuyerActionState } from "@/lib/buyer/cart-actions";
 import { parseQuantityInput } from "@/lib/buyer/cart";
+import { useVariantSelection } from "./variant-selection";
 
 const initialState: BuyerActionState = { ok: false, message: "" };
 
@@ -45,11 +38,13 @@ export function AddToCartForm({
   const pathname = usePathname();
   const hideBottomNav = /^\/products\/[^/]+$/.test(pathname ?? "");
   const [state, action, pending] = useActionState(addToCart, initialState);
-  const [variantId, setVariantId] = useState("base");
-  const [quantity, setQuantity] = useState(moq);
+  // Chosen with the chips in the price panel (shared context).
+  const { variantId } = useVariantSelection();
+  const initialMoq = Math.max(1, variants[0]?.moq ?? moq);
+  const [quantity, setQuantity] = useState(initialMoq);
   // Typed text mirrors the committed quantity; it only becomes the quantity
   // on blur/Enter so intermediate states ("", "1" while typing "12") are safe.
-  const [draft, setDraft] = useState(String(moq));
+  const [draft, setDraft] = useState(String(initialMoq));
 
   const selected = variants.find((v) => v.id === variantId);
   const effectiveMoq = Math.max(1, selected?.moq ?? moq);
@@ -61,13 +56,12 @@ export function AddToCartForm({
     setDraft(String(next));
   }
 
-  // Clamp up when switching to a variant with a higher MOQ. Never clamps
-  // down: the buyer's chosen quantity stands unless the floor requires more.
-  function handleVariantChange(next: string | null) {
-    if (!next) return;
-    setVariantId(next);
-    const floor = Math.max(1, variants.find((v) => v.id === next)?.moq ?? moq);
-    setBoth(Math.max(quantity, floor));
+  // Clamp up when the chosen variant has a higher MOQ (adjusting state during
+  // render on a prop change, React's documented pattern). Never clamps down.
+  const [seenVariant, setSeenVariant] = useState(variantId);
+  if (seenVariant !== variantId) {
+    setSeenVariant(variantId);
+    if (quantity < effectiveMoq) setBoth(effectiveMoq);
   }
 
   function commitDraft() {
@@ -146,26 +140,6 @@ export function AddToCartForm({
         {variantId !== "base" && <input type="hidden" name="variantId" value={variantId} />}
         <input type="hidden" name="quantity" value={quantity} />
 
-        {variants.length > 0 && (
-          <div className="flex flex-col gap-1.5">
-            <Label>Variant</Label>
-            <Select value={variantId} onValueChange={handleVariantChange}>
-              <SelectTrigger className="w-full">
-                <SelectValue placeholder="Base product" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="base">Base product</SelectItem>
-                {variants.map((v) => (
-                  <SelectItem key={v.id} value={v.id}>
-                    {v.label}
-                    {v.customer_price != null &&
-                      ` — ₹${v.customer_price.toLocaleString("en-IN")}`}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        )}
 
         <div className="flex items-center gap-2">
           <div

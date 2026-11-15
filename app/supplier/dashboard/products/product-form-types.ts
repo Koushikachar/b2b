@@ -8,6 +8,8 @@ export type ExistingVariant = {
   label: string;
   attr_key?: string;
   attr_value?: string;
+  /** Full attribute combination, e.g. { Size: "M", Colour: "Red" }. */
+  attrs?: Record<string, string>;
   seller_sku: string;
   price: number;
   moq: number | null;
@@ -21,7 +23,7 @@ export type ExistingProduct = {
   title: string;
   category_id: string;
   seller_sku: string;
-  hsn_code: string;
+  hsn_code: string | null;
   gst_rate: number | null;
   carton_units: number | null;
   carton_dimensions: string | null;

@@ -1,12 +1,14 @@
 "use client";
 
-import { useEffect, useRef, useActionState } from "react";
+import { useEffect, useRef, useActionState, useState } from "react";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { PlusSignIcon } from "@hugeicons/core-free-icons";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
+import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
+import { MEMBER_ROLES, ROLE_DESCRIPTIONS, ROLE_LABELS, type MemberRole } from "@/lib/supplier/permissions";
 import { Spinner } from "@/components/ui/spinner";
 import { addStaff, type StaffActionState } from "@/lib/supplier/staff-actions";
 
@@ -15,6 +17,7 @@ const initialState: StaffActionState = { ok: false, message: "" };
 export function TeamAddForm() {
   const [state, action, pending] = useActionState(addStaff, initialState);
   const formRef = useRef<HTMLFormElement>(null);
+  const [role, setRole] = useState<MemberRole>("staff");
 
   useEffect(() => {
     if (state.ok) formRef.current?.reset();
@@ -36,11 +39,22 @@ export function TeamAddForm() {
             placeholder="staff@example.com"
           />
           <FieldDescription>
-            They must already have an account — new signups can&apos;t be added until then.
+            We email them a link. No account yet? They get an invite that creates one.
           </FieldDescription>
           {state.field === "email" && !state.ok ? (
             <FieldError>{state.message}</FieldError>
           ) : null}
+        </Field>
+        <Field>
+          <FieldLabel htmlFor="role">Role</FieldLabel>
+          <NativeSelect id="role" name="role" value={role} onChange={(e) => setRole(e.target.value as MemberRole)}>
+            {MEMBER_ROLES.map((value) => (
+              <NativeSelectOption key={value} value={value}>
+                {ROLE_LABELS[value]}
+              </NativeSelectOption>
+            ))}
+          </NativeSelect>
+          <FieldDescription>{ROLE_DESCRIPTIONS[role]}</FieldDescription>
         </Field>
         {state.message && (!state.field || state.ok) ? (
           <Alert variant={state.ok ? "default" : "destructive"}>

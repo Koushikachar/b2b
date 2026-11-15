@@ -15,12 +15,15 @@ export function ProductImage({
   sizes,
   priority = false,
   unoptimized = false,
+  fit = "contain",
 }: {
   src: string | null
   alt: string
   sizes?: string
   priority?: boolean
   unoptimized?: boolean
+  /** "contain" (default) shows a product whole; "cover" fills, e.g. category tiles. */
+  fit?: "contain" | "cover"
 }) {
   const [failed, setFailed] = useState(false)
 
@@ -45,7 +48,7 @@ export function ProductImage({
       unoptimized={unoptimized}
       loading={priority ? "eager" : undefined}
       sizes={sizes}
-      className="object-cover transition-transform duration-300 group-hover:scale-[1.03]"
+      className={`${fit === "contain" ? "bg-white object-contain" : "object-cover"} transition-transform duration-300 group-hover:scale-[1.03]`}
       onError={() => setFailed(true)}
     />
   )

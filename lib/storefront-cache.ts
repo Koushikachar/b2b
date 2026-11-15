@@ -2,6 +2,7 @@ import { cache } from "react";
 import { unstable_cache } from "next/cache";
 import { createClient as createAnonClient } from "@supabase/supabase-js";
 import {
+  attachListingExtras,
   getCatalogueCategories,
   getCataloguePage,
   getCategoryBySlug,
@@ -25,7 +26,7 @@ import {
   catalogueFiltersKey,
   type CatalogueFilters,
 } from "./catalogue";
-import { PRICE_LIMITS, type PriceLimit, type PromoEvent } from "./promotions";
+import { PRICE_LIMITS, priceBand, type PriceLimit, type PromoEvent } from "./promotions";
 
 /**
  * Cookie-less public client for cached catalog reads. `lib/supabase/server.ts`
@@ -91,8 +92,10 @@ export const getCachedMegaMenuCategories = cache(
   ),
 );
 
+/** Newest listings of one store (null = all stores); the arg is part of the key. */
 export const getCachedHomeProducts = unstable_cache(
-  async () => getHomeProducts(makePublicClient() as unknown as AnyClient),
+  async (storeId: string | null = null) =>
+    getHomeProducts(makePublicClient() as unknown as AnyClient, storeId),
   ["home-products"],
   { revalidate: 120, tags: ["products", "prices", "home"] },
 );
@@ -122,7 +125,10 @@ export async function getCachedHotSellingProducts(storeId?: string | null) {
  * cached by the category set itself (not by user), so many buyers share the
  * same cached slice. Guests fall through to the newest products.
  */
-export async function getCachedRecommendedProducts(categoryIds: string[]) {
+export async function getCachedRecommendedProducts(
+  categoryIds: string[],
+  storeId: string | null = null,
+) {
   const normalized = [...new Set(categoryIds)].sort()
   const key = normalized.join(",") || "all"
   return unstable_cache(
@@ -131,8 +137,9 @@ export async function getCachedRecommendedProducts(categoryIds: string[]) {
         makePublicClient() as unknown as AnyClient,
         normalized,
         8,
+        storeId,
       ),
-    ["recommended", key],
+    ["recommended", key, storeId ?? "all-stores"],
     { revalidate: 120, tags: ["products", "prices", "home"] },
   )()
 }
@@ -260,6 +267,29 @@ export async function getCachedProducts(params: ProductListParams) {
 
 const PROMO_ROW_LIMIT = 4;
 
+/** A store's id by slug, cached (stores rarely change). */
+export const getCachedStoreId = unstable_cache(
+  async (slug: string): Promise<string | null> => {
+    const { data: store } = await makePublicClient()
+      .from("stores")
+      .select("id")
+      .eq("slug", slug)
+      .maybeSingle();
+    return (store?.id as string | undefined) ?? null;
+  },
+  ["store-id-by-slug"],
+  { revalidate: 3600, tags: ["stores"] },
+);
+
+/**
+ * D2H Select's store id: deals (Under ₹X, Winning, Hot selling) only ever
+ * show Select products. D2H Core and Select are separate stores, so there is
+ * no fallback to other stores' products.
+ */
+export function getCachedDealsStoreId(): Promise<string | null> {
+  return getCachedStoreId("d2h-select");
+}
+
 /**
  * Everything the Select slider row needs in one cached call: winning,
  * hot-selling and the four "Under ₹X" buckets. All six reads run in parallel
@@ -268,18 +298,33 @@ const PROMO_ROW_LIMIT = 4;
 export const getCachedPromoCollections = unstable_cache(
   async (storeId: string | null = null) => {
     const client = makePublicClient() as unknown as AnyClient;
-    const [winning, hotSelling, ...under] = await Promise.all([
+    const [rawWinning, rawHotSelling, ...rawUnder] = await Promise.all([
       getWinningProducts(client, PROMO_ROW_LIMIT, storeId),
       getHotSellingProducts(client, PROMO_ROW_LIMIT, storeId),
-      ...PRICE_LIMITS.map((maxPrice) =>
-        getProducts(client, normalizeProductParams({
-          maxPrice,
-          perPage: PROMO_ROW_LIMIT,
-          sort: "newest",
-          storeId: storeId ?? undefined,
-        })).then((page) => page.products),
-      ),
+      ...PRICE_LIMITS.map(async (limit) => {
+        const list = (band: { minPrice?: number; maxPrice: number }) =>
+          getProducts(client, normalizeProductParams({
+            ...band,
+            perPage: PROMO_ROW_LIMIT,
+            sort: "newest",
+            storeId: storeId ?? undefined,
+          })).then((page) => page.products);
+        // Own band first (Under ₹29 = above ₹9); whole "≤ X" range only if empty.
+        const band = priceBand(limit);
+        const inBand = await list(band);
+        return inBand.length > 0 || band.minPrice == null ? inBand : list({ maxPrice: limit });
+      }),
     ]);
+    // One extra read for MRP + stock across all six rows, then split back.
+    const sizes = [rawWinning.length, rawHotSelling.length, ...rawUnder.map((row) => row.length)];
+    const extras = await attachListingExtras(client, [rawWinning, rawHotSelling, ...rawUnder].flat());
+    const rows: (typeof extras)[] = [];
+    let offset = 0;
+    for (const size of sizes) {
+      rows.push(extras.slice(offset, offset + size));
+      offset += size;
+    }
+    const [winning, hotSelling, ...under] = rows;
     return {
       winning,
       hotSelling,
@@ -288,7 +333,7 @@ export const getCachedPromoCollections = unstable_cache(
       ) as Record<PriceLimit, (typeof under)[number]>,
     };
   },
-  ["select-promo-collections"],
+  ["select-promo-collections-v2"],
   { revalidate: 120, tags: ["products", "prices", "home"] },
 );
 

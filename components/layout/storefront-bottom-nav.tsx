@@ -1,33 +1,17 @@
 "use client"
 
-import { useEffect, useState } from "react"
 import Link from "next/link"
 import { usePathname, useSearchParams } from "next/navigation"
 import { HugeiconsIcon, type IconSvgElement } from "@hugeicons/react"
 import {
-  ArrowRight01Icon,
-  CustomerSupportIcon,
-  DashboardSquare01Icon,
-  FavouriteIcon,
-  GridViewIcon,
   Home01Icon,
   Menu01Icon,
-  Package01Icon,
   ShoppingCart01Icon,
   Store01Icon,
-  Tag01Icon,
   UserIcon,
 } from "@hugeicons/core-free-icons"
 import { cn } from "cn"
-import { dashboardHref, isStorefrontTabActive } from "@/lib/nav"
-import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-  SheetTrigger,
-} from "@/components/ui/sheet"
-import { StorefrontSearchForm } from "@/components/storefront/storefront-search-form"
+import { isStorefrontTabActive } from "@/lib/nav"
 
 type User = { email: string; user_type: string; isStaff?: boolean } | null
 
@@ -62,147 +46,6 @@ function ItemContent({
   )
 }
 
-/** Ignore browser-chrome deltas; only lift for a real software keyboard. */
-const KEYBOARD_MIN_INSET = 120
-
-type KeyboardViewport = { inset: number; height: number }
-
-const CLOSED_VIEWPORT: KeyboardViewport = { inset: 0, height: 0 }
-
-/**
- * Software-keyboard geometry for fixed bottom sheets.
- *
- * A fixed bottom sheet is anchored to the layout viewport, which iOS Safari
- * (and Chromium with `resizes-visual`) does not shrink when the keyboard
- * opens. The inset lifts the sheet above the keyboard, and the height caps it
- * to the visible area so it can grow upward for suggestions without escaping
- * the screen.
- */
-function useKeyboardViewport(active: boolean) {
-  const [viewport, setViewport] = useState<KeyboardViewport>(CLOSED_VIEWPORT)
-
-  useEffect(() => {
-    if (!active) return
-    const visualViewport = window.visualViewport
-    if (!visualViewport) return
-
-    let frame = 0
-    const update = () => {
-      cancelAnimationFrame(frame)
-      frame = requestAnimationFrame(() => {
-        const gap =
-          window.innerHeight - visualViewport.height - visualViewport.offsetTop
-        const next = {
-          inset: gap > KEYBOARD_MIN_INSET ? Math.round(gap) : 0,
-          height: Math.round(visualViewport.height),
-        }
-        setViewport((previous) =>
-          previous.inset === next.inset && previous.height === next.height
-            ? previous
-            : next
-        )
-      })
-    }
-
-    update()
-    visualViewport.addEventListener("resize", update)
-    visualViewport.addEventListener("scroll", update)
-    return () => {
-      cancelAnimationFrame(frame)
-      visualViewport.removeEventListener("resize", update)
-      visualViewport.removeEventListener("scroll", update)
-    }
-  }, [active])
-
-  return active ? viewport : CLOSED_VIEWPORT
-}
-
-type MoreLink = { label: string; href: string; icon: IconSvgElement }
-
-/**
- * "More" tab: a bottom sheet with search on top and the secondary
- * destinations below. The shell persists across navigation, so the parent
- * remounts this component (keyed by route + query) and an open sheet closes as
- * soon as the buyer navigates.
- */
-function MoreSheet({ active, user }: { active: boolean; user: User }) {
-  const [open, setOpen] = useState(false)
-  const keyboard = useKeyboardViewport(open)
-
-  const links: MoreLink[] = [
-    { label: "All Products", href: "/products", icon: Package01Icon },
-    { label: "Categories", href: "/categories", icon: GridViewIcon },
-    { label: "D2H Select deals", href: "/select", icon: Tag01Icon },
-    { label: "Suppliers", href: "/suppliers", icon: Store01Icon },
-    ...(user
-      ? [
-          { label: "My Orders", href: "/orders", icon: Package01Icon },
-          { label: "Wishlist", href: "/account/wishlist", icon: FavouriteIcon },
-          { label: "Contact Us", href: "/account/contact", icon: CustomerSupportIcon },
-        ]
-      : []),
-  ]
-  const workspace = user ? dashboardHref(user.user_type, user.isStaff) : "/"
-  if (workspace !== "/") {
-    links.push({ label: "Workspace dashboard", href: workspace, icon: DashboardSquare01Icon })
-  }
-
-  return (
-    <Sheet open={open} onOpenChange={setOpen}>
-      <SheetTrigger
-        render={
-          <button
-            type="button"
-            aria-current={active ? "page" : undefined}
-            className={itemClass(active || open)}
-          />
-        }
-      >
-        <ItemContent icon={Menu01Icon} label="More" active={active || open} />
-      </SheetTrigger>
-      <SheetContent
-        side="bottom"
-        className="max-h-[85dvh] overflow-y-auto rounded-t-2xl pb-(--safe-area-bottom)"
-        style={{
-          bottom: keyboard.inset > 0 ? keyboard.inset : undefined,
-          maxHeight: keyboard.height > 0 ? keyboard.height : undefined,
-        }}
-      >
-        <SheetHeader>
-          <SheetTitle>More</SheetTitle>
-        </SheetHeader>
-        <div className="px-4 pb-6">
-          <StorefrontSearchForm inlineSuggestions />
-          <ul className="mt-4 divide-y divide-border overflow-hidden rounded-xl border border-border">
-            {links.map((link) => (
-              <li key={link.href}>
-                <Link
-                  href={link.href}
-                  onClick={() => setOpen(false)}
-                  className="press flex min-h-12 items-center gap-3 px-4 text-sm font-medium hover:bg-muted/60"
-                >
-                  <HugeiconsIcon icon={link.icon} strokeWidth={1.8} className="size-5 text-foreground/80" />
-                  <span className="flex-1">{link.label}</span>
-                  <HugeiconsIcon icon={ArrowRight01Icon} strokeWidth={2} className="size-4 text-muted-foreground" />
-                </Link>
-              </li>
-            ))}
-          </ul>
-          {!user ? (
-            <Link
-              href="/auth/login"
-              onClick={() => setOpen(false)}
-              className="press mt-4 flex h-11 items-center justify-center rounded-lg bg-primary text-sm font-bold text-primary-foreground hover:bg-brand-dark"
-            >
-              Sign in
-            </Link>
-          ) : null}
-        </div>
-      </SheetContent>
-    </Sheet>
-  )
-}
-
 export function StorefrontBottomNav({
   user,
   cartCount = 0,
@@ -219,8 +62,9 @@ export function StorefrontBottomNav({
   const storeActive = isStorefrontTabActive("store", pathname)
   const cartActive = pathname === "/cart"
   const accountActive = isStorefrontTabActive("account", pathname)
-  // "More" holds search + catalogue destinations.
+  // "More" opens More Services, which also carries search + catalogue links.
   const moreActive =
+    pathname === "/services" ||
     isStorefrontTabActive("products", pathname, hasSearch) ||
     isStorefrontTabActive("search", pathname, hasSearch) ||
     isStorefrontTabActive("categories", pathname)
@@ -276,11 +120,13 @@ export function StorefrontBottomNav({
           <ItemContent icon={UserIcon} label="My Account" active={accountActive} />
         </Link>
 
-        <MoreSheet
-          key={`${pathname}?${searchParams.toString()}`}
-          active={moreActive}
-          user={user}
-        />
+        <Link
+          href="/services"
+          aria-current={moreActive ? "page" : undefined}
+          className={itemClass(moreActive)}
+        >
+          <ItemContent icon={Menu01Icon} label="More" active={moreActive} />
+        </Link>
       </nav>
     </div>
   )

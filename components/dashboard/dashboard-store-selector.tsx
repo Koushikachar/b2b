@@ -1,58 +1,65 @@
 "use client";
 
+import { useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { NativeSelect } from "@/components/ui/native-select";
-import type { ActiveStore } from "@/lib/store-context";
+import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
+import { toast } from "@/components/ui/toast";
+import { selectDashboardStore } from "@/lib/supplier/dashboard-store-actions";
+import { isDashboardReady } from "@/lib/store-context-types";
 
-type DashboardStoreSelectorProps = {
-  stores: ActiveStore[];
-  selectedStoreId: string | null;
-};
+type StoreOption = { id: string; name: string; slug: string };
 
 /**
- * Store switcher for the supplier dashboard.
- *
- * D2H Core keeps the user on `/supplier/dashboard` (the existing dashboard).
- * The other stores navigate to their own `/supplier/dashboard/store/[slug]`
- * route, which renders "Coming soon" until those dashboards are built.
+ * Store switcher for the supplier dashboard. D2H Core and D2H Select share
+ * the same dashboard: switching keeps you on the current page and scopes it
+ * to the chosen store.
  */
 export function DashboardStoreSelector({
   stores,
   selectedStoreId,
-}: DashboardStoreSelectorProps) {
+}: {
+  stores: StoreOption[];
+  selectedStoreId: string | null;
+}) {
   const router = useRouter();
+  const [pending, startTransition] = useTransition();
 
   if (stores.length <= 1) return null;
 
-  const handleChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
-    const storeId = event.target.value;
-    if (!storeId) return;
-    const store = stores.find((s) => s.id === storeId);
+  function handleChange(event: React.ChangeEvent<HTMLSelectElement>) {
+    const store = stores.find((s) => s.id === event.target.value);
     if (!store) return;
-    if (store.slug === "d2h-core") {
-      router.push("/supplier/dashboard");
-    } else {
+    if (!isDashboardReady(store.slug)) {
       router.push(`/supplier/dashboard/store/${store.slug}`);
+      return;
     }
-  };
+    startTransition(async () => {
+      const result = await selectDashboardStore(store.id);
+      if (!result.ok) {
+        toast.add({ type: "error", title: "Could not switch store", description: result.message });
+        return;
+      }
+      router.refresh();
+    });
+  }
 
   return (
-    <form className="flex items-center gap-2">
-      <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-        Store
-      </span>
+    <label className="flex items-center gap-2">
+      <span className="text-xs font-medium tracking-wider text-muted-foreground uppercase">Store</span>
       <NativeSelect
         size="sm"
-        defaultValue={selectedStoreId ?? ""}
+        value={selectedStoreId ?? ""}
         onChange={handleChange}
+        disabled={pending}
+        aria-busy={pending}
       >
-        <option value="">Select store</option>
         {stores.map((store) => (
-          <option key={store.id} value={store.id}>
+          <NativeSelectOption key={store.id} value={store.id}>
             {store.name}
-          </option>
+            {isDashboardReady(store.slug) ? "" : " (soon)"}
+          </NativeSelectOption>
         ))}
       </NativeSelect>
-    </form>
+    </label>
   );
 }

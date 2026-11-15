@@ -1,4 +1,5 @@
 import Link from "next/link"
+import { SoftLink } from "@/components/storefront/soft-link"
 import { publicTransformedImageUrl } from "@/lib/storage"
 import { cn } from "@/lib/utils"
 import { ProductImage } from "@/components/storefront/product-image"
@@ -36,10 +37,11 @@ export function CategoryTile({
   /** "N items" line under the name (catalogue row); Top categories hides it. */
   showCount?: boolean
 }) {
+  // As a catalogue filter, navigate in place (no full-page skeleton/scroll).
+  const Anchor = href ? SoftLink : Link
   return (
-    <Link
+    <Anchor
       href={href ?? `/category/${category.slug}`}
-      scroll={href ? false : undefined}
       aria-label={showCount ? `${category.name}, ${formatItemCount(category.product_count)}` : category.name}
       aria-current={active ? "true" : undefined}
       className={cn(
@@ -57,6 +59,7 @@ export function CategoryTile({
       >
         {category.image_path ? (
           <ProductImage
+            fit="cover"
             src={publicTransformedImageUrl("category_images", category.image_path, { width: 200, height: 200 })}
             alt=""
             sizes={sizes}
@@ -85,7 +88,7 @@ export function CategoryTile({
           {formatItemCount(category.product_count)}
         </p>
       ) : null}
-    </Link>
+    </Anchor>
   )
 }
 
@@ -124,13 +127,12 @@ export function CategoryFilterRail({
           Shop by category
         </h2>
         {activeSlug ? (
-          <Link
+          <SoftLink
             href={clearHref}
-            scroll={false}
             className="text-xs font-semibold text-primary hover:underline"
           >
             Clear
-          </Link>
+          </SoftLink>
         ) : (
           <Link href="/categories" className="text-xs font-semibold text-primary hover:underline">
             View all

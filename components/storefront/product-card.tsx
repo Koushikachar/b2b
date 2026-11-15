@@ -3,6 +3,7 @@ import { publicTransformedImageUrl } from "@/lib/storage"
 import { Card } from "@/components/ui/card"
 import { CardAddButton } from "@/components/storefront/card-add-button"
 import { ProductImage } from "@/components/storefront/product-image"
+import { discountPercent } from "@/lib/format"
 
 export type ProductCardData = {
   id: string
@@ -12,6 +13,9 @@ export type ProductCardData = {
   negotiable?: boolean
   images?: { path: string; sort: number }[] | null
   pricing: { customer_price: number } | null
+  /** Optional MRP; shown struck through with the discount when higher. */
+  mrp?: number | null
+  is_out_of_stock?: boolean
   supplier?: {
     business_name?: string
     city?: string
@@ -31,8 +35,26 @@ function coverUrl(product: ProductCardData): string | null {
   return publicTransformedImageUrl("product_images", sorted[0].path, {
     width: 640,
     height: 640,
-    fit: "cover",
+    fit: "contain",
   })
+}
+
+/** Price (product-page style), with the MRP struck through and the discount when there is one. */
+function PriceLine({ price, mrp }: { price: number; mrp: number | null }) {
+  const off = discountPercent(mrp, price)
+  return (
+    <div className="flex flex-wrap items-baseline gap-x-1.5 tabular-nums">
+      <span className="text-lg font-bold tracking-tight text-foreground">
+        {formatPrice(price)}
+      </span>
+      {off > 0 && mrp != null ? (
+        <span className="flex w-full items-baseline gap-1.5 text-xs">
+          <span className="text-muted-foreground line-through">{formatPrice(mrp)}</span>
+          <span className="font-semibold text-success">{off}% off</span>
+        </span>
+      ) : null}
+    </div>
+  )
 }
 
 export function ProductCard({
@@ -62,12 +84,7 @@ export function ProductCard({
           </p>
 
           {product.pricing ? (
-            <p className="text-base font-bold tracking-tight text-foreground tabular-nums">
-              {formatPrice(product.pricing.customer_price)}
-              <span className="ml-1 text-xs font-normal text-muted-foreground">
-                / {product.unit}
-              </span>
-            </p>
+            <PriceLine price={product.pricing.customer_price} mrp={product.mrp ?? null} />
           ) : (
             <p className="text-sm font-medium text-muted-foreground">
               Price on request
@@ -77,7 +94,11 @@ export function ProductCard({
       </Link>
 
       <div className="mt-auto px-2.5 pt-1.5 pb-2.5">
-        <CardAddButton productId={product.id} moq={product.moq} />
+        <CardAddButton
+          productId={product.id}
+          moq={product.moq}
+          outOfStock={product.is_out_of_stock}
+        />
       </div>
     </Card>
   )

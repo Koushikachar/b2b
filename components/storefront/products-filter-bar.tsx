@@ -164,7 +164,9 @@ export function ProductsFilterBar() {
           }}
         >
           <SelectTrigger aria-label="Sort products" className="w-44">
-            <SelectValue placeholder="Sort by" />
+            <SelectValue>
+              {(value: string) => SORT_OPTIONS.find((opt) => opt.value === value)?.label ?? "Sort by"}
+            </SelectValue>
           </SelectTrigger>
           <SelectContent>
             <SelectGroup>

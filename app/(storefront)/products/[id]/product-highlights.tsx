@@ -4,7 +4,11 @@ export type HighlightRow = { label: string; value: string }
  * Structured spec table shown directly under the price. Thin dark rules keep
  * the mobile reading order (label left, value right) unambiguous.
  */
-export function ProductHighlights({ rows }: { rows: HighlightRow[] }) {
+export function ProductHighlights({ rows: allRows }: { rows: HighlightRow[] }) {
+  // Optional fields: show only what the supplier filled in, or nothing.
+  const rows = allRows.filter((row) => row.value.trim() !== "" && row.value !== "—")
+  if (rows.length === 0) return null
+
   return (
     <section aria-labelledby="product-highlights-heading">
       <h2

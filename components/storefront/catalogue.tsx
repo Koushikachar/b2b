@@ -3,6 +3,7 @@
 import { useId, useState, useTransition } from "react"
 import Image from "next/image"
 import Link from "next/link"
+import { SoftLink } from "@/components/storefront/soft-link"
 import { useRouter } from "next/navigation"
 import { HugeiconsIcon } from "@hugeicons/react"
 import {
@@ -269,7 +270,7 @@ function FilterPanel({
             <p className="text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">
               Categories
             </p>
-            <Link
+            <SoftLink
               href={buildCatalogueUrl(basePath, filters, {
                 categorySlug: "",
               })}
@@ -277,13 +278,13 @@ function FilterPanel({
               className="text-[11px] font-medium text-primary hover:underline"
             >
               All
-            </Link>
+            </SoftLink>
           </div>
           <div className="mt-2 flex max-h-56 scrollbar-thin scrollbar-gutter-stable flex-col gap-0.5 overflow-y-auto">
             {categories.map((category) => {
               const active = filters.categorySlug === category.slug
               return (
-                <Link
+                <SoftLink
                   key={category.id}
                   href={buildCatalogueUrl(basePath, filters, {
                     categorySlug: category.slug,
@@ -323,7 +324,7 @@ function FilterPanel({
                   >
                     {category.productCount}
                   </span>
-                </Link>
+                </SoftLink>
               )
             })}
           </div>
@@ -542,6 +543,7 @@ export function Catalogue({
   description,
   headingLevel = "h2",
   showCategoryRail = false,
+  priceExitPath,
 }: {
   categoryData: CatalogueCategory[]
   filters: CatalogueFilters
@@ -552,6 +554,12 @@ export function Catalogue({
   headingLevel?: "h1" | "h2"
   /** "Shop by category" image tiles under the filter row; tap filters in place. */
   showCategoryRail?: boolean
+  /**
+   * Set on pages whose identity is a price range (Under ₹X). The range shows
+   * as one "Under ₹X" chip; removing it, or "Clear all", leaves for this path
+   * (e.g. /products) keeping the other filters.
+   */
+  priceExitPath?: string
 }) {
   const router = useRouter()
   const [filtersOpen, setFiltersOpen] = useState(false)
@@ -566,21 +574,22 @@ export function Catalogue({
     ? [IMAGE_SORT_OPTION, ...SORT_OPTIONS]
     : SORT_OPTIONS
 
-  const activeFilters = [
-    filters.minPrice != null
-      ? {
-          key: "minPrice",
-          label: `Min price: ₹${filters.minPrice}`,
-          overrides: { minPrice: undefined },
-        }
-      : null,
-    filters.maxPrice != null
-      ? {
-          key: "maxPrice",
-          label: `Max price: ₹${filters.maxPrice}`,
-          overrides: { maxPrice: undefined },
-        }
-      : null,
+  const noPrice = { minPrice: undefined, maxPrice: undefined }
+  const priceChips = priceExitPath
+    ? filters.maxPrice != null
+      ? [{ key: "price", label: `Under ₹${filters.maxPrice}`, overrides: noPrice, path: priceExitPath }]
+      : []
+    : [
+        filters.minPrice != null
+          ? { key: "minPrice", label: `Min price: ₹${filters.minPrice}`, overrides: { minPrice: undefined } }
+          : null,
+        filters.maxPrice != null
+          ? { key: "maxPrice", label: `Max price: ₹${filters.maxPrice}`, overrides: { maxPrice: undefined } }
+          : null,
+      ]
+
+  const activeFilters: { key: string; label: string; overrides: Partial<CatalogueFilters>; path?: string }[] = [
+    ...priceChips,
     filters.minMoq != null
       ? {
           key: "minMoq",
@@ -609,12 +618,13 @@ export function Catalogue({
           overrides: { sampleAvailable: undefined },
         }
       : null,
-  ].filter((item): item is NonNullable<typeof item> => item != null)
+  ]
+    .filter((item): item is NonNullable<typeof item> => item != null)
 
   const clearAll = () => {
     startTransition(() =>
       router.push(
-        buildCatalogueUrl(basePath, filters, {
+        buildCatalogueUrl(priceExitPath ?? basePath, filters, {
           categorySlug: "",
           minPrice: undefined,
           maxPrice: undefined,
@@ -697,7 +707,12 @@ export function Catalogue({
               }}
             >
               <SelectTrigger aria-label="Sort products" className="w-44">
-                <SelectValue placeholder="Sort by" />
+                {/* Without a render function Base UI shows the raw value ("price_desc"). */}
+                <SelectValue>
+                  {(value: string) =>
+                    sortOptions.find((option) => option.value === value)?.label ?? "Sort by"
+                  }
+                </SelectValue>
               </SelectTrigger>
               <SelectContent>
                 <SelectGroup>
@@ -752,25 +767,25 @@ export function Catalogue({
         {(activeCategory || activeFilters.length > 0) && (
           <div className="mb-3 flex flex-wrap items-center gap-1.5">
             {activeCategory ? (
-              <Link
+              <SoftLink
                 href={buildCatalogueUrl(basePath, filters, { categorySlug: "" })}
                 aria-label={`Remove ${activeCategory.name} filter`}
                 className="inline-flex items-center gap-1 rounded-sm border border-primary/30 bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary hover:bg-primary/20"
               >
                 {activeCategory.name}
                 <span aria-hidden>×</span>
-              </Link>
+              </SoftLink>
             ) : null}
             {activeFilters.map((filter) => (
-              <Link
+              <SoftLink
                 key={filter.key}
-                href={buildCatalogueUrl(basePath, filters, filter.overrides)}
+                href={buildCatalogueUrl(filter.path ?? basePath, filters, filter.overrides)}
                 aria-label={`Remove ${filter.label} filter`}
                 className="inline-flex items-center gap-1 rounded-sm border border-border bg-card px-2 py-0.5 text-xs font-medium text-foreground hover:bg-muted"
               >
                 {filter.label}
                 <span aria-hidden>×</span>
-              </Link>
+              </SoftLink>
             ))}
             <button
               type="button"

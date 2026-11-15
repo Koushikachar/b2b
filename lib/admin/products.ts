@@ -1,8 +1,9 @@
 "use server";
 
-import { revalidatePath, revalidateTag } from "next/cache";
+import { revalidatePath, updateTag } from "next/cache";
 import { z } from "zod";
 import { requireAdmin } from "@/lib/auth/guard";
+import { CATALOGUE_TAGS } from "@/lib/catalogue-tags";
 import type { AdminActionState } from "@/lib/admin/actions";
 
 const idSchema = z.object({ id: z.string().uuid("Invalid product.") });
@@ -36,8 +37,7 @@ export async function unpublishProduct(
   revalidatePath("/admin/dashboard/products");
   revalidatePath(`/admin/dashboard/products/${parsed.data.id}`);
   revalidatePath("/supplier/dashboard/products");
-  revalidateTag("products", "max");
-  revalidateTag("prices", "max");
+  for (const tag of CATALOGUE_TAGS) updateTag(tag);
   revalidatePath("/products");
   revalidatePath(`/products/${parsed.data.id}`);
   revalidatePath("/");

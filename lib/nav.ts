@@ -1,7 +1,5 @@
 export const NAV_LINKS = [
   { label: "Categories", href: "/categories" },
-  { label: "Suppliers", href: "/suppliers" },
-  { label: "Wholesale Deals", href: "/select" },
   { label: "New Arrivals", href: "/products?sort=newest" },
   { label: "Store", href: "/stores" },
 ]

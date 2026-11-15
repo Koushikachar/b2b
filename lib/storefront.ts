@@ -92,6 +92,32 @@ export async function fetchCustomerPriceMap(
 // Storefront navigation categories (header rail)
 // ---------------------------------------------------------------------------
 
+/**
+ * Adds `mrp` and `is_out_of_stock` to listing rows with one read per column.
+ * Each read is separate and tolerant, so a database that has not applied the
+ * migration for a column just renders without it.
+ */
+export async function attachListingExtras<T extends { id: string }>(
+  supabase: SupabaseClient,
+  products: T[],
+): Promise<(T & { mrp: number | null; is_out_of_stock: boolean })[]> {
+  const ids = [...new Set(products.map((p) => p.id))];
+  const read = async (column: "mrp" | "is_out_of_stock") => {
+    if (ids.length === 0) return new Map<string, unknown>();
+    const { data, error } = await supabase.from("products").select(`id, ${column}`).in("id", ids);
+    if (error) return new Map<string, unknown>();
+    return new Map(
+      ((data ?? []) as unknown as Record<string, unknown>[]).map((row) => [row.id as string, row[column]]),
+    );
+  };
+  const [mrp, stock] = await Promise.all([read("mrp"), read("is_out_of_stock")]);
+  return products.map((p) => ({
+    ...p,
+    mrp: mrp.get(p.id) != null ? Number(mrp.get(p.id)) : null,
+    is_out_of_stock: stock.get(p.id) === true,
+  }));
+}
+
 export async function getNavigationCategories(supabase: SupabaseClient) {
   const { data } = await supabase
     .from("categories")
@@ -745,18 +771,29 @@ export async function getProduct(supabase: SupabaseClient, productId: string) {
 
   if (!data) return null;
 
-  const [supplierMap, priceMap, mrpResult] = await Promise.all([
+  const [supplierMap, priceMap, mrpResult, stockResult, storeResult] = await Promise.all([
     fetchSupplierMap(supabase, [data.supplier_id as string]),
     fetchCustomerPriceMap(supabase, [data.id as string]),
     // Separate read so a database without the `mrp` column yet (migration
     // 20261111000000 not applied) still renders the product, just without
     // the strike-through price.
     supabase.from("products").select("mrp").eq("id", productId).maybeSingle(),
+    // Same pattern for the stock toggle (migration 20261114000000).
+    supabase.from("products").select("is_out_of_stock").eq("id", productId).maybeSingle(),
+    // Store slug via the FK, tolerant like the reads above (store_id needs
+    // migration 20261114000000's grant).
+    supabase.from("products").select("store:store_id(slug)").eq("id", productId).maybeSingle(),
   ]);
 
   return {
     ...data,
     mrp: mrpResult.error ? null : ((mrpResult.data?.mrp as number | null) ?? null),
+    is_out_of_stock: stockResult.error
+      ? false
+      : Boolean((stockResult.data as { is_out_of_stock?: boolean } | null)?.is_out_of_stock),
+    store_slug: storeResult.error
+      ? null
+      : ((storeResult.data as { store?: { slug?: string } | null } | null)?.store?.slug ?? null),
     supplier: supplierMap.get(data.supplier_id as string) ?? null,
     pricing: priceMap.get(data.id as string) ?? null,
   };

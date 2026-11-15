@@ -5,6 +5,11 @@ export default defineConfig({
   resolve: {
     alias: {
       "@": path.resolve(import.meta.dirname),
+      // Next aliases `server-only` itself; tests import server modules directly.
+      "server-only": path.resolve(
+        import.meta.dirname,
+        "node_modules/next/dist/compiled/server-only/empty.js",
+      ),
     },
   },
   test: {

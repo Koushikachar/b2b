@@ -901,11 +901,12 @@ export function AddressListSkeleton({ count = 3 }: { count?: number }) {
 export function HomeBannerActionsSkeleton() {
   return (
     <div aria-hidden className="mx-auto w-full max-w-7xl px-4 py-5">
-      <div className="grid grid-cols-3 gap-2.5 md:grid-cols-[minmax(0,1fr)_minmax(0,1.35fr)]">
-        <Skeleton className="col-span-1 row-span-2 min-h-52 rounded-xl" />
-        <div className="col-span-2 grid grid-cols-2 gap-2.5">
+      {/* Mirrors HomeBannerActions: portrait card + 2×2 tiles. */}
+      <div className="grid grid-cols-[minmax(0,2fr)_minmax(0,3fr)] gap-2.5 sm:gap-3">
+        <Skeleton className="rounded-2xl" />
+        <div className="grid grid-cols-2 gap-2.5 sm:gap-3">
           {Array.from({ length: 4 }, (_, i) => (
-            <Skeleton key={i} className="min-h-24 rounded-xl sm:min-h-28" />
+            <Skeleton key={i} className="min-h-24 rounded-2xl sm:min-h-32" />
           ))}
         </div>
       </div>

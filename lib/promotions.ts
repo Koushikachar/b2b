@@ -15,6 +15,18 @@ export function parsePriceLimit(value: string): PriceLimit | null {
   return (PRICE_LIMITS as readonly number[]).includes(n) ? (n as PriceLimit) : null
 }
 
+/**
+ * Price band for an "Under ₹X" bucket: above the previous bucket, up to X
+ * (Under ₹29 = ₹9.01–₹29). Under ₹9 has no floor. Callers fall back to the
+ * whole "≤ X" range when the band is empty, so a bucket is never blank while
+ * cheaper products exist.
+ */
+export function priceBand(limit: PriceLimit): { minPrice?: number; maxPrice: number } {
+  const index = PRICE_LIMITS.indexOf(limit)
+  const floor = index > 0 ? PRICE_LIMITS[index - 1] : null
+  return floor == null ? { maxPrice: limit } : { minPrice: floor + 0.01, maxPrice: limit }
+}
+
 export type PromoCollectionId =
   | "winning"
   | "hot-selling"

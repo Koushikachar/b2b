@@ -16,21 +16,20 @@ import {
   BANNER_SLOTS,
   SLOT_ASPECTS,
   SLOT_LABELS,
+  SLOT_PLACEMENT,
   type BannerSlot,
 } from "@/lib/admin/banner-slots";
 import { StatusBadge } from "@/components/dashboard/status-badge";
 import {
   DeleteBannerButton,
   ToggleVisibilityButton,
+  ResetSlotButton,
 } from "./banner-actions";
 
 const SLOT_HINTS: Record<BannerSlot, string> = Object.fromEntries(
   BANNER_SLOTS.map((slot) => {
     const { width, height } = getBannerOutputSize(slot);
-    const where =
-      slot === "hero"
-        ? "Rotates at the top of the home page"
-        : "Single strip under the category grid";
+    const where = SLOT_PLACEMENT[slot];
     return [slot, `${where} (uploaded at ${width} x ${height}).`];
   }),
 ) as Record<BannerSlot, string>;
@@ -192,6 +191,10 @@ export default async function BannersPage() {
               >
                 Add {SLOT_LABELS[slot].toLowerCase().split(" ")[0]} banner
               </Button>
+              {/* Tile slots fall back to a built-in design; offer a one-click reset. */}
+              {slot !== "hero" && slot !== "promo" && banners.length > 0 ? (
+                <ResetSlotButton slot={slot} label={SLOT_LABELS[slot]} />
+              ) : null}
             </CardContent>
           </Card>
         );

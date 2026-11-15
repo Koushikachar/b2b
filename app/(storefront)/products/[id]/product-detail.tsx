@@ -26,6 +26,11 @@ import { ProductActionsIsland } from "./product-actions-island"
 import { ProductHighlights } from "./product-highlights"
 import { ProductServiceOptions } from "./product-service-options"
 import { ProductStoreCard } from "./product-store-card"
+import {
+  ProductPricePanel,
+  VariantSelectionProvider,
+  type SelectableVariant,
+} from "./variant-selection"
 
 type Product = {
   id: string
@@ -33,9 +38,11 @@ type Product = {
   description: string
   brand: string | null
   seller_sku: string
-  hsn_code: string
+  hsn_code: string | null
   unit: string
   mrp: number | string | null
+  is_out_of_stock?: boolean
+  store_slug?: string | null
   moq: number
   stock_qty: number
   negotiable: boolean
@@ -75,7 +82,9 @@ type Product = {
 
 function weightLabel(kg: number | null): string {
   if (kg == null) return "—"
-  if (kg < 1) return `${formatIndianNumber(Math.round(kg * 1000))} gm`
+  kg = Number(kg)
+  if (kg < 0.001) return `${formatIndianNumber(Math.round(kg * 1_000_000))} mg`
+  if (kg < 1) return `${formatIndianNumber(Number((kg * 1000).toFixed(1)))} g`
   return `${formatIndianNumber(kg)} kg`
 }
 
@@ -113,13 +122,17 @@ export function ProductDetail({ product }: { product: Product }) {
   )
   // Strike-through MRP only when it is genuinely above the buyer price.
   const mrp = product.mrp != null ? Number(product.mrp) : null
-  const discountPct =
-    pricing && mrp != null && mrp > pricing.customer_price
-      ? Math.round(((mrp - pricing.customer_price) / mrp) * 100)
-      : 0
   const sortedVariants = [...product.variants]
     .map((v) => ({ ...v, customer_price: variantPrices.get(v.id) }))
     .sort((a, b) => a.sort - b.sort)
+
+  const selectableVariants: SelectableVariant[] = sortedVariants.map((v) => ({
+    id: v.id,
+    label: v.label,
+    attrs: (v.attrs ?? {}) as Record<string, string>,
+    customer_price: v.customer_price,
+    moq: v.moq,
+  }))
 
   const coverImage = images[0]
     ? publicTransformedImageUrl("product_images", images[0].path, {
@@ -152,37 +165,30 @@ export function ProductDetail({ product }: { product: Product }) {
             images={images}
             title={product.title}
             negotiable={product.negotiable}
+            youtubeId={product.youtube_id}
           />
         </div>
 
-        {/* Product information and actions */}
+        {/* Product information and actions. The provider shares the chosen
+            variant between the price panel and the add-to-cart form. */}
+        <VariantSelectionProvider variants={selectableVariants}>
         <div className="flex min-w-0 flex-col gap-5">
           <div>
             <h1 className="text-lg font-bold leading-snug tracking-tight sm:text-xl md:text-2xl">
               {product.title}
             </h1>
-            <div className="mt-3 flex flex-wrap items-baseline gap-x-2 gap-y-1">
-              {discountPct > 0 && (
-                <span className="text-2xl font-normal text-destructive tabular-nums">
-                  <span className="sr-only">Discount </span>-{discountPct}%
-                </span>
-              )}
-              <span className="text-3xl font-bold tracking-tight text-primary tabular-nums">
-                {pricing ? formatRupees(pricing.customer_price) : "Price on request"}
-              </span>
-              <span className="text-sm text-muted-foreground">/ {product.unit}</span>
-              {product.negotiable && <Badge className="ml-auto">Price Negotiable</Badge>}
+            <div className="mt-3">
+              <ProductPricePanel
+                basePrice={pricing?.customer_price ?? null}
+                mrp={mrp}
+                negotiable={product.negotiable}
+                outOfStock={Boolean(product.is_out_of_stock)}
+                variants={selectableVariants}
+              />
             </div>
-            {discountPct > 0 && mrp != null && (
-              <p className="mt-1 text-sm text-muted-foreground">
-                M.R.P.:{" "}
-                <span className="line-through tabular-nums">{formatRupees(mrp)}</span>
-              </p>
-            )}
-            <p className="mt-1.5 text-xs text-muted-foreground">
-              {stockLabel(product.stock_qty)}
-              {product.sample_available ? " · Sample available" : ""}
-            </p>
+            {product.sample_available ? (
+              <p className="mt-1.5 text-xs text-muted-foreground">Sample available</p>
+            ) : null}
             {product.certifications.length > 0 && (
               <div className="mt-2 flex flex-wrap gap-1.5">
                 {product.certifications.map((cert) => (
@@ -196,7 +202,9 @@ export function ProductDetail({ product }: { product: Product }) {
 
           <ProductHighlights rows={highlightRows(product)} />
 
-          {supplier && <ProductStoreCard supplier={supplier} />}
+          {supplier && (
+            <ProductStoreCard supplier={supplier} storeSlug={product.store_slug ?? null} />
+          )}
 
           <ProductServiceOptions whatsappHref={whatsappHref} />
 
@@ -249,6 +257,7 @@ export function ProductDetail({ product }: { product: Product }) {
               image={coverImage}
               moq={product.moq}
               unit={product.unit}
+              outOfStock={Boolean(product.is_out_of_stock)}
               variants={sortedVariants.map((v) => ({
                 id: v.id,
                 label: v.label,
@@ -258,6 +267,7 @@ export function ProductDetail({ product }: { product: Product }) {
             />
           </Suspense>
         </div>
+        </VariantSelectionProvider>
       </div>
 
       {/* Description / highlights / return policy */}

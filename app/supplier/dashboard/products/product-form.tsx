@@ -16,6 +16,7 @@ import { HugeiconsIcon } from "@hugeicons/react";
 import { ArrowLeft01Icon } from "@hugeicons/core-free-icons";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Switch } from "@/components/ui/switch";
+import { toast } from "@/components/ui/toast";
 import { FieldError } from "@/components/ui/field";
 import {
   createProduct,
@@ -26,7 +27,6 @@ import {
 import {
   MAX_PRODUCT_IMAGES,
   MIN_PRODUCT_IMAGES,
-  MAX_VARIANTS,
   existingImageKey,
   extractYoutubeId,
   stagedImageIndex,
@@ -44,6 +44,11 @@ import { ProductMediaSection } from "./product-media-section";
 import { PricingSection } from "./pricing-section";
 import { ShippingTaxSection } from "./shipping-tax-section";
 import { VariantsSection } from "./variants-section";
+import {
+  attributesFromVariants,
+  buildVariantRows,
+  type VariantAttribute,
+} from "./variant-builder";
 import { ProductSeoSection } from "./product-seo-section";
 import { ProductReadiness } from "./product-readiness";
 import { ProductFormActions, ProductFormStickyActions } from "./product-form-actions";
@@ -54,18 +59,6 @@ const initialState: ProductActionState = { ok: false, message: "" };
 
 function productImageUrl(path: string): string {
   return `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/product_images/${path}`;
-}
-
-function newVariant(): ExistingVariant {
-  return {
-    label: "",
-    attr_key: "",
-    attr_value: "",
-    seller_sku: "",
-    price: 0,
-    moq: null,
-    stock_qty: 0,
-  };
 }
 
 function loadDraft(key: string): Map<string, string> | null {
@@ -107,6 +100,9 @@ export function ProductForm({
   const showSubmit = product?.status !== "approved";
   const saveLabel =
     product?.status === "approved" ? "Save changes" : "Save draft";
+  // Live view only on the edit page of a published product.
+  const liveHref =
+    mode === "edit" && product?.status === "approved" ? `/products/${product.id}` : undefined;
   const [state, action, pending] = useActionState(boundAction, initialState);
   const [invalidField, setInvalidField] = useState<{ id: string; message: string } | null>(null);
   // Render-phase adjustment: when a server action returns an error, attach it
@@ -139,15 +135,18 @@ export function ProductForm({
   const [negotiable, setNegotiable] = useState(product?.negotiable ?? false);
   const [isWinning, setIsWinning] = useState(product?.is_winning ?? false);
   const [isHotSelling, setIsHotSelling] = useState(product?.is_hot_selling ?? false);
-  const [hasVariants, setHasVariants] = useState((product?.variants?.length ?? 0) > 0);
+  const [attributes, setAttributes] = useState<VariantAttribute[]>(() =>
+    attributesFromVariants(product?.variants),
+  );
   const [variants, setVariants] = useState<ExistingVariant[]>(product?.variants ?? []);
+  const hasVariants = variants.length > 0;
   const [newFiles, setNewFiles] = useState<File[]>([]);
   const [removedImagePaths, setRemovedImagePaths] = useState<string[]>([]);
   const [previewUrls, setPreviewUrls] = useState<string[]>([]);
-  const [primaryImageKey, setPrimaryImageKey] = useState<string | null>(() => {
-    const cover = product?.images?.[0];
-    return cover ? existingImageKey(cover.path) : null;
-  });
+  // Display order of the gallery (drag to reorder); the first image is the cover.
+  const [imageOrder, setImageOrder] = useState<string[]>(() =>
+    (product?.images ?? []).map((image) => existingImageKey(image.path)),
+  );
   const [youtubeUrl, setYoutubeUrl] = useState(product?.youtube_url ?? "");
   const objectUrlsRef = useRef<string[]>([]);
 
@@ -210,10 +209,15 @@ export function ProductForm({
     ],
     [visibleExistingImages, newFiles],
   );
-  const effectivePrimaryImageKey = useMemo(() => {
-    if (primaryImageKey && imageKeys.includes(primaryImageKey)) return primaryImageKey;
-    return imageKeys[0] ?? null;
-  }, [primaryImageKey, imageKeys]);
+  // Keys in display order: the supplier's arrangement first, then anything new.
+  const orderedImageKeys = useMemo(
+    () => [
+      ...imageOrder.filter((key) => imageKeys.includes(key)),
+      ...imageKeys.filter((key) => !imageOrder.includes(key)),
+    ],
+    [imageOrder, imageKeys],
+  );
+  const effectivePrimaryImageKey = orderedImageKeys[0] ?? null;
   const totalImages =
     existingImages.length -
     removedImagePaths.length +
@@ -230,6 +234,7 @@ export function ProductForm({
           label: v.label,
           attr_key: v.attr_key ?? "",
           attr_value: v.attr_value ?? "",
+          attrs: v.attrs,
           seller_sku: v.seller_sku,
           price: v.price,
           moq: v.moq,
@@ -309,7 +314,9 @@ export function ProductForm({
     return () => window.clearTimeout(timer);
   }, [formValues, product?.id]);
 
-  // Return to the all products page after a successful save.
+  // After a save: a new product goes to the products list; an edit stays on
+  // this page and refreshes, so the supplier can keep editing (the edit page
+  // remounts this form from the saved data, see its `key`).
   useEffect(() => {
     if (state.ok && state.productId) {
       // Cancel any pending draft save so it doesn't re-save after clear.
@@ -323,9 +330,14 @@ export function ProductForm({
       } catch {
         // ignore
       }
-      router.push("/supplier/dashboard/products");
+      if (mode === "edit") {
+        toast.add({ type: "success", title: "Changes saved", description: state.message });
+        router.refresh();
+      } else {
+        router.push("/supplier/dashboard/products");
+      }
     }
-  }, [state.ok, state.productId, router, draftKey]);
+  }, [state, mode, router, draftKey]);
 
   // Route every field error to one scroll/focus path so client-side and
   // server-side errors behave identically. Hidden inputs (like #images) have
@@ -396,37 +408,28 @@ export function ProductForm({
 
   function addFiles(files: File[]) {
     if (files.length === 0) return;
-    const hadImages = imageKeys.length > 0;
     const seen = new Set(newFiles.map((f) => `${f.name}:${f.size}:${f.lastModified}`));
     const merged = [
       ...newFiles,
       ...files.filter((f) => !seen.has(`${f.name}:${f.size}:${f.lastModified}`)),
     ].slice(0, MAX_PRODUCT_IMAGES);
     commitStagedFiles(merged);
-    if (!hadImages && merged.length > 0) {
-      setPrimaryImageKey(stagedImageKey(0));
-    }
+  }
+
+  function makePrimary(key: string) {
+    setImageOrder([key, ...orderedImageKeys.filter((k) => k !== key)]);
   }
 
   function removeStaged(index: number) {
-    const nextFiles = newFiles.filter((_, i) => i !== index);
-    const currentPrimary = effectivePrimaryImageKey;
-    if (currentPrimary === stagedImageKey(index)) {
-      const fallbackExisting = visibleExistingImages[0];
-      setPrimaryImageKey(
-        fallbackExisting
-          ? existingImageKey(fallbackExisting.path)
-          : nextFiles.length > 0
-            ? stagedImageKey(0)
-            : null,
-      );
-    } else {
-      const primaryIndex = stagedImageIndex(currentPrimary);
-      if (primaryIndex !== null && index < primaryIndex) {
-        setPrimaryImageKey(stagedImageKey(primaryIndex - 1));
-      }
-    }
-    commitStagedFiles(nextFiles);
+    // Staged keys are index-based: drop the removed one and shift later ones.
+    setImageOrder(
+      orderedImageKeys.flatMap((key) => {
+        const i = stagedImageIndex(key);
+        if (i === null || i < index) return [key];
+        return i === index ? [] : [stagedImageKey(i - 1)];
+      }),
+    );
+    commitStagedFiles(newFiles.filter((_, i) => i !== index));
   }
 
   function replaceStaged(index: number, file: File) {
@@ -434,28 +437,17 @@ export function ProductForm({
   }
 
   function removeExisting(path: string) {
-    const wasPrimary = effectivePrimaryImageKey === existingImageKey(path);
-    const remainingExisting = visibleExistingImages.filter((image) => image.path !== path);
     setRemovedImagePaths((prev) => (prev.includes(path) ? prev : [...prev, path]));
-    if (wasPrimary) {
-      setPrimaryImageKey(
-        remainingExisting[0]
-          ? existingImageKey(remainingExisting[0].path)
-          : newFiles.length > 0
-            ? stagedImageKey(0)
-            : null,
-      );
-    }
   }
 
   function replaceExisting(path: string, file: File) {
-    const wasPrimary = effectivePrimaryImageKey === existingImageKey(path);
     const nextFiles = [...newFiles, file].slice(0, MAX_PRODUCT_IMAGES);
+    // The cropped copy takes the original's place in the order.
+    const replacedKey = existingImageKey(path);
+    const newKey = stagedImageKey(nextFiles.length - 1);
+    setImageOrder(orderedImageKeys.map((key) => (key === replacedKey ? newKey : key)));
     setRemovedImagePaths((prev) => (prev.includes(path) ? prev : [...prev, path]));
     commitStagedFiles(nextFiles);
-    if (wasPrimary) {
-      setPrimaryImageKey(stagedImageKey(nextFiles.length - 1));
-    }
   }
 
   function onSeoFileChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -503,14 +495,10 @@ export function ProductForm({
     setVariants((prev) => prev.map((v, i) => (i === index ? { ...v, ...patch } : v)));
   }
 
-  function handleHasVariantsChange(value: boolean) {
-    setHasVariants(value);
-    if (value && variants.length === 0) setVariants([newVariant()]);
+  function handleAttributesChange(next: VariantAttribute[]) {
+    setAttributes(next);
+    setVariants((prev) => buildVariantRows(next, prev));
   }
-
-  const addVariant = () =>
-    setVariants((prev) => (prev.length >= MAX_VARIANTS ? prev : [...prev, newVariant()]));
-  const removeLastVariant = () => setVariants((prev) => prev.slice(0, -1));
 
   function controlKey(el: HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement): string {
     return el.id || el.getAttribute("aria-label") || el.name;
@@ -669,6 +657,7 @@ export function ProductForm({
         <input type="hidden" name="seo_image_clear" value={seoImageCleared ? "1" : ""} />
         <input type="hidden" name="removed_image_paths" value={JSON.stringify(removedImagePaths)} />
         <input type="hidden" name="primary_image" value={effectivePrimaryImageKey ?? ""} />
+        <input type="hidden" name="image_order" value={JSON.stringify(orderedImageKeys)} />
         <input type="hidden" name="is_winning" value={isWinning ? "1" : ""} />
         <input type="hidden" name="is_hot_selling" value={isHotSelling ? "1" : ""} />
         {storeId ? <input type="hidden" name="store_id" value={storeId} /> : null}
@@ -701,8 +690,9 @@ export function ProductForm({
               removedImagePaths={removedImagePaths}
               totalImages={totalImages}
               canAddMore={canAddMore}
-              primaryImageKey={effectivePrimaryImageKey}
-              onMakePrimary={setPrimaryImageKey}
+              orderedKeys={orderedImageKeys}
+              onReorder={setImageOrder}
+              onMakePrimary={makePrimary}
               onRemoveStaged={removeStaged}
               onRemoveExisting={removeExisting}
               onReplaceStaged={replaceStaged}
@@ -715,10 +705,6 @@ export function ProductForm({
               errorFor={errorFor}
             />
             <PricingSection
-              invalidFor={invalidFor}
-              errorFor={errorFor}
-              formValues={formValues}
-              onValueChange={setFormValue}
               negotiable={negotiable}
               onNegotiableChange={setNegotiable}
             />
@@ -740,12 +726,10 @@ export function ProductForm({
             <VariantsSection
               invalidFor={invalidFor}
               invalidField={invalidField}
-              hasVariants={hasVariants}
-              onHasVariantsChange={handleHasVariantsChange}
+              attributes={attributes}
+              onAttributesChange={handleAttributesChange}
               variants={variants}
               onUpdateVariant={updateVariant}
-              addVariant={addVariant}
-              removeLastVariant={removeLastVariant}
             />
             <ProductSeoSection
               invalidFor={invalidFor}
@@ -782,6 +766,7 @@ export function ProductForm({
               onSaveSubmit={() => requestSave("submit")}
               showSubmit={showSubmit}
               saveLabel={saveLabel}
+              liveHref={liveHref}
             />
             <div className="hidden @3xl/content:block">{statusAlert}</div>
           </aside>
@@ -794,6 +779,7 @@ export function ProductForm({
           onSaveSubmit={() => requestSave("submit")}
           showSubmit={showSubmit}
           saveLabel={saveLabel}
+          liveHref={liveHref}
         />
       </form>
     </div>

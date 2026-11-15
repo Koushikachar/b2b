@@ -91,6 +91,15 @@ export async function addToCart(
   if (!product) {
     return errState("This product is no longer available.");
   }
+  // Separate read so a database without `is_out_of_stock` yet still works.
+  const { data: stock, error: stockError } = await supabase
+    .from("products")
+    .select("is_out_of_stock")
+    .eq("id", productId)
+    .maybeSingle();
+  if (!stockError && stock?.is_out_of_stock) {
+    return errState("This product is currently out of stock.");
+  }
 
   let effectiveMoq = product.moq;
   if (variantId) {

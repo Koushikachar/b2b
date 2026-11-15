@@ -1,36 +1,32 @@
 "use client"
 
-import Image from "next/image"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { HugeiconsIcon, type IconSvgElement } from "@hugeicons/react"
 import {
-  GridViewIcon,
-  Package01Icon,
-  Store01Icon,
-  Tag01Icon,
+  CrownIcon,
+  Layers01Icon,
+  PackageIcon,
+  TruckDeliveryIcon,
 } from "@hugeicons/core-free-icons"
 import { cn } from "@/lib/utils"
 
 type StoreTab = {
   id: string
+  /** Short brand name on the card ("Core"); `fullName` is for screen readers. */
   name: string
+  fullName: string
   icon: IconSvgElement
-  mobileImage: string
-  href: string
+  /** null = not open yet ("Soon"). */
+  href: string | null
 }
 
-/**
- * Storefront "store type" switcher.
- *
- * D2H Core and D2H Select are real destinations; the remaining stores are
- * still disabled placeholders.
- */
+/** The store brands inside Direct2Hub. Core and Select are live. */
 const STORE_TABS: StoreTab[] = [
-  { id: "core", name: "D2H Core", icon: Store01Icon, mobileImage: "/stores/d2h_core_mobile.jpg", href: "/" },
-  { id: "select", name: "D2H Select", icon: Tag01Icon, mobileImage: "/stores/d2h_select_mobile.jpg", href: "/select" },
-  { id: "ecom-package", name: "Ecom Package", icon: Package01Icon, mobileImage: "/stores/ecom_package_mobile.jpg", href: "#" },
-  { id: "dropshoppicals", name: "Dropshoppicals", icon: GridViewIcon, mobileImage: "/stores/dropship_mobile.jpg", href: "#" },
+  { id: "core", name: "Core", fullName: "D2H Core", icon: Layers01Icon, href: "/" },
+  { id: "select", name: "Select", fullName: "D2H Select", icon: CrownIcon, href: "/select" },
+  { id: "package", name: "Package", fullName: "Ecom Package", icon: PackageIcon, href: null },
+  { id: "dropship", name: "Dropship", fullName: "Dropship", icon: TruckDeliveryIcon, href: null },
 ]
 
 function isActiveTab(tab: StoreTab, pathname: string): boolean {
@@ -39,30 +35,24 @@ function isActiveTab(tab: StoreTab, pathname: string): boolean {
   return false
 }
 
-function TabBody({ tab, active }: { tab: StoreTab; active: boolean }) {
+// Icon over name, as in the store-brands design; a touch smaller on desktop.
+const CARD =
+  "relative flex h-full flex-col items-center justify-center gap-1 rounded-2xl px-1 py-2.5 transition-[background-color,box-shadow] sm:gap-1.5 sm:py-3 lg:gap-1 lg:py-2.5"
+
+function CardBody({ tab, soon }: { tab: StoreTab; soon: boolean }) {
   return (
     <>
-      <Image
-        src={tab.mobileImage}
-        alt={tab.name}
-        width={89}
-        height={56}
-        priority={active}
-        className="h-10 w-auto max-w-full object-contain sm:hidden"
+      <HugeiconsIcon
+        icon={tab.icon}
+        strokeWidth={2.2}
+        aria-hidden
+        className="size-7 shrink-0 text-primary drop-shadow-[0_2px_3px_color-mix(in_oklch,var(--primary)_35%,transparent)] sm:size-8 lg:size-7"
       />
-      <div className="hidden flex-col items-center gap-1 sm:flex">
-        <HugeiconsIcon
-          icon={tab.icon}
-          strokeWidth={active ? 2.2 : 1.8}
-          aria-hidden="true"
-          className="size-[18px] shrink-0 sm:size-5"
-        />
-        <span className="w-full truncate text-center text-[10px] leading-tight font-semibold tracking-tight sm:text-xs">
-          {tab.name}
-        </span>
-      </div>
-      {!active && tab.href === "#" ? (
-        <span className="absolute top-1 right-1 rounded-sm bg-muted px-1 text-[9px] font-semibold tracking-wide text-muted-foreground uppercase">
+      <span className="w-full truncate text-center text-sm leading-tight font-extrabold tracking-tight text-foreground sm:text-base">
+        {tab.name}
+      </span>
+      {soon ? (
+        <span className="absolute top-1.5 right-1.5 rounded-md bg-card/90 px-1 text-[9px] font-bold tracking-wide text-muted-foreground uppercase">
           Soon
         </span>
       ) : null}
@@ -70,36 +60,39 @@ function TabBody({ tab, active }: { tab: StoreTab; active: boolean }) {
   )
 }
 
+/** Store brand switcher shown above every storefront page. */
 export function StoreTabs() {
   const pathname = usePathname() ?? "/"
   return (
-    <nav aria-label="Store types" className="border-b border-border bg-card">
+    <nav aria-label="Stores inside Direct2Hub" className="border-b border-border bg-card">
       <ul className="mx-auto grid w-full max-w-7xl grid-cols-4 gap-2 px-4 py-2.5 sm:gap-3 sm:py-3">
         {STORE_TABS.map((tab) => {
           const active = isActiveTab(tab, pathname)
           return (
             <li key={tab.id} className="min-w-0">
-              {tab.href !== "#" ? (
+              {tab.href ? (
                 <Link
                   href={tab.href}
+                  aria-label={tab.fullName}
                   aria-current={active ? "page" : undefined}
                   className={cn(
-                    "press relative flex min-h-14 flex-col items-center justify-center gap-1 rounded-lg px-1 py-2.5 sm:px-2 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none focus-visible:ring-inset",
+                    CARD,
+                    "press focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
                     active
-                      ? "border border-primary bg-primary/5 text-brand-700"
-                      : "border border-border bg-card text-muted-foreground hover:text-foreground"
+                      ? "bg-brand-100 shadow-sm ring-2 ring-primary/70"
+                      : "bg-brand-50 hover:bg-brand-100/70",
                   )}
                 >
-                  <TabBody tab={tab} active={active} />
+                  <CardBody tab={tab} soon={false} />
                 </Link>
               ) : (
                 <div
                   aria-disabled="true"
-                  title="Coming soon"
-                  className="relative flex min-h-14 flex-col items-center justify-center gap-1 rounded-lg border border-border bg-card px-1 py-2.5 text-muted-foreground sm:px-2"
+                  title={`${tab.fullName} — coming soon`}
+                  className={cn(CARD, "bg-brand-50/70 opacity-80")}
                 >
-                  <TabBody tab={tab} active={false} />
-                  <span className="sr-only">Coming soon</span>
+                  <CardBody tab={tab} soon />
+                  <span className="sr-only">{tab.fullName}, coming soon</span>
                 </div>
               )}
             </li>

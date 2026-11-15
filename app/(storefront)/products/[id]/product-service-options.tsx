@@ -105,11 +105,11 @@ export function ProductServiceOptions({ whatsappHref }: { whatsappHref: string }
           target="_blank"
           rel="noreferrer"
           className={cn(
-            "press group flex items-center gap-2 border-t border-border bg-primary/10 px-3 py-2.5 text-sm font-semibold text-brand-700 outline-none",
-            "focus-visible:ring-[3px] focus-visible:ring-brand-700 focus-visible:ring-inset",
+            "press group flex items-center gap-2 border-t border-border bg-whatsapp/10 px-3 py-2.5 text-sm font-semibold text-whatsapp-dark outline-none hover:bg-whatsapp/15",
+            "focus-visible:ring-[3px] focus-visible:ring-whatsapp focus-visible:ring-inset",
           )}
         >
-          <span className="flex size-7 shrink-0 items-center justify-center rounded-sm bg-primary/15 text-brand-700 [&_svg]:size-4">
+          <span className="flex size-7 shrink-0 items-center justify-center rounded-sm bg-whatsapp text-white [&_svg]:size-4">
             <HugeiconsIcon icon={WhatsappIcon} strokeWidth={2} />
           </span>
           <span className="min-w-0 flex-1 group-hover:underline group-hover:underline-offset-2">

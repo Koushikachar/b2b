@@ -1,12 +1,15 @@
 "use server";
 
-import { revalidatePath, revalidateTag } from "next/cache";
+import { revalidatePath, updateTag } from "next/cache";
 import { requireUser, getVerifiedSupplierId } from "@/lib/auth/guard";
 import {
   MAX_PRODUCT_IMAGES,
   MIN_PRODUCT_IMAGES,
   extractYoutubeId,
+  generateSku,
   orderImagePaths,
+  orderImagesByKeys,
+  parseImageOrder,
   productSchema,
   productVariantSchema,
   resolvePrimaryImagePath,
@@ -16,6 +19,8 @@ import { defaultSeoDescription, defaultSeoTitle } from "@/lib/supplier/rich-text
 import { sanitizeRichText } from "@/lib/supplier/sanitize";
 import { indexProductImages } from "@/lib/ai/index-product-image";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { CATALOGUE_TAGS } from "@/lib/catalogue-tags";
+import { getDashboardStore } from "@/lib/supplier/dashboard-store";
 
 export type ProductActionState = {
   ok: boolean;
@@ -24,6 +29,17 @@ export type ProductActionState = {
 };
 
 const initialState: ProductActionState = { ok: false, message: "" };
+
+/**
+ * Storefront caches that list products: listings, prices, category counts and
+ * the home rows. `updateTag` (not stale-while-revalidate `revalidateTag`)
+ * expires them now, so the very next page load shows the change without a
+ * manual refresh.
+ */
+function refreshCatalogue(): void {
+  for (const tag of CATALOGUE_TAGS) updateTag(tag);
+  revalidatePath("/supplier/dashboard/products");
+}
 
 function boolOf(v: FormDataEntryValue | null): boolean {
   return v === "on" || v === "true" || v === "1";
@@ -171,10 +187,13 @@ function parseVariants(raw: string | null): ParsedVariant[] | { error: string } 
     if (!parsed.success) {
       return { error: `Variant ${i + 1}: ${parsed.error.issues[0]?.message ?? "invalid."}` };
     }
-    const sku = parsed.data.seller_sku.toUpperCase();
+    const sku = parsed.data.seller_sku ? parsed.data.seller_sku.toUpperCase() : generateSku("V");
     if (seen.has(sku)) return { error: `Variant ${i + 1}: duplicate SKU.` };
     seen.add(sku);
     const attrs: Record<string, string> = {};
+    for (const [key, value] of Object.entries(parsed.data.attrs ?? {})) {
+      if (key && value) attrs[key] = value;
+    }
     if (parsed.data.attr_key && parsed.data.attr_value) {
       attrs[parsed.data.attr_key] = parsed.data.attr_value;
     }
@@ -225,6 +244,19 @@ async function collectSeoFile(
   const err = await validateProductImageFile(raw);
   if (err) return { error: `Search image: ${err}` };
   return { seoFile: raw };
+}
+
+/**
+ * Final image order: the supplier's drag-and-drop arrangement when sent,
+ * otherwise the legacy "primary first" ordering.
+ */
+function finalImageOrder(formData: FormData, keptPaths: string[], newPaths: string[]): string[] {
+  const keys = parseImageOrder(formData.get("image_order"));
+  if (keys.length > 0) return orderImagesByKeys(keys, keptPaths, newPaths);
+  return orderImagePaths(
+    [...keptPaths, ...newPaths],
+    resolvePrimaryImagePath(String(formData.get("primary_image") ?? ""), keptPaths, newPaths),
+  );
 }
 
 function seoText(v: string | undefined | null): string | null {
@@ -311,19 +343,29 @@ export async function createProduct(
   const seoChoice = await collectSeoFile(formData);
   if ("error" in seoChoice) return { ok: false, message: seoChoice.error };
 
-  const sku = parsed.data.seller_sku.toUpperCase();
-  const { data: skuClash } = await supabase
-    .from("products")
-    .select("id")
-    .eq("supplier_id", supplierId)
-    .eq("seller_sku", sku)
-    .maybeSingle();
-  if (skuClash) return { ok: false, message: "You already use this SKU on another product." };
+  // SKU is optional: a blank SKU gets a generated, collision-free one.
+  const sku = parsed.data.seller_sku ? parsed.data.seller_sku.toUpperCase() : generateSku();
+  if (parsed.data.seller_sku) {
+    const { data: skuClash } = await supabase
+      .from("products")
+      .select("id")
+      .eq("supplier_id", supplierId)
+      .eq("seller_sku", sku)
+      .maybeSingle();
+    if (skuClash) return { ok: false, message: "You already use this SKU on another product." };
+  }
 
   const youtubeUrl = parsed.data.youtube_url?.trim() ? parsed.data.youtube_url.trim() : null;
   const youtubeId = youtubeUrl ? extractYoutubeId(youtubeUrl) : null;
 
-  const storeId = (formData.get("store_id") as string | null) || null;
+  // The form says which store the product is for; it must be one of this
+  // account's stores (never trust the posted id).
+  const requestedStore = (formData.get("store_id") as string | null) || null;
+  const allowedStores = (await getDashboardStore()).stores.map((s) => s.id);
+  const storeId = requestedStore && allowedStores.includes(requestedStore) ? requestedStore : null;
+  if (requestedStore && !storeId) {
+    return { ok: false, message: "You can't add products to that store." };
+  }
 
   const { data: product, error: insertError } = await supabase
     .from("products")
@@ -334,7 +376,7 @@ export async function createProduct(
       title: parsed.data.title.trim(),
       description: sanitizeRichText(parsed.data.description),
       seller_sku: sku,
-      hsn_code: parsed.data.hsn_code.trim(),
+      hsn_code: parsed.data.hsn_code || null,
       gst_rate: parsed.data.gst_rate,
       carton_units: parsed.data.carton_units,
       carton_dimensions: parsed.data.carton_dimensions?.trim()
@@ -396,10 +438,7 @@ export async function createProduct(
 
   const { error: imageRowsError } = await supabase.rpc("replace_product_images", {
     p_product_id: product.id,
-    p_paths: orderImagePaths(
-      uploadedPaths,
-      resolvePrimaryImagePath(String(formData.get("primary_image") ?? ""), [], uploadedPaths),
-    ),
+    p_paths: finalImageOrder(formData, [], uploadedPaths),
   });
   if (imageRowsError) {
     console.error("createProduct image rows failed:", imageRowsError);
@@ -431,7 +470,7 @@ export async function createProduct(
 
   await indexImagesForSearch(product.id);
 
-  revalidatePath("/supplier/dashboard/products");
+  refreshCatalogue();
   if (boolOf(formData.get("auto_submit"))) {
     const res = await submitForApproval(supabase, supplierId, product.id);
     if (!res.ok) return { ok: false, message: res.message, productId: product.id };
@@ -542,7 +581,7 @@ const removedPaths = parseRemovedPaths(String(formData.get("removed_image_paths"
       category_id: parsed.data.category_id,
       title: parsed.data.title.trim(),
       description: sanitizeRichText(parsed.data.description),
-      hsn_code: parsed.data.hsn_code.trim(),
+      hsn_code: parsed.data.hsn_code || null,
       gst_rate: parsed.data.gst_rate,
       carton_units: parsed.data.carton_units,
       carton_dimensions: parsed.data.carton_dimensions?.trim()
@@ -602,14 +641,7 @@ const removedPaths = parseRemovedPaths(String(formData.get("removed_image_paths"
 
   const { error: imageRowsError } = await supabase.rpc("replace_product_images", {
     p_product_id: productId,
-    p_paths: orderImagePaths(
-      [...keptPaths, ...newPaths],
-      resolvePrimaryImagePath(
-        String(formData.get("primary_image") ?? ""),
-        keptPaths,
-        newPaths,
-      ),
-    ),
+    p_paths: finalImageOrder(formData, keptPaths, newPaths),
   });
   if (imageRowsError) {
     await removeStoredPaths(supabase, newPaths);
@@ -631,9 +663,7 @@ const removedPaths = parseRemovedPaths(String(formData.get("removed_image_paths"
 
   await indexImagesForSearch(productId);
 
-  revalidatePath("/supplier/dashboard/products");
-  revalidateTag("products", "max");
-  revalidateTag("prices", "max");
+  refreshCatalogue();
   revalidatePath("/products");
   revalidatePath(`/products/${productId}`);
   if (boolOf(formData.get("auto_submit")) && existing.status !== "approved") {
@@ -781,7 +811,7 @@ export async function submitProduct(productId: string): Promise<ProductActionSta
     console.error("submitProduct failed:", error);
     return { ok: false, message: rpcMessage(error, "Could not submit. Try again.") };
   }
-  revalidatePath("/supplier/dashboard/products");
+  refreshCatalogue();
   revalidatePath("/admin/dashboard/products");
   return { ok: true, message: "Published." };
 }
@@ -850,10 +880,8 @@ export async function deleteProduct(productId: string): Promise<ProductActionSta
       .remove(images.map((i) => i.path as string));
     if (storageError) console.error("deleteProduct storage cleanup failed:", storageError);
   }
-  revalidatePath("/supplier/dashboard/products");
+  refreshCatalogue();
   // A live product disappears from the storefront too.
-  revalidateTag("products", "max");
-  revalidateTag("prices", "max");
   revalidatePath("/products");
   revalidatePath(`/products/${productId}`);
   return { ok: true, message: "Deleted." };
@@ -887,9 +915,7 @@ async function setHidden(productId: string, hidden: boolean): Promise<ProductAct
     console.error(`${hidden ? "hide" : "unhide"}Product failed:`, error);
     return { ok: false, message: "Could not update the listing. Try again." };
   }
-  revalidatePath("/supplier/dashboard/products");
-  revalidateTag("products", "max");
-  revalidateTag("prices", "max");
+  refreshCatalogue();
   revalidatePath("/products");
   revalidatePath(`/products/${productId}`);
   return {
@@ -904,4 +930,37 @@ export async function hideProduct(productId: string): Promise<ProductActionState
 
 export async function unhideProduct(productId: string): Promise<ProductActionState> {
   return setHidden(productId, false);
+}
+
+/** Stock toggle on the products list: on = in stock, off = out of stock. */
+export async function setProductInStock(
+  productId: string,
+  inStock: boolean,
+): Promise<ProductActionState> {
+  const { supabase, user } = await requireUser();
+
+  const supplierId = await getVerifiedSupplierId(supabase, user.id);
+  if (!supplierId) return { ok: false, message: "Only suppliers can manage products." };
+
+  const { error, data } = await supabase
+    .from("products")
+    .update({ is_out_of_stock: !inStock })
+    .eq("id", productId)
+    .eq("supplier_id", supplierId)
+    .select("id");
+  if (error) {
+    console.error("setProductInStock failed:", error);
+    return {
+      ok: false,
+      message:
+        error.code === "PGRST204" || error.code === "42703"
+          ? "Stock status needs the latest database migration. Run `npm run db:push`."
+          : "Could not update stock status. Try again.",
+    };
+  }
+  if (!data || data.length === 0) return { ok: false, message: "Product not found." };
+
+  refreshCatalogue();
+  revalidatePath(`/products/${productId}`);
+  return { ok: true, message: inStock ? "Marked in stock." : "Marked out of stock." };
 }

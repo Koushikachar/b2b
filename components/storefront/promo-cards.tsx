@@ -11,6 +11,7 @@ import {
 import { CardAddButton } from "@/components/storefront/card-add-button"
 import { ProductImage } from "@/components/storefront/product-image"
 import type { ProductCardData } from "@/components/storefront/product-card"
+import { discountPercent } from "@/lib/format"
 
 /** Slide width: one card + a peek of the next on phones, fixed on desktop. */
 export const SLIDE_CLASS =
@@ -28,25 +29,37 @@ function thumbUrl(product: ProductCardData): string | null {
     ? publicTransformedImageUrl("product_images", first.path, {
         width: 160,
         height: 160,
-        fit: "cover",
+        fit: "contain",
       })
     : null
 }
 
+/** Price column: MRP struck through above the price. */
 function PriceTag({ product }: { product: ProductCardData }) {
-  return product.pricing ? (
-    <span className="text-base leading-none font-extrabold tracking-tight text-primary tabular-nums">
-      {formatPrice(product.pricing.customer_price)}
+  if (!product.pricing) {
+    return <span className="text-[11px] font-medium text-muted-foreground">On request</span>
+  }
+  const price = product.pricing.customer_price
+  const mrp = product.mrp ?? null
+  const off = discountPercent(mrp, price)
+  return (
+    <span className="flex flex-col items-end leading-none tabular-nums">
+      {off > 0 && mrp != null ? (
+        <span className="text-xs text-muted-foreground line-through">
+          <span className="sr-only">MRP </span>
+          {formatPrice(mrp)}
+        </span>
+      ) : null}
+      <span className="mt-0.5 text-base font-extrabold tracking-tight text-primary">
+        {formatPrice(price)}
+      </span>
     </span>
-  ) : (
-    <span className="text-[11px] font-medium text-muted-foreground">On request</span>
   )
 }
 
 /**
- * Wide cards (>= 18rem, i.e. most phones and desktop) use the mockup layout
- * with price + ADD in a right column. On very narrow phones the price moves
- * under the title so the product name keeps its width.
+ * Mockup row: thumbnail, name + MOQ, ADD, then the price column. On very
+ * narrow cards (< 18rem) the price moves under the name so it keeps its width.
  */
 function PromoProductRow({
   product,
@@ -74,19 +87,22 @@ function PromoProductRow({
             {product.title}
           </span>
           <span className="mt-0.5 block truncate text-xs text-muted-foreground">
-            MOQ {product.moq} {product.unit}
+            MOQ {product.moq}
           </span>
-          <span className="mt-1 block @[18rem]:hidden">
+          <span className="mt-1 block @[18rem]:hidden [&>span]:items-start">
             <PriceTag product={product} />
           </span>
         </span>
       </Link>
-      <div className="flex shrink-0 flex-col items-end gap-1.5">
-        <span className="hidden @[18rem]:block">
-          <PriceTag product={product} />
-        </span>
-        <CardAddButton productId={product.id} moq={product.moq} compact />
-      </div>
+      <CardAddButton
+        productId={product.id}
+        moq={product.moq}
+        compact
+        outOfStock={product.is_out_of_stock}
+      />
+      <span className="hidden w-14 shrink-0 @[18rem]:block">
+        <PriceTag product={product} />
+      </span>
     </li>
   )
 }

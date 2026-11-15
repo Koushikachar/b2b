@@ -1,5 +1,5 @@
-import { createClient } from "@/lib/supabase/server"
 import {
+  getCachedDealsStoreId,
   getCachedPromoCollections,
   getCachedPromoEvents,
 } from "@/lib/storefront-cache"
@@ -23,13 +23,7 @@ import {
  * slider. Data is one cached read + one cached event lookup.
  */
 export async function SelectPromotionalCollections() {
-  const supabase = await createClient()
-  const { data: selectStore } = await supabase
-    .from("stores")
-    .select("id")
-    .eq("slug", "d2h-select")
-    .maybeSingle()
-  const selectStoreId = (selectStore?.id as string | null) ?? null
+  const selectStoreId = await getCachedDealsStoreId()
 
   const [collections, events] = await Promise.all([
     getCachedPromoCollections(selectStoreId),

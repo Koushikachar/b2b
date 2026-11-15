@@ -19,11 +19,13 @@ export function CardAddButton({
   productId,
   moq,
   compact = false,
+  outOfStock = false,
 }: {
   productId: string;
   moq: number;
   /** Small "ADD" pill-rect used by promo slider rows. */
   compact?: boolean;
+  outOfStock?: boolean;
 }) {
   const router = useRouter();
   const [state, action, pending] = useActionState(addToCart, initialState);
@@ -36,6 +38,20 @@ export function CardAddButton({
       toast.add({ type: "error", title: "Could not add to cart", description: state.message });
     }
   }, [state, router]);
+
+  if (outOfStock) {
+    return (
+      <span
+        className={
+          compact
+            ? "inline-flex h-8 shrink-0 items-center rounded-lg border border-border bg-muted px-2 text-[11px] font-semibold text-muted-foreground"
+            : "inline-flex h-9 w-full items-center justify-center rounded-md border border-border bg-muted text-xs font-semibold text-muted-foreground"
+        }
+      >
+        Out of stock
+      </span>
+    );
+  }
 
   return (
     <form action={action} className={compact ? "shrink-0" : "w-full"}>
