@@ -1,6 +1,8 @@
+import { useState } from "react";
 import {
   Field,
   FieldDescription,
+  FieldError,
   FieldGroup,
   FieldLabel,
   FieldLegend,
@@ -92,6 +94,73 @@ export function ProductInformationSection({
   const weightInput = formValues.has("carton_weight_input") ? v("carton_weight_input") : v("carton_weight_kg");
   const weightKg = toKg(weightInput, weightUnit);
 
+  const [touched, setTouched] = useState<Set<string>>(new Set());
+  const touch = (id: string) =>
+    setTouched((prev) => (prev.has(id) ? prev : new Set(prev).add(id)));
+
+  const title = v("title").trim();
+  const titleError =
+    title === ""
+      ? touched.has("title")
+        ? "Required."
+        : null
+      : title.length < 10
+        ? "Title needs at least 10 characters."
+        : null;
+
+  const category = v("category_id").trim();
+  const categoryError =
+    category === "" ? (touched.has("category_id") ? "Required." : null) : null;
+
+  const sku = v("seller_sku").trim();
+  const skuError =
+    sku === ""
+      ? touched.has("seller_sku")
+        ? "Required."
+        : null
+      : !/^[A-Za-z0-9-_]{3,30}$/i.test(sku)
+        ? "SKU: 3–30 chars, letters/numbers/-/_ ."
+        : null;
+
+  const hsn = v("hsn_code").trim();
+  const hsnError =
+    hsn === ""
+      ? touched.has("hsn_code")
+        ? "Required."
+        : null
+      : !/^\d{4,8}$/.test(hsn)
+        ? "HSN must be 4–8 digits."
+        : null;
+
+  const gst = v("gst_rate").trim();
+  const gstError =
+    gst === "" ? (touched.has("gst_rate") ? "Required." : null) : null;
+
+  const unit = v("unit").trim() || "pcs";
+  const unitError = !["pcs", "kg", "box", "mtr", "ltr"].includes(unit)
+    ? "Pick a valid unit."
+    : null;
+
+  const priceRaw = v("price_per_unit").trim();
+  const price = Number(priceRaw);
+  const priceError =
+    priceRaw === ""
+      ? touched.has("price_per_unit")
+        ? "Required."
+        : null
+      : !Number.isFinite(price) || price <= 0
+        ? "Price must be positive."
+        : null;
+
+  const descError =
+    descriptionLength === 0
+      ? touched.has("description")
+        ? "Required."
+        : null
+      : descriptionLength < DESCRIPTION_MIN_TEXT_CHARS
+        ? `Description needs at least ${DESCRIPTION_MIN_TEXT_CHARS} characters of text.`
+        : null;
+
   return (
     <FormSection
       id="product-information"
@@ -102,20 +171,20 @@ export function ProductInformationSection({
         <FieldLegend>Listing</FieldLegend>
         <FieldGroup>
           <Field>
-            <FieldLabel htmlFor="title">Product title</FieldLabel>
-            <Input id="title" name="title" required minLength={10} maxLength={140} aria-invalid={invalidFor("title")} value={v("title")} onChange={(e) => onValueChange("title", e.target.value)} placeholder="Cotton school socks, ankle length" />
+            <FieldLabel htmlFor="title">Product title <span className="text-destructive">*</span></FieldLabel>
+            <Input id="title" name="title" required minLength={10} maxLength={140} aria-invalid={invalidFor("title") || !!titleError} value={v("title")} onChange={(e) => onValueChange("title", e.target.value)} onBlur={() => touch("title")} placeholder="Cotton school socks, ankle length" />
             <FieldDescription>10–140 characters.</FieldDescription>
-            {errorFor("title")}
+            {titleError ? <FieldError>{titleError}</FieldError> : errorFor("title")}
           </Field>
           <Field>
-            <FieldLabel htmlFor="category_id">Category</FieldLabel>
-            <NativeSelect id="category_id" name="category_id" required aria-invalid={invalidFor("category_id")} value={v("category_id")} onChange={(e) => onValueChange("category_id", e.target.value)}>
+            <FieldLabel htmlFor="category_id">Category <span className="text-destructive">*</span></FieldLabel>
+            <NativeSelect id="category_id" name="category_id" required aria-invalid={invalidFor("category_id") || !!categoryError} value={v("category_id")} onChange={(e) => onValueChange("category_id", e.target.value)} onBlur={() => touch("category_id")}>
               <NativeSelectOption value="" disabled>Pick a category</NativeSelectOption>
               {categories.map((c) => (
                 <NativeSelectOption key={c.id} value={c.id}>{c.name}</NativeSelectOption>
               ))}
             </NativeSelect>
-            {errorFor("category_id")}
+            {categoryError ? <FieldError>{categoryError}</FieldError> : errorFor("category_id")}
           </Field>
         </FieldGroup>
       </FieldSet>
@@ -132,14 +201,14 @@ export function ProductInformationSection({
             {skuDuplicate === false && v("seller_sku").trim() !== "" ? (
               <p className="text-sm text-success">SKU is available.</p>
             ) : null}
-            {errorFor("seller_sku")}
+            {skuError ? <FieldError>{skuError}</FieldError> : errorFor("seller_sku")}
           </Field>
           <FieldGroup className="grid gap-7 sm:grid-cols-2">
             <Field>
               <FieldLabel htmlFor="hsn_code">HSN code (optional)</FieldLabel>
               <Input id="hsn_code" name="hsn_code" pattern="\d{4,8}" inputMode="numeric" aria-invalid={invalidFor("hsn_code")} value={v("hsn_code")} onChange={(e) => onValueChange("hsn_code", e.target.value)} placeholder="6115" />
               <FieldDescription>4–8 digits, as printed on your GST invoice.</FieldDescription>
-              {errorFor("hsn_code")}
+              {hsnError ? <FieldError>{hsnError}</FieldError> : errorFor("hsn_code")}
             </Field>
             <Field>
               <FieldLabel htmlFor="gst_rate">GST rate (optional)</FieldLabel>
@@ -150,7 +219,7 @@ export function ProductInformationSection({
                 ))}
               </NativeSelect>
               <FieldDescription>Applied on top of the base price.</FieldDescription>
-              {errorFor("gst_rate")}
+              {gstError ? <FieldError>{gstError}</FieldError> : errorFor("gst_rate")}
             </Field>
           </FieldGroup>
         </FieldGroup>
@@ -232,7 +301,7 @@ export function ProductInformationSection({
       </FieldSet>
       <FieldSet className="col-span-full grid gap-4">
         <Field>
-          <FieldLabel htmlFor="description">Description</FieldLabel>
+          <FieldLabel htmlFor="description">Description <span className="text-destructive">*</span></FieldLabel>
           <input type="hidden" name="description" value={v("description")} />
           <RichTextEditor
             id="description"
@@ -247,7 +316,7 @@ export function ProductInformationSection({
           <p className={cn("text-xs tabular-nums", descriptionLength >= DESCRIPTION_MIN_TEXT_CHARS ? "text-success" : "text-muted-foreground")}>
             {descriptionLength} / {DESCRIPTION_MIN_TEXT_CHARS} characters of text
           </p>
-          {errorFor("description")}
+          {descError ? <FieldError>{descError}</FieldError> : errorFor("description")}
         </Field>
       </FieldSet>
     </FormSection>
