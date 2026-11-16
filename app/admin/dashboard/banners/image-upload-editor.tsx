@@ -51,6 +51,10 @@ export function ImageUploadEditor({
   const [imageUrl, setImageUrl] = React.useState<string | null>(null);
   const [crop, setCrop] = React.useState<CropState>(initialCrop);
   const [zoom, setZoom] = React.useState(1);
+  // The uploaded image's own shape: the crop frame follows it, so at zoom 1
+  // the whole image is kept. The storefront shows any shape whole.
+  const [imageAspect, setImageAspect] = React.useState<number | null>(null);
+  const cropAspect = imageAspect ?? aspect;
   const [outputWidth, setOutputWidth] = React.useState<number>(OUTPUT_WIDTHS[0]);
   const [appliedPreview, setAppliedPreview] = React.useState<string | null>(null);
   const [applying, setApplying] = React.useState(false);
@@ -91,6 +95,7 @@ export function ImageUploadEditor({
     setAppliedPreview(null);
     setCrop(initialCrop);
     setZoom(1);
+    setImageAspect(null);
     setError(null);
     setImageUrl(URL.createObjectURL(file));
     setStatus("editing");
@@ -124,7 +129,7 @@ export function ImageUploadEditor({
       const img = await loadImage(url);
       const canvas = document.createElement("canvas");
       canvas.width = outputWidth;
-      canvas.height = Math.max(1, Math.round(outputWidth / aspect));
+      canvas.height = Math.max(1, Math.round(outputWidth / cropAspect));
       const ctx = canvas.getContext("2d");
       if (!ctx) throw new Error("Canvas not supported in this browser.");
       ctx.drawImage(
@@ -176,14 +181,13 @@ export function ImageUploadEditor({
       {status === "ready" && appliedPreview ? (
         <div className="flex flex-col gap-2">
           <FieldDescription>
-            Preview at the storefront banner ratio:
+            Your image (it covers its box on the site):
           </FieldDescription>
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img loading="lazy" decoding="async"
             src={appliedPreview}
-            alt="Cropped banner preview"
-            className="w-full rounded-xl border border-border object-cover"
-            style={{ aspectRatio: String(aspect) }}
+            alt="Banner preview"
+            className="max-h-96 w-full rounded-xl border border-border bg-muted object-contain"
           />
           <div className="flex gap-2">
             <Button type="button" variant="outline" size="sm" onClick={openPicker}>
@@ -197,19 +201,17 @@ export function ImageUploadEditor({
       ) : status === "editing" && imageUrl ? (
         <div className="flex flex-col gap-2">
           <FieldLabel htmlFor="banner-image-editor">Frame the image</FieldLabel>
-          <div
-            className="relative w-full overflow-hidden rounded-xl border border-border bg-muted"
-            style={{ aspectRatio: String(aspect) }}
-          >
+          <div className="relative h-80 w-full overflow-hidden rounded-xl border border-border bg-muted">
             <Cropper
               image={imageUrl}
               crop={crop}
               zoom={zoom}
               minZoom={1}
               maxZoom={3}
-              aspect={aspect}
+              aspect={cropAspect}
               objectFit="contain"
               showGrid
+              onMediaLoaded={(media) => setImageAspect(media.naturalWidth / media.naturalHeight)}
               onCropChange={setCrop}
               onZoomChange={setZoom}
               onCropComplete={(_area, areaPixels) => {
@@ -254,9 +256,9 @@ export function ImageUploadEditor({
             </div>
           </div>
           <FieldDescription>
-            Drag to reposition and zoom to frame the banner. The crop is locked
-            to the selected banner ratio, so the finished image fills the
-            storefront slot exactly.
+            The whole image is kept in its own shape and covers its box on
+            every device. Zoom in only if you
+            want to crop it.
           </FieldDescription>
         </div>
       ) : showStored ? (
@@ -266,8 +268,7 @@ export function ImageUploadEditor({
           <img loading="lazy" decoding="async"
             src={currentImageUrl}
             alt="Current banner"
-            className="w-full rounded-xl border border-border object-cover"
-            style={{ aspectRatio: String(aspect) }}
+            className="max-h-96 w-full rounded-xl border border-border bg-muted object-contain"
           />
           <div>
             <Button type="button" variant="outline" size="sm" onClick={openPicker}>
@@ -281,7 +282,7 @@ export function ImageUploadEditor({
             Choose image
           </Button>
           <FieldDescription>
-            JPG, PNG or WEBP, max 5 MB. You can crop and resize it here.
+            JPG, PNG or WEBP, max 5 MB. Any shape works.
           </FieldDescription>
         </div>
       )}

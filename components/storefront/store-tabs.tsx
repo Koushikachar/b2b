@@ -52,7 +52,7 @@ function CardBody({ tab, soon }: { tab: StoreTab; soon: boolean }) {
         {tab.name}
       </span>
       {soon ? (
-        <span className="absolute top-1.5 right-1.5 rounded-md bg-card/90 px-1 text-[9px] font-bold tracking-wide text-muted-foreground uppercase">
+        <span className="absolute top-1.5 right-1.5 rounded-md bg-card/90 px-1 text-[10px] font-bold tracking-wide text-foreground/70 uppercase">
           Soon
         </span>
       ) : null}
