@@ -41,7 +41,7 @@ export const SLOT_PLACEMENT: Record<BannerSlot, string> = {
   under_99: "Replaces the Under ₹99 shortcut tile on the home page",
   under_199: "Replaces the Under ₹199 shortcut tile on the home page",
   popup_desktop:
-    "Pops up 5s after a signed-out visitor opens the home page, on tablets and desktops. Also used on phones if no mobile popup is uploaded",
+    "Pops up 3s after anyone opens the home page, on tablets and desktops. Also used on phones if no mobile popup is uploaded",
   popup_mobile:
     "Same popup on phones. Also used on desktop if no desktop popup is uploaded",
 };

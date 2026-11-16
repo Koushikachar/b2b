@@ -5,8 +5,6 @@ import { getCachedHomeBanners, getCachedStoreId } from "@/lib/storefront-cache"
 import { publicImageUrl } from "@/lib/storage"
 import { getBannerOutputSize } from "@/lib/admin/banner-images"
 import type { BannerSlot } from "@/lib/admin/banner-slots"
-import { createClient } from "@/lib/supabase/server"
-import { getAuthUser } from "@/lib/auth/session"
 import { AllProductsSection } from "@/components/storefront/home-sections"
 import { SearchMegaMenuSection } from "@/components/storefront/search-mega-menu-section"
 import { HomeBannerActions } from "@/components/storefront/home-banner-actions"
@@ -46,16 +44,12 @@ const DEFAULT_POPUP = {
 }
 
 /**
- * The offer popup is for new visitors; signed-in buyers and sellers skip it.
- * Images come from Dashboard → Banners (popup_desktop / popup_mobile); one
- * upload covers every device. Without either, the built-in art shows.
+ * Offer popup for every visitor, signed in or not. Images come from
+ * Dashboard → Banners (popup_desktop / popup_mobile); one upload covers every
+ * device. Without either, the built-in art shows.
  */
-async function GuestOfferPopup() {
-  const [user, banners] = await Promise.all([
-    createClient().then(getAuthUser),
-    getCachedHomeBanners() as Promise<BannerRow[]>,
-  ])
-  if (user) return null
+async function OfferPopup() {
+  const banners = (await getCachedHomeBanners()) as BannerRow[]
 
   const desktopRow = banners.find((b) => b.slot === "popup_desktop")
   const mobileRow = banners.find((b) => b.slot === "popup_mobile")
@@ -103,7 +97,7 @@ export default async function HomePage({
 
       <HomeBannerActions />
       <Suspense fallback={null}>
-        <GuestOfferPopup />
+        <OfferPopup />
       </Suspense>
 
       <Suspense fallback={<TopCategoriesSkeleton />}>

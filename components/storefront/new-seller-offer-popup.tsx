@@ -9,16 +9,16 @@ import { Button } from "@/components/ui/button"
 import { Dialog, DialogClose, DialogContent, DialogTitle } from "@/components/ui/dialog"
 
 const SEEN_KEY = "d2h:new-seller-offer-seen"
-const DELAY_MS = 5000
+const DELAY_MS = 3000
 
 export type PopupImage = { src: string; width: number; height: number }
 
 /**
- * Offer popup: opens 5s after landing, once per browser session. Phones get
+ * Offer popup: opens 3s after landing, once per browser session. Phones get
  * the portrait image, md and up the landscape one; either may be the same
  * image (Dashboard → Banners with only one uploaded). The image is sized to
- * fit the screen, so any shape works on any device.
- * Rendered for signed-out visitors only (see the home page).
+ * fit the screen, so any shape works on any device. Shown to every visitor,
+ * signed in or not.
  */
 export function NewSellerOfferPopup({
   desktop,
