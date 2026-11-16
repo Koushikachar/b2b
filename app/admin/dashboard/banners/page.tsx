@@ -49,7 +49,8 @@ function BannerPreview({
   const media = (
     <div
       className="relative w-full overflow-hidden rounded-lg bg-muted"
-      style={{ aspectRatio: String(aspect) }}
+      // Portrait slots (mobile popup) would be page-tall at full card width.
+      style={{ aspectRatio: String(aspect), maxWidth: aspect < 1 ? "18rem" : undefined }}
     >
       {imagePath !== "pending" ? (
         <>

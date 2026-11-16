@@ -1,7 +1,10 @@
 import { Suspense } from "react"
 import type { Metadata } from "next"
 import type { CatalogueSearchParams } from "@/lib/catalogue"
-import { getCachedStoreId } from "@/lib/storefront-cache"
+import { getCachedHomeBanners, getCachedStoreId } from "@/lib/storefront-cache"
+import { publicImageUrl } from "@/lib/storage"
+import { getBannerOutputSize } from "@/lib/admin/banner-images"
+import type { BannerSlot } from "@/lib/admin/banner-slots"
 import { createClient } from "@/lib/supabase/server"
 import { getAuthUser } from "@/lib/auth/session"
 import { AllProductsSection } from "@/components/storefront/home-sections"
@@ -35,10 +38,42 @@ export const metadata: Metadata = {
   },
 }
 
-/** The starter offer is for new visitors; signed-in buyers and sellers skip it. */
+type BannerRow = { slot: string; title: string | null; link_url: string | null; image_path: string }
+
+const DEFAULT_POPUP = {
+  desktop: { src: "/promos/new-seller-offer.webp", width: 1200, height: 600 },
+  mobile: { src: "/promos/new-seller-offer-mobile.webp", width: 900, height: 1599 },
+}
+
+/**
+ * The offer popup is for new visitors; signed-in buyers and sellers skip it.
+ * Images come from Dashboard → Banners (popup_desktop / popup_mobile); one
+ * upload covers every device. Without either, the built-in art shows.
+ */
 async function GuestOfferPopup() {
-  const user = await getAuthUser(await createClient())
-  return user ? null : <NewSellerOfferPopup />
+  const [user, banners] = await Promise.all([
+    createClient().then(getAuthUser),
+    getCachedHomeBanners() as Promise<BannerRow[]>,
+  ])
+  if (user) return null
+
+  const desktopRow = banners.find((b) => b.slot === "popup_desktop")
+  const mobileRow = banners.find((b) => b.slot === "popup_mobile")
+  const asImage = (row: BannerRow) => {
+    const { width, height } = getBannerOutputSize(row.slot as BannerSlot)
+    return { src: publicImageUrl("banners", row.image_path), width, height }
+  }
+  const desktop = desktopRow ?? mobileRow
+  const mobile = mobileRow ?? desktopRow
+
+  return (
+    <NewSellerOfferPopup
+      desktop={desktop ? asImage(desktop) : DEFAULT_POPUP.desktop}
+      mobile={mobile ? asImage(mobile) : DEFAULT_POPUP.mobile}
+      href={desktop?.link_url || mobile?.link_url || "/products"}
+      alt={desktop?.title || mobile?.title || "Direct2Hub offer"}
+    />
+  )
 }
 
 export default async function HomePage({

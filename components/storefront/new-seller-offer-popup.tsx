@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import Image from "next/image"
+import { getImageProps } from "next/image"
 import Link from "next/link"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { Cancel01Icon } from "@hugeicons/core-free-icons"
@@ -9,13 +9,28 @@ import { Button } from "@/components/ui/button"
 import { Dialog, DialogClose, DialogContent, DialogTitle } from "@/components/ui/dialog"
 
 const SEEN_KEY = "d2h:new-seller-offer-seen"
-const DELAY_MS = 4000
+const DELAY_MS = 5000
+
+export type PopupImage = { src: string; width: number; height: number }
 
 /**
- * Starter-offer pamphlet: opens 4s after landing, once per browser session.
+ * Offer popup: opens 5s after landing, once per browser session. Phones get
+ * the portrait image, md and up the landscape one; either may be the same
+ * image (Dashboard → Banners with only one uploaded). The image is sized to
+ * fit the screen, so any shape works on any device.
  * Rendered for signed-out visitors only (see the home page).
  */
-export function NewSellerOfferPopup() {
+export function NewSellerOfferPopup({
+  desktop,
+  mobile,
+  href,
+  alt,
+}: {
+  desktop: PopupImage
+  mobile: PopupImage
+  href: string
+  alt: string
+}) {
   const [open, setOpen] = useState(false)
 
   useEffect(() => {
@@ -35,19 +50,31 @@ export function NewSellerOfferPopup() {
     return () => clearTimeout(timer)
   }, [])
 
+  const {
+    props: { srcSet: desktopSet },
+  } = getImageProps({ ...desktop, alt, sizes: "768px" })
+  const {
+    props: { srcSet: mobileSet, ...img },
+  } = getImageProps({ ...mobile, alt, sizes: "100vw" })
+
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogContent showCloseButton={false} className="max-w-[calc(100%-2rem)] overflow-hidden p-0 sm:max-w-3xl">
-        <DialogTitle className="sr-only">New Seller Starter Offer</DialogTitle>
-        <Link href="/products" onClick={() => setOpen(false)} className="block">
-          <Image
-            src="/promos/new-seller-offer.webp"
-            alt="New Seller Starter Offer: MOV from ₹2,500, 100% damage protection, 24-hour support, pan India delivery. Shop now"
-            width={1200}
-            height={600}
-            sizes="(min-width: 640px) 768px, 100vw"
-            className="h-auto w-full"
-          />
+      <DialogContent
+        showCloseButton={false}
+        className="w-auto max-w-none gap-0 overflow-hidden p-0 sm:max-w-none"
+      >
+        <DialogTitle className="sr-only">{alt}</DialogTitle>
+        <Link href={href} onClick={() => setOpen(false)} className="block">
+          <picture>
+            <source media="(min-width: 768px)" srcSet={desktopSet} sizes="768px" />
+            {/* Fit inside the viewport whatever the image's shape. */}
+            <img
+              {...img}
+              srcSet={mobileSet}
+              alt={alt}
+              className="block h-auto max-h-[85dvh] w-auto max-w-[calc(100vw-2rem)] md:max-w-3xl"
+            />
+          </picture>
         </Link>
         <DialogClose
           render={<Button variant="outline" size="icon-sm" className="absolute top-2 right-2 bg-white/90 shadow" />}
