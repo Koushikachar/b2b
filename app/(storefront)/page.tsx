@@ -2,10 +2,13 @@ import { Suspense } from "react"
 import type { Metadata } from "next"
 import type { CatalogueSearchParams } from "@/lib/catalogue"
 import { getCachedStoreId } from "@/lib/storefront-cache"
+import { createClient } from "@/lib/supabase/server"
+import { getAuthUser } from "@/lib/auth/session"
 import { AllProductsSection } from "@/components/storefront/home-sections"
 import { SearchMegaMenuSection } from "@/components/storefront/search-mega-menu-section"
 import { HomeBannerActions } from "@/components/storefront/home-banner-actions"
 import { HomeHeroSection } from "@/components/storefront/home-hero"
+import { NewSellerOfferPopup } from "@/components/storefront/new-seller-offer-popup"
 import { TopCategoriesSection } from "@/components/storefront/home-categories"
 import { RecentlyViewedSection } from "@/components/storefront/home-recently-viewed"
 import { FrequentlyBoughtSection } from "@/components/storefront/frequently-bought"
@@ -30,6 +33,12 @@ export const metadata: Metadata = {
       "Source wholesale products across textiles, electronics, chemicals, packaging and more — directly from verified Indian suppliers with live pricing.",
     url: "/",
   },
+}
+
+/** The starter offer is for new visitors; signed-in buyers and sellers skip it. */
+async function GuestOfferPopup() {
+  const user = await getAuthUser(await createClient())
+  return user ? null : <NewSellerOfferPopup />
 }
 
 export default async function HomePage({
@@ -58,6 +67,9 @@ export default async function HomePage({
       </Suspense>
 
       <HomeBannerActions />
+      <Suspense fallback={null}>
+        <GuestOfferPopup />
+      </Suspense>
 
       <Suspense fallback={<TopCategoriesSkeleton />}>
         <TopCategoriesSection />

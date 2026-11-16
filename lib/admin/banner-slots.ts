@@ -38,8 +38,8 @@ export const SLOT_PLACEMENT: Record<BannerSlot, string> = {
   under_199: "Replaces the Under ₹199 shortcut tile on the home page",
 };
 
-// Landscape, like the 2×2 tiles on desktop (shown whole on any screen).
-const UNDER_TILE_ASPECT = 2 / 1;
+// Desktop tile shape (16:5); phones show tiles square, so uploads are shown whole there.
+const UNDER_TILE_ASPECT = 16 / 5;
 
 export const SLOT_ASPECTS: Record<BannerSlot, number> = {
   hero: 12 / 5,

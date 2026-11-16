@@ -103,6 +103,8 @@ export type PromoEventThemeConfig = {
   cardImage: string
   cardImageWidth: number
   cardImageHeight: number
+  /** Home deal card art: `/promos/<homeArt>-mobile.webp` and `-desktop.webp`. */
+  homeArt: string
   heroImage: string
   heroImageWidth: number
   heroImageHeight: number
@@ -117,6 +119,7 @@ export const PROMO_EVENT_THEMES: Record<PromoEventTheme, PromoEventThemeConfig> 
     cardImage: "/promos/light-a-diya.webp",
     cardImageWidth: 640,
     cardImageHeight: 890,
+    homeArt: "diya",
     heroImage: "/promos/diya-lamp.webp",
     heroImageWidth: 560,
     heroImageHeight: 487,
