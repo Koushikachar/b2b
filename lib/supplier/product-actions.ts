@@ -21,6 +21,7 @@ import { indexProductImages } from "@/lib/ai/index-product-image";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { CATALOGUE_TAGS } from "@/lib/catalogue-tags";
 import { getDashboardStore } from "@/lib/supplier/dashboard-store";
+import { optimizeImageUpload } from "@/lib/image-optimize";
 
 export type ProductActionState = {
   ok: boolean;
