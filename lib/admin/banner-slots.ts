@@ -35,25 +35,25 @@ export const SLOT_LABELS: Record<BannerSlot, string> = {
 export const SLOT_PLACEMENT: Record<BannerSlot, string> = {
   hero: "Rotates at the top of the home page",
   promo: "Single strip under the category grid",
-  deal: "Card left of the Under ₹ tiles (mobile and desktop); replaces the festival artwork while active. Any shape is shown whole",
-  under_9: "Replaces the Under ₹9 shortcut tile on the home page",
-  under_49: "Replaces the Under ₹49 shortcut tile on the home page",
-  under_99: "Replaces the Under ₹99 shortcut tile on the home page",
-  under_199: "Replaces the Under ₹199 shortcut tile on the home page",
+  deal: "Wide card: full width above the Under ₹ tiles on phones, beside them on desktop; replaces the festival artwork while active. One wide image (about 12:5) covers it on every device",
+  under_9: "Under ₹9 tile: square on phones, wide on desktop. One image for every device",
+  under_49: "Under ₹49 tile: square on phones, wide on desktop. One image for every device",
+  under_99: "Under ₹99 tile: square on phones, wide on desktop. One image for every device",
+  under_199: "Under ₹199 tile: square on phones, wide on desktop. One image for every device",
   popup_desktop:
     "Pops up 3s after anyone opens the home page, on tablets and desktops. Also used on phones if no mobile popup is uploaded",
   popup_mobile:
     "Same popup on phones. Also used on desktop if no desktop popup is uploaded",
 };
 
-// Desktop tile shape (16:5); phones show tiles square, so uploads are shown whole there.
+// Desktop tile shape (16:5); on phones tiles are square. Uploads cover the tile either way.
 const UNDER_TILE_ASPECT = 16 / 5;
 
 export const SLOT_ASPECTS: Record<BannerSlot, number> = {
   hero: 12 / 5,
   promo: 1248 / 128,
-  // Portrait card, same shape as the festival artwork (640 × 890).
-  deal: 640 / 890,
+  // Wide card on every device (12:5 on phones, ≈ 2.3:1 beside the tiles on desktop).
+  deal: 12 / 5,
   under_9: UNDER_TILE_ASPECT,
   under_49: UNDER_TILE_ASPECT,
   under_99: UNDER_TILE_ASPECT,

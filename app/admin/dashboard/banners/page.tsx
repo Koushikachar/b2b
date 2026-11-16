@@ -11,7 +11,6 @@ import {
 import { Empty, EmptyDescription, EmptyTitle } from "@/components/ui/empty";
 import { createClient } from "@/lib/supabase/server";
 import { publicImageUrl } from "@/lib/storage";
-import { getBannerOutputSize } from "@/lib/admin/banner-images";
 import {
   BANNER_SLOTS,
   SLOT_ASPECTS,
@@ -27,11 +26,10 @@ import {
 } from "./banner-actions";
 
 const SLOT_HINTS: Record<BannerSlot, string> = Object.fromEntries(
-  BANNER_SLOTS.map((slot) => {
-    const { width, height } = getBannerOutputSize(slot);
-    const where = SLOT_PLACEMENT[slot];
-    return [slot, `${where} (uploaded at ${width} x ${height}).`];
-  }),
+  BANNER_SLOTS.map((slot) => [
+    slot,
+    `${SLOT_PLACEMENT[slot]}. The image covers the box; the preview shows how it will look.`,
+  ]),
 ) as Record<BannerSlot, string>;
 
 function BannerPreview({

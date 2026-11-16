@@ -16,49 +16,56 @@ const FILL_LINK =
   "press absolute inset-0 block focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none focus-visible:ring-inset"
 
 /**
- * Any-shape artwork shown whole: a blurred, enlarged copy fills the frame and
- * the sharp image sits on top uncropped — no empty bands, no cropping.
+ * Admin upload (Dashboard → Banners): one image for every device, covering its
+ * box edge to edge. The deal card is wide on every device, so a wide banner
+ * fills it fully; a shape that differs is trimmed at the edges.
  */
 function Artwork({ src, alt, sizes, priority = false }: { src: string; alt: string; sizes: string; priority?: boolean }) {
   return (
-    <>
-      <Image src={src} alt="" aria-hidden fill sizes={sizes} className="scale-125 object-cover opacity-70 blur-2xl" />
-      <Image
-        src={src}
-        alt={alt}
-        fill
-        priority={priority}
-        sizes={sizes}
-        className="object-contain transition-transform duration-500 group-hover:scale-[1.02]"
-      />
-    </>
+    <Image
+      src={src}
+      alt={alt}
+      fill
+      priority={priority}
+      sizes={sizes}
+      className="object-cover transition-transform duration-500 group-hover:scale-[1.02]"
+    />
   )
 }
 
-/** Pre-resized widths on disk (`/promos/<name>-<layout>-<w>.webp`). */
-const ART_WIDTHS = {
-  tile: { mobile: [128, 256, 480], desktop: [400, 780], sizes: "(min-width: 768px) 28vw, 28vw" },
-  card: { mobile: [192, 384, 690], desktop: [600, 1160], sizes: "(min-width: 768px) 42vw, 36vw" },
+/**
+ * Pre-resized built-in art on disk (`/promos/<name>-<variant>-<w>.webp`). The
+ * deal card is wide on phones too, so it uses the wide (desktop) art there.
+ */
+const ART = {
+  tile: {
+    mobile: { variant: "mobile", widths: [128, 256, 480] },
+    desktop: { variant: "desktop", widths: [400, 780] },
+    sizes: "(min-width: 768px) 28vw, 48vw",
+  },
+  card: {
+    mobile: { variant: "desktop", widths: [600, 1160] },
+    desktop: { variant: "desktop", widths: [600, 1160] },
+    sizes: "(min-width: 768px) 42vw, 100vw",
+  },
 }
 
-const srcSet = (name: string, layout: string, widths: number[]) =>
-  widths.map((w) => `/promos/${name}-${layout}-${w}.webp ${w}w`).join(", ")
+const srcSet = (name: string, { variant, widths }: { variant: string; widths: number[] }) =>
+  widths.map((w) => `/promos/${name}-${variant}-${w}.webp ${w}w`).join(", ")
 
 /**
- * Built-in art drawn for each layout: mobile below md (portrait card, square
- * tiles), desktop from md up (landscape card, wide tiles). Fills the frame;
- * the art already matches it. Served as-is, not through the image optimizer:
- * its q75 re-encode blurred the lettering, so the files are pre-resized with
- * a sharp filter at the widths each screen density needs.
+ * Built-in art for each layout, filling the frame. Served as-is, not through
+ * the image optimizer: its q75 re-encode blurred the lettering, so the files
+ * are pre-resized with a sharp filter at the widths each screen density needs.
  */
-function ResponsiveArt({ name, kind, alt }: { name: string; kind: keyof typeof ART_WIDTHS; alt: string }) {
-  const { mobile, desktop, sizes } = ART_WIDTHS[kind]
+function ResponsiveArt({ name, kind, alt }: { name: string; kind: keyof typeof ART; alt: string }) {
+  const { mobile, desktop, sizes } = ART[kind]
   return (
     <picture>
-      <source media="(min-width: 768px)" srcSet={srcSet(name, "desktop", desktop)} sizes={sizes} />
+      <source media="(min-width: 768px)" srcSet={srcSet(name, desktop)} sizes={sizes} />
       <img
-        src={`/promos/${name}-mobile-${mobile[1]}.webp`}
-        srcSet={srcSet(name, "mobile", mobile)}
+        src={`/promos/${name}-${mobile.variant}-${mobile.widths[1]}.webp`}
+        srcSet={srcSet(name, mobile)}
         sizes={sizes}
         alt={alt}
         fetchPriority="high"
@@ -68,9 +75,11 @@ function ResponsiveArt({ name, kind, alt }: { name: string; kind: keyof typeof A
   )
 }
 
-const DEAL_SIZES = "(min-width: 768px) 42vw, 36vw"
-const TILE_SIZES = "(min-width: 768px) 28vw, 27vw"
+const DEAL_SIZES = ART.card.sizes
+const TILE_SIZES = ART.tile.sizes
 const TILE_ASPECT = "aspect-square md:aspect-16/5"
+// Wide on phones (full width above the tiles); on desktop it stretches to the tiles' height.
+const DEAL_FRAME = "aspect-12/5 md:aspect-auto"
 
 /**
  * Deal card, in priority order: the admin's "Home deal card" banner
@@ -123,35 +132,15 @@ async function DealCard({ banner }: { banner: BannerRow | undefined }) {
   )
 }
 
-/** Price label over an admin-uploaded tile image. */
-function PriceMark({ price }: { price: UnderTilePrice }) {
-  return (
-    <span className="flex flex-col items-start gap-1">
-      <span className="rounded-full bg-white/90 px-2 py-0.5 text-[10px] font-bold tracking-[0.14em] text-brand-700 uppercase">
-        Under
-      </span>
-      <span className="text-[1.75rem] leading-none font-black tracking-tight text-white tabular-nums drop-shadow sm:text-4xl">
-        ₹{price}
-      </span>
-    </span>
-  )
-}
-
 /**
- * Under ₹X tile. With an admin image: the artwork plus a gradient strip that
- * keeps the price readable. Without: the built-in artwork (price is drawn in).
- * Filters this page's D2H Core catalogue in place (an admin-set link goes
- * wherever it points).
+ * Under ₹X tile: the admin's image or the built-in artwork, both carrying the
+ * price in the art. Filters this page's D2H Core catalogue in place (an
+ * admin-set link goes wherever it points).
  */
 function UnderTile({ price, banner }: { price: UnderTilePrice; banner: BannerRow | undefined }) {
   const label = banner?.title ?? `Under ₹${price}`
   const content = banner ? (
-    <>
-      <Artwork src={publicImageUrl("banners", banner.image_path)} alt={label} sizes={TILE_SIZES} />
-      <span className="absolute inset-x-0 bottom-0 bg-linear-to-t from-black/70 via-black/35 to-transparent p-3 pt-8 sm:p-4 sm:pt-10">
-        <PriceMark price={price} />
-      </span>
-    </>
+    <Artwork src={publicImageUrl("banners", banner.image_path)} alt={label} sizes={TILE_SIZES} />
   ) : (
     <ResponsiveArt name={`tile-under-${price}`} kind="tile" alt={label} />
   )
@@ -173,7 +162,7 @@ async function DealsRow() {
 
   return (
     <>
-      <div className={FRAME}>
+      <div className={`${FRAME} ${DEAL_FRAME}`}>
         <DealCard banner={bySlot("deal")} />
       </div>
       <ul className="grid grid-cols-2 gap-2.5 sm:gap-3">
@@ -190,7 +179,7 @@ async function DealsRow() {
 function DealsRowSkeleton() {
   return (
     <>
-      <div className="animate-pulse rounded-2xl bg-brand-100/60" />
+      <div className={`${DEAL_FRAME} animate-pulse rounded-2xl bg-brand-100/60`} />
       <div className="grid grid-cols-2 gap-2.5 sm:gap-3">
         {UNDER_TILE_PRICES.map((price) => (
           <div key={price} className={`${TILE_ASPECT} animate-pulse rounded-2xl bg-muted`} />
@@ -201,14 +190,16 @@ function DealsRowSkeleton() {
 }
 
 /**
- * Homepage deal card + 2×2 "Under ₹X" tiles. Phones: tall card beside square
- * tiles (2:3). Desktop: wide card beside wide 16:5 tiles (3:4). The tiles set
- * the row height; the card stretches to match. Editable in Dashboard → Banners.
+ * Homepage deal card + 2×2 "Under ₹X" tiles. Phones: wide 12:5 card full
+ * width, square tiles below. Desktop: wide card beside wide 16:5 tiles (3:4);
+ * the tiles set the row height and the card stretches to match. The card is
+ * wide everywhere so one wide banner covers it on every device.
+ * Editable in Dashboard → Banners.
  */
 export function HomeBannerActions() {
   return (
     <section aria-label="Deals" className="mx-auto w-full max-w-7xl px-4 py-5">
-      <div className="grid grid-cols-[minmax(0,2fr)_minmax(0,3fr)] gap-2.5 sm:gap-3 md:grid-cols-[minmax(0,3fr)_minmax(0,4fr)] md:gap-4">
+      <div className="grid gap-2.5 sm:gap-3 md:grid-cols-[minmax(0,3fr)_minmax(0,4fr)] md:gap-4">
         <Suspense fallback={<DealsRowSkeleton />}>
           <DealsRow />
         </Suspense>
