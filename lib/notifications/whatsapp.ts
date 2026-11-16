@@ -1,3 +1,5 @@
+import "server-only";
+
 // WhatsApp send provider. Notification-only: the website stays the system of
 // record; this module just tries to hand a short factual message to WhatsApp
 // and reports exactly what came back. Nothing is ever claimed as "sent"

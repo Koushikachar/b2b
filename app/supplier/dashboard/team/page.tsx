@@ -30,10 +30,13 @@ import { LOGIN_PATH } from "@/lib/auth/paths";
 import { requireOwnerCompany } from "@/lib/auth/guard";
 import { TeamAddForm } from "./team-add-form";
 import { TeamRemoveButton } from "./team-remove-button";
+import { TeamRoleSelect } from "./team-role-select";
+import { isMemberRole, type MemberRole } from "@/lib/supplier/permissions";
 
 type MemberRow = {
   id: string;
   email: string;
+  role: string;
   created_at: string;
 };
 
@@ -56,7 +59,7 @@ export default async function SupplierTeamPage() {
 
   const { data: members } = await supabase
     .from("company_members")
-    .select("id, email, created_at")
+    .select("id, email, role, created_at")
     .eq("company_id", companyId)
     .order("created_at", { ascending: true });
 
@@ -80,7 +83,7 @@ export default async function SupplierTeamPage() {
         <CardHeader className="border-b border-border px-5 py-4">
           <CardTitle>Add a team member</CardTitle>
           <CardDescription>
-            Enter their account email. They need an existing account — buyers are upgraded automatically on first visit.
+            Enter their email and pick a role. We email them a sign-in link, or an invite if they are new.
           </CardDescription>
         </CardHeader>
         <CardContent className="px-5 py-5">
@@ -128,7 +131,10 @@ export default async function SupplierTeamPage() {
                         {m.email}
                       </TableCell>
                       <TableCell>
-                        <Badge variant="secondary">staff</Badge>
+                        <TeamRoleSelect
+                          memberId={m.id}
+                          role={(isMemberRole(m.role) ? m.role : "staff") as MemberRole}
+                        />
                       </TableCell>
                       <TableCell className="whitespace-nowrap text-muted-foreground">
                         {formatDate(m.created_at)}

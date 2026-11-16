@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getAuthUser } from "@/lib/auth/session";
 import { LOGIN_PATH } from "@/lib/auth/paths";
 import { getSupplierContext } from "@/lib/auth/guard";
+import { getDashboardStore } from "@/lib/supplier/dashboard-store";
 import { ProductForm } from "../product-form";
 
 export default async function NewSupplierProductPage() {
@@ -20,12 +21,8 @@ export default async function NewSupplierProductPage() {
     .eq("is_active", true)
     .order("sort_order");
 
-  // Products created from the core dashboard belong to D2H Core.
-  const { data: coreStore } = await supabase
-    .from("stores")
-    .select("id")
-    .eq("slug", "d2h-core")
-    .maybeSingle();
+  // New products belong to the store the dashboard is switched to.
+  const { store } = await getDashboardStore();
 
   const options = (categories ?? []).map((c) => ({
     id: c.id as string,
@@ -37,8 +34,8 @@ export default async function NewSupplierProductPage() {
       mode="create"
       categories={options}
       title="Add new product"
-      description="Save as draft, or publish directly to your storefront."
-      storeId={coreStore?.id as string | undefined}
+      description={`Save as draft, or publish directly to ${store?.name ?? "your storefront"}.`}
+      storeId={store?.id}
     />
   );
 }

@@ -1,10 +1,11 @@
 import { Suspense } from "react"
 import type { Metadata } from "next"
 import type { CatalogueSearchParams } from "@/lib/catalogue"
-import { createClient } from "@/lib/supabase/server"
+import { getCachedStoreId } from "@/lib/storefront-cache"
 import { AllProductsSection } from "@/components/storefront/home-sections"
 import { SearchMegaMenuSection } from "@/components/storefront/search-mega-menu-section"
 import { HomeBannerActions } from "@/components/storefront/home-banner-actions"
+import { HomeHeroSection } from "@/components/storefront/home-hero"
 import { TopCategoriesSection } from "@/components/storefront/home-categories"
 import { RecentlyViewedSection } from "@/components/storefront/home-recently-viewed"
 import { FrequentlyBoughtSection } from "@/components/storefront/frequently-bought"
@@ -38,13 +39,8 @@ export default async function HomePage({
 }) {
   const sp = await searchParams
 
-  const supabase = await createClient()
-  const { data: coreStore } = await supabase
-    .from("stores")
-    .select("id")
-    .eq("slug", "d2h-core")
-    .maybeSingle()
-  const coreStoreId = (coreStore?.id as string | null) ?? null
+  // The home page is the D2H Core storefront (cached lookup, no DB round trip).
+  const coreStoreId = await getCachedStoreId("d2h-core")
 
   return (
     <div className="min-h-full bg-white">
@@ -54,6 +50,11 @@ export default async function HomePage({
 
       <Suspense fallback={<SearchHeroSkeleton />}>
         <SearchMegaMenuSection />
+      </Suspense>
+
+      {/* Admin hero banners; reserves no space until one exists. */}
+      <Suspense fallback={null}>
+        <HomeHeroSection />
       </Suspense>
 
       <HomeBannerActions />
@@ -67,11 +68,11 @@ export default async function HomePage({
       </Suspense>
 
       <Suspense fallback={<FrequentlyBoughtSkeleton />}>
-        <FrequentlyBoughtSection />
+        <FrequentlyBoughtSection storeId={coreStoreId} />
       </Suspense>
 
       <Suspense fallback={<RecommendedProductsSkeleton />}>
-        <RecommendedProductsSection />
+        <RecommendedProductsSection storeId={coreStoreId} />
       </Suspense>
 
       <Suspense

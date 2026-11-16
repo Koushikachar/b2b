@@ -37,6 +37,7 @@ export async function RecentlyViewedSection() {
         ? publicTransformedImageUrl("product_images", cover.path, {
             width: 320,
             height: 320,
+            fit: "contain",
           })
         : null,
     }

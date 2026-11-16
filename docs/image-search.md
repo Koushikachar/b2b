@@ -124,7 +124,7 @@ Catalog images that predate the feature need embeddings. The backfill is a
 separate, explicitly invoked script:
 
 ```bash
-pnpm embeddings:backfill
+npm run embeddings:backfill
 ```
 
 It keyset-paginates in batches of `IMAGE_BACKFILL_BATCH_SIZE` (50) and is
@@ -277,21 +277,21 @@ Known limits, stated rather than hidden:
 | `lib/supabase/admin.ts` | Service-role client. Server-only. |
 | `app/api/search/image/route.ts` | Upload endpoint. |
 | `components/storefront/image-search-button.tsx` | Camera button and preview. |
-| `scripts/backfill-product-image-embeddings.ts` | `pnpm embeddings:backfill`. Uses the service when configured, local CLIP otherwise. |
+| `scripts/backfill-product-image-embeddings.ts` | `npm run embeddings:backfill`. Uses the service when configured, local CLIP otherwise. |
 | `services/image-search/` | Standalone inference service (Docker, `/health`, `/embed`). |
 
 ## Tests
 
 ```bash
-pnpm test                                        # everything, offline
-IMAGE_SEARCH_MODEL_TESTS=1 pnpm vitest run tests/image-embeddings.test.ts
+npm test                                        # everything, offline
+IMAGE_SEARCH_MODEL_TESTS=1 npx vitest run tests/image-embeddings.test.ts
 ```
 
 `tests/image-search-db.test.ts` needs the local stack:
 
 ```bash
-pnpm dlx supabase start
-pnpm vitest run tests/image-search-db.test.ts
+npx supabase start
+npx vitest run tests/image-search-db.test.ts
 ```
 
 It skips with a hint when the stack is unreachable, and it uses the same
@@ -300,5 +300,5 @@ project.
 
 Note that `tests/image-embeddings.test.ts` is opt-in because a run without
 `models/` populated has to download ~85 MB first. After
-`pnpm embeddings:fetch-model` the whole file runs in **~2 s**, because the
+`npm run embeddings:fetch-model` the whole file runs in **~2 s**, because the
 gated tests then load the weights from disk like any other code path.

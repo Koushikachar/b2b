@@ -30,3 +30,9 @@ export function formatDateMed(value: string | Date): string {
     year: "numeric",
   });
 }
+
+/** Whole-number discount of `price` against a higher MRP, else 0. */
+export function discountPercent(mrp: number | null | undefined, price: number | null | undefined): number {
+  if (mrp == null || price == null || !(mrp > price) || price <= 0) return 0;
+  return Math.round(((mrp - price) / mrp) * 100);
+}

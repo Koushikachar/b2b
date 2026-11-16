@@ -17,10 +17,21 @@ function SaveSubmit({ saved }: { saved: boolean }) {
       size="lg"
       disabled={pending}
       aria-busy={pending}
-      className="w-full"
+      className="h-11 w-full"
     >
-      <HugeiconsIcon icon={HeartIcon} strokeWidth={2} data-icon="inline-start" />
-      {pending ? (saved ? "Removing…" : "Saving…") : saved ? "Saved" : "Save"}
+      <HugeiconsIcon
+        icon={HeartIcon}
+        strokeWidth={2}
+        data-icon="inline-start"
+        className={saved ? "fill-primary text-primary" : undefined}
+      />
+      {pending
+        ? saved
+          ? "Removing…"
+          : "Adding…"
+        : saved
+          ? "In your wishlist"
+          : "Add to wishlist"}
     </Button>
   );
 }

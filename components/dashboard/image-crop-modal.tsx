@@ -15,7 +15,18 @@ import {
 
 const OUTPUT_WIDTH = 1600;
 const OUTPUT_QUALITY = 0.9;
-const CROP_ASPECT = 4 / 3;
+// Square, like every product image on the storefront.
+const CROP_ASPECT = 1;
+const MAX_ZOOM = 3;
+
+/**
+ * Zoom at which the whole image fits inside the crop frame. At zoom 1 the
+ * frame covers the image (and cuts its long side), so this is below 1 for any
+ * image that is not already the frame's shape.
+ */
+function fitZoom(mediaAspect: number, frameAspect: number): number {
+  return Math.min(frameAspect / mediaAspect, mediaAspect / frameAspect);
+}
 
 function rotateSize(width: number, height: number, rotation: number) {
   const rotRad = (rotation * Math.PI) / 180;
@@ -71,22 +82,22 @@ async function cropOrientedImage(
   rotatedCtx.translate(-image.width / 2, -image.height / 2);
   rotatedCtx.drawImage(image, 0, 0);
 
-  const scaleX = OUTPUT_WIDTH / area.width;
+  // The frame may extend past the image when zoomed out to fit it whole:
+  // paint white first, then place the image at its offset inside the frame.
+  const scale = OUTPUT_WIDTH / area.width;
   const cropped = document.createElement("canvas");
   cropped.width = OUTPUT_WIDTH;
-  cropped.height = Math.max(1, Math.round(area.height * scaleX));
+  cropped.height = Math.max(1, Math.round(area.height * scale));
   const croppedCtx = cropped.getContext("2d");
   if (!croppedCtx) throw new Error("Canvas is not supported in this browser.");
+  croppedCtx.fillStyle = "#ffffff";
+  croppedCtx.fillRect(0, 0, cropped.width, cropped.height);
   croppedCtx.drawImage(
     rotated,
-    area.x,
-    area.y,
-    area.width,
-    area.height,
-    0,
-    0,
-    cropped.width,
-    cropped.height,
+    -area.x * scale,
+    -area.y * scale,
+    rotated.width * scale,
+    rotated.height * scale,
   );
 
   const blob = await new Promise<Blob | null>((resolve) =>
@@ -124,8 +135,8 @@ export function ImageCropModal({
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
           <DialogDescription>
-            Drag to reposition; use the sliders to zoom and rotate. The result is
-            saved as a JPEG around 1600 px wide.
+            Opens with the whole image fitted in a square. Drag to reposition, zoom in
+            to crop tighter, or rotate. Saved as a 1600 × 1600 JPEG.
           </DialogDescription>
         </DialogHeader>
         {open ? (
@@ -161,6 +172,11 @@ function CropStage({
 }) {
   const [crop, setCrop] = useState<Point>({ x: 0, y: 0 });
   const [zoom, setZoom] = useState(1);
+  // fitZoomValue = whole image exactly fills the square; the slider goes down
+  // to half of that so the product can sit on white space.
+  const [fitZoomValue, setFitZoomValue] = useState(1);
+  const minZoom = fitZoomValue * 0.5;
+  const clampZoom = (z: number) => Math.min(MAX_ZOOM, Math.max(minZoom, z));
   const [rotation, setRotation] = useState(0);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -196,16 +212,22 @@ function CropStage({
     <>
       {source ? (
         <>
-          <div className="relative h-80 w-full overflow-hidden rounded-lg border border-border bg-muted">
+          <div className="relative h-80 w-full overflow-hidden rounded-lg border border-border bg-muted sm:h-96">
             <Cropper
               image={source}
               crop={crop}
               zoom={zoom}
               rotation={rotation}
-              minZoom={1}
-              maxZoom={3}
+              minZoom={minZoom}
+              maxZoom={MAX_ZOOM}
               aspect={CROP_ASPECT}
               objectFit="contain"
+              restrictPosition={false}
+              onMediaLoaded={({ naturalWidth, naturalHeight }) => {
+                const fit = fitZoom(naturalWidth / naturalHeight, CROP_ASPECT);
+                setFitZoomValue(fit);
+                setZoom(fit);
+              }}
               showGrid
               onCropChange={setCrop}
               onZoomChange={setZoom}
@@ -216,18 +238,37 @@ function CropStage({
             />
           </div>
           <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
-            <label className="flex items-center gap-3 text-sm">
+            <div className="flex items-center gap-2 text-sm">
               <span className="text-muted-foreground">Zoom</span>
+              <Button type="button" variant="outline" size="icon-sm" aria-label="Zoom out" onClick={() => setZoom((z) => clampZoom(z - 0.1))}>
+                −
+              </Button>
               <input
                 type="range"
-                min={1}
-                max={3}
+                aria-label="Zoom"
+                min={minZoom}
+                max={MAX_ZOOM}
                 step={0.01}
                 value={zoom}
                 onChange={(e) => setZoom(Number(e.target.value))}
-                className="w-36 accent-primary"
+                className="w-28 accent-primary sm:w-36"
               />
-            </label>
+              <Button type="button" variant="outline" size="icon-sm" aria-label="Zoom in" onClick={() => setZoom((z) => clampZoom(z + 0.1))}>
+                +
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setZoom(fitZoomValue);
+                  setCrop({ x: 0, y: 0 });
+                  setRotation(0);
+                }}
+              >
+                Fit whole image
+              </Button>
+            </div>
             <label className="flex items-center gap-3 text-sm">
               <span className="text-muted-foreground">Rotate</span>
               <input

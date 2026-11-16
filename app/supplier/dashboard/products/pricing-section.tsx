@@ -1,33 +1,15 @@
-import { Field, FieldDescription, FieldGroup, FieldLabel, FieldLegend, FieldSet } from "@/components/ui/field";
-import {
-  InputGroup,
-  InputGroupAddon,
-  InputGroupInput,
-  InputGroupText,
-} from "@/components/ui/input-group";
-import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
+import { Field, FieldGroup, FieldLabel, FieldLegend, FieldSet } from "@/components/ui/field";
 import { Switch } from "@/components/ui/switch";
 import { FormSection } from "@/components/dashboard/form-section";
-import { PRODUCT_UNITS } from "@/lib/supplier/products";
-import type { FieldErrorHelpers } from "./product-form-types";
 
+/** Negotiation toggle; prices themselves live in Product information. */
 export function PricingSection({
-  invalidFor,
-  errorFor,
-  formValues,
-  onValueChange,
   negotiable,
   onNegotiableChange,
 }: {
-  invalidFor: FieldErrorHelpers["invalidFor"];
-  errorFor: FieldErrorHelpers["errorFor"];
-  formValues: Map<string, string>;
-  onValueChange: (key: string, value: string) => void;
   negotiable: boolean;
   onNegotiableChange: (value: boolean) => void;
 }) {
-  const v = (key: string): string => formValues.get(key) ?? "";
-
   return (
     <FormSection
       id="pricing"

@@ -22,6 +22,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getAuthUser } from "@/lib/auth/session";
 import { LOGIN_PATH } from "@/lib/auth/paths";
 import { getSupplierContext } from "@/lib/auth/guard";
+import { getDashboardStore } from "@/lib/supplier/dashboard-store";
 import { fetchCustomerPricing } from "@/lib/pricing-data";
 import { ProductTable, type ProductRow } from "@/components/dashboard/product-table";
 import {
@@ -121,6 +122,15 @@ export default async function SupplierProductsPage({
   if (!company) redirect("/supplier/onboarding");
 
   const verified = true;
+  // Products are listed per store (D2H Core / D2H Select switcher).
+  const { store } = await getDashboardStore();
+  // PostgREST filter for this store. Unassigned products (store_id null, e.g.
+  // after a store is removed) show under D2H Core so they are never lost.
+  const storeFilter = store
+    ? store.slug === "d2h-core"
+      ? `store_id.eq.${store.id},store_id.is.null`
+      : `store_id.eq.${store.id}`
+    : null;
 
   const counts: Record<TabKey, number> = {
     all: 0,
@@ -134,6 +144,7 @@ export default async function SupplierProductsPage({
     .from("products")
     .select("id", { count: "exact", head: true })
     .eq("supplier_id", company.id);
+  if (storeFilter) countQuery = countQuery.or(storeFilter);
   if (active !== "all") countQuery = countQuery.eq("status", active as StatusKey);
   if (q) countQuery = countQuery.ilike("title", `%${q}%`);
 
@@ -147,18 +158,20 @@ export default async function SupplierProductsPage({
       "id, title, unit, moq, stock_qty, status, is_hidden, rejection_note, category:category_id(name)",
     )
     .eq("supplier_id", company.id);
+  if (storeFilter) dataQuery = dataQuery.or(storeFilter);
   if (active !== "all") dataQuery = dataQuery.eq("status", active as StatusKey);
   if (q) dataQuery = dataQuery.ilike("title", `%${q}%`);
 
   const [statusCounts, { count: total }, { data: products }] = await Promise.all([
     Promise.all(
-      STATUS_KEYS.map((status) =>
-        supabase
+      STATUS_KEYS.map((status) => {
+        const q = supabase
           .from("products")
           .select("id", { count: "exact", head: true })
           .eq("supplier_id", company.id)
-          .eq("status", status),
-      ),
+          .eq("status", status);
+        return storeFilter ? q.or(storeFilter) : q;
+      }),
     ),
     countQuery,
     dataQuery
@@ -192,7 +205,7 @@ export default async function SupplierProductsPage({
   if (requestedPage !== page) redirect(hrefFor(active, activeSort, page, q));
 
   const ids = (products ?? []).map((p) => p.id);
-  const [pricing, { data: images }] = await Promise.all([
+  const [pricing, { data: images }, stockResult] = await Promise.all([
     fetchCustomerPricing(
       supabase,
       ids.map((id) => ({ id, margin_pct: company.margin_pct })),
@@ -204,7 +217,18 @@ export default async function SupplierProductsPage({
           .in("product_id", ids)
           .order("sort")
       : Promise.resolve({ data: [] as unknown[] }),
+    // Separate read: tolerates a database without `is_out_of_stock` yet.
+    ids.length > 0
+      ? supabase.from("products").select("id, is_out_of_stock").in("id", ids)
+      : Promise.resolve({ data: [], error: null }),
   ]);
+  const outOfStock = new Set(
+    stockResult.error
+      ? []
+      : ((stockResult.data ?? []) as { id: string; is_out_of_stock: boolean }[])
+          .filter((row) => row.is_out_of_stock)
+          .map((row) => row.id),
+  );
   const covers = new Map<string, string>();
   for (const img of (images ?? []) as {
     product_id: string;
@@ -225,6 +249,7 @@ export default async function SupplierProductsPage({
     stock: Number(p.stock_qty ?? 0),
     status: p.status,
     is_hidden: p.is_hidden ?? false,
+    inStock: !outOfStock.has(p.id),
   }));
 
   const searchActive = Boolean(q) || active !== "all";
@@ -236,7 +261,9 @@ export default async function SupplierProductsPage({
     <div className="flex w-full flex-col gap-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-xl font-bold tracking-tight">All products</h1>
+          <h1 className="text-xl font-bold tracking-tight">
+            All products{store ? <span className="text-muted-foreground"> · {store.name}</span> : null}
+          </h1>
           <p className="mt-0.5 text-sm text-muted-foreground">
             {verified
               ? "Manage listings, track approvals and fix returns."

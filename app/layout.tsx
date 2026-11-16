@@ -6,7 +6,29 @@ import { MotionConfig } from "motion/react"
 import "./globals.css"
 import { Toaster } from "@/components/ui/toast"
 import { cn } from "@/lib/utils"
-import { SITE_NAME, SITE_URL } from "@/lib/site"
+import { SITE_NAME, SITE_URL, SUPPORT_EMAIL, SUPPORT_PHONE } from "@/lib/site"
+import { AnalyticsConsent } from "@/components/layout/analytics-consent"
+
+// Organization schema (search engines' knowledge panel / sitelinks).
+const ORGANIZATION_JSON_LD = {
+  "@context": "https://schema.org",
+  "@type": "Organization",
+  name: "Direct2Hub",
+  alternateName: SITE_NAME,
+  url: SITE_URL,
+  logo: `${SITE_URL}/logo.jpg`,
+  ...(SUPPORT_EMAIL || SUPPORT_PHONE
+    ? {
+        contactPoint: {
+          "@type": "ContactPoint",
+          contactType: "customer support",
+          areaServed: "IN",
+          ...(SUPPORT_EMAIL ? { email: SUPPORT_EMAIL } : {}),
+          ...(SUPPORT_PHONE ? { telephone: SUPPORT_PHONE } : {}),
+        },
+      }
+    : {}),
+}
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
@@ -19,6 +41,7 @@ export const metadata: Metadata = {
   openGraph: {
     siteName: SITE_NAME,
     type: "website",
+    locale: "en_IN",
   },
   robots: {
     index: true,
@@ -85,11 +108,19 @@ export default function RootLayout({
         inter.variable
       )}
     >
-      <body>
+      {/* Browser extensions (e.g. ColorZilla's `cz-shortcut-listen`) add
+          attributes to <body> before hydration. This only silences attribute
+          mismatches on <body> itself, not on anything rendered inside it. */}
+      <body suppressHydrationWarning>
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(ORGANIZATION_JSON_LD) }}
+        />
         {/* Motion honours prefers-reduced-motion app-wide (apple-design §14). */}
         <MotionConfig reducedMotion="user">
           {children}
           <Toaster />
+          <AnalyticsConsent />
         </MotionConfig>
       </body>
     </html>

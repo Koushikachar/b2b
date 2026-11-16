@@ -289,3 +289,63 @@ export async function updateCategory(
   revalidatePath("/admin/dashboard/categories");
   redirect("/admin/dashboard/categories");
 }
+
+/**
+ * Replace just a category's photo from the admin list (no edit page round
+ * trip). Same checks as create/update: 5 MB, JPG/PNG/WEBP sniffed from bytes.
+ */
+export async function setCategoryImage(
+  _prevState: CategoryActionState,
+  formData: FormData,
+): Promise<CategoryActionState> {
+  const { supabase } = await requireAdmin();
+  const parsed = idSchema.safeParse({ id: formData.get("id") });
+  if (!parsed.success) {
+    return { ok: false, message: "Invalid category." };
+  }
+
+  const value = formData.get("image");
+  const file = value instanceof File && value.size > 0 ? value : null;
+  const fileError = await validateImage(file, true);
+  if (fileError || !file) {
+    return { ok: false, message: fileError ?? "Choose an image." };
+  }
+
+  const { data: row } = await supabase
+    .from("categories")
+    .select("id, image_path")
+    .eq("id", parsed.data.id)
+    .maybeSingle();
+  if (!row) {
+    return { ok: false, message: "Category not found." };
+  }
+
+  let path: string;
+  try {
+    path = await uploadImage(supabase, row.id, file);
+  } catch (err) {
+    console.error("setCategoryImage upload failed:", err);
+    return { ok: false, message: "Could not upload the image. Try again." };
+  }
+
+  const { error } = await supabase
+    .from("categories")
+    .update({ image_path: path })
+    .eq("id", row.id);
+  if (error) {
+    console.error("setCategoryImage failed:", error);
+    await supabase.storage.from("category_images").remove([path]);
+    return { ok: false, message: "Could not save. Try again." };
+  }
+  if (row.image_path && row.image_path !== "pending" && row.image_path !== path) {
+    await supabase.storage.from("category_images").remove([row.image_path]);
+  }
+
+  revalidateTag("categories", "max");
+  revalidateTag("nav", "max");
+  revalidateTag("home", "max");
+  revalidateTag("catalogue", "max");
+  revalidatePath("/");
+  revalidatePath("/admin/dashboard/categories");
+  return { ok: true, message: "Photo updated." };
+}

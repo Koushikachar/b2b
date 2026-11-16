@@ -15,6 +15,8 @@ export async function CatalogueSection({
   description,
   headingLevel = "h2",
   storeId,
+  showCategoryRail = false,
+  priceExitPath,
 }: {
   searchParams: CatalogueSearchParams
   basePath: string
@@ -22,6 +24,10 @@ export async function CatalogueSection({
   description?: string
   headingLevel?: "h1" | "h2"
   storeId?: string | null
+  /** "Top categories" tiles (with item counts) under the filter row. */
+  showCategoryRail?: boolean
+  /** Price-range pages: removing the range leaves for this path. */
+  priceExitPath?: string
 }) {
   const filters = parseCatalogueFilters(searchParams)
   const [categoryData, initialPage] = await Promise.all([
@@ -42,6 +48,8 @@ export async function CatalogueSection({
           : description
       }
       headingLevel={headingLevel}
+      showCategoryRail={showCategoryRail && !filters.imageToken}
+      priceExitPath={priceExitPath}
     />
   )
 }

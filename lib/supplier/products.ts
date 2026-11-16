@@ -62,6 +62,46 @@ export function orderImagePaths(paths: string[], primaryPath: string | null): st
   return [primaryPath, ...paths.filter((path) => path !== primaryPath)];
 }
 
+/**
+ * Final image order from the supplier's drag-and-drop arrangement. `keys` are
+ * gallery keys (`existing:<path>` / `new:<index>`) in display order; any path
+ * the keys do not mention keeps its natural position after the listed ones.
+ */
+export function orderImagesByKeys(
+  keys: string[],
+  existingPaths: string[],
+  newPaths: string[],
+): string[] {
+  const ordered: string[] = [];
+  for (const key of keys) {
+    const path = resolvePrimaryImagePath(key, existingPaths, newPaths);
+    if (path && !ordered.includes(path)) ordered.push(path);
+  }
+  for (const path of [...existingPaths, ...newPaths]) {
+    if (!ordered.includes(path)) ordered.push(path);
+  }
+  return ordered;
+}
+
+export function parseImageOrder(raw: FormDataEntryValue | null): string[] {
+  if (typeof raw !== "string" || raw.trim() === "") return [];
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed.filter((k): k is string => typeof k === "string") : [];
+  } catch {
+    return [];
+  }
+}
+
+/** Server-generated SKU for listings where the supplier left SKU blank. */
+export function generateSku(prefix = "D2H"): string {
+  const id = crypto.randomUUID().replace(/-/g, "").slice(0, 10).toUpperCase();
+  return `${prefix}-${id}`;
+}
+
+// Lives in lib/format (dependency-free, safe for client bundles).
+export { discountPercent } from "@/lib/format";
+
 // SEO size constants live in rich-text.ts (imported by client + tests).
 export {
   MAX_SEO_TITLE_CHARS,
@@ -103,22 +143,29 @@ export const priceSlabSchema = z.object({
   price: z.coerce.number().positive("Slab price must be positive."),
 });
 
+/** Treat blank form values as "not provided" before numeric coercion. */
+const emptyToNull = (value: unknown) =>
+  value === undefined || (typeof value === "string" && value.trim() === "") ? null : value;
+
+const SKU_RE = /^[A-Z0-9-_]{3,30}$/i;
+const SKU_MESSAGE = "SKU: 3-30 chars, letters/numbers/-/_ .";
+
+/** Optional SKU: blank means "generate one for me". */
+const optionalSku = z
+  .preprocess((v) => (typeof v === "string" ? v : ""), z.string().trim())
+  .refine((v) => v === "" || SKU_RE.test(v), SKU_MESSAGE);
+
 export const productVariantSchema = z.object({
   label: z.string().trim().min(2, "Variant label is required."),
   attr_key: z.string().trim().max(40).optional().default(""),
   attr_value: z.string().trim().max(40).optional().default(""),
-  seller_sku: z
-    .string()
-    .trim()
-    .regex(/^[A-Z0-9-_]{3,30}$/i, "SKU: 3-30 chars, letters/numbers/-/_ ."),
+  /** Multi-attribute combinations (e.g. { Size: "M", Colour: "Red" }). */
+  attrs: z.record(z.string().trim().max(40), z.string().trim().max(40)).optional(),
+  seller_sku: optionalSku,
   price: z.coerce.number().positive("Variant price must be positive."),
   moq: z.coerce.number().int().min(1).optional().nullable(),
   stock_qty: z.coerce.number().int().min(0).default(0),
 });
-
-/** Treat blank form values as "not provided" before numeric coercion. */
-const emptyToNull = (value: unknown) =>
-  typeof value === "string" && value.trim() === "" ? null : value;
 
 const optionalPositiveInt = (message: string) =>
   z.preprocess(emptyToNull, z.coerce.number().int().min(1, message).nullable());
@@ -129,17 +176,17 @@ const optionalPositiveNumber = (message: string) =>
 export const productSchema = z.object({
   title: z.string().trim().min(10, "Title needs at least 10 characters.").max(140),
   category_id: z.string().uuid("Pick a category."),
-  seller_sku: z
-    .string()
-    .trim()
-    .regex(/^[A-Z0-9-_]{3,30}$/i, "SKU: 3-30 chars, letters/numbers/-/_ ."),
+  seller_sku: optionalSku,
   hsn_code: z
-    .string()
-    .trim()
-    .regex(/^\d{4,8}$/, "HSN must be 4-8 digits."),
-  gst_rate: z.coerce
-    .number()
-    .refine((v) => (PRODUCT_GST_RATES as readonly number[]).includes(v), "Pick a valid GST rate."),
+    .preprocess((v) => (typeof v === "string" ? v : ""), z.string().trim())
+    .refine((v) => v === "" || /^\d{4,8}$/.test(v), "HSN must be 4-8 digits."),
+  gst_rate: z.preprocess(
+    emptyToNull,
+    z.coerce
+      .number()
+      .refine((v) => (PRODUCT_GST_RATES as readonly number[]).includes(v), "Pick a valid GST rate.")
+      .nullable(),
+  ),
   carton_units: optionalPositiveInt("Units per carton must be at least 1."),
   carton_dimensions: z
     .string()
@@ -157,8 +204,10 @@ export const productSchema = z.object({
       (v) => plainTextLength(v) >= DESCRIPTION_MIN_TEXT_CHARS,
       `Description needs at least ${DESCRIPTION_MIN_TEXT_CHARS} characters of text.`,
     ),
-  unit: z.enum(PRODUCT_UNITS),
+  // Optional in the form; the column defaults to 'pcs'.
+  unit: z.preprocess((v) => emptyToNull(v) ?? "pcs", z.enum(PRODUCT_UNITS)),
   price_per_unit: z.coerce.number().positive("Price must be positive."),
+  mrp: optionalPositiveNumber("MRP must be positive."),
   negotiable: z.coerce.boolean().default(false),
   is_winning: z.coerce.boolean().default(false),
   is_hot_selling: z.coerce.boolean().default(false),
@@ -184,7 +233,7 @@ export type ProductVariantValues = z.output<typeof productVariantSchema>;
 
 export const PRODUCT_STEP_FIELDS = [
   ["title", "category_id", "seller_sku", "hsn_code", "gst_rate", "carton_units", "carton_dimensions", "carton_weight_kg", "description"],
-  ["unit", "price_per_unit", "negotiable"],
+  ["unit", "price_per_unit", "mrp", "negotiable"],
   ["packaging_details", "warranty_return", "youtube_url"],
 ] as const;
 
@@ -203,6 +252,7 @@ export const productStepSchemas = [
   productSchema.pick({
     unit: true,
     price_per_unit: true,
+    mrp: true,
     negotiable: true,
   }),
   productSchema.pick({ packaging_details: true, warranty_return: true, youtube_url: true }),

@@ -1,4 +1,4 @@
-"use client";
+"use client"
 
 import {
   useEffect,
@@ -9,79 +9,83 @@ import {
   type FormEvent,
   type ReactNode,
   type SyntheticEvent,
-} from "react";
-import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { HugeiconsIcon } from "@hugeicons/react";
-import { ArrowLeft01Icon } from "@hugeicons/core-free-icons";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Switch } from "@/components/ui/switch";
-import { FieldError } from "@/components/ui/field";
+} from "react"
+import Link from "next/link"
+import { useRouter } from "next/navigation"
+import { HugeiconsIcon } from "@hugeicons/react"
+import { ArrowLeft01Icon } from "@hugeicons/core-free-icons"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { Switch } from "@/components/ui/switch"
+import { toast } from "@/components/ui/toast"
+import { FieldError } from "@/components/ui/field"
 import {
   createProduct,
   updateProduct,
   checkSkuDuplicate,
   type ProductActionState,
-} from "@/lib/supplier/product-actions";
+} from "@/lib/supplier/product-actions"
 import {
   MAX_PRODUCT_IMAGES,
   MIN_PRODUCT_IMAGES,
-  MAX_VARIANTS,
   existingImageKey,
   extractYoutubeId,
   stagedImageIndex,
   stagedImageKey,
-} from "@/lib/supplier/products";
-import { fieldIdForMessage } from "@/lib/supplier/form-errors";
+} from "@/lib/supplier/products"
+import { fieldIdForMessage } from "@/lib/supplier/form-errors"
 import {
   DESCRIPTION_MIN_TEXT_CHARS,
   defaultSeoDescription,
   defaultSeoTitle,
   plainTextLength,
-} from "@/lib/supplier/rich-text";
-import { ProductInformationSection } from "./product-information-section";
-import { ProductMediaSection } from "./product-media-section";
-import { PricingSection } from "./pricing-section";
-import { ShippingTaxSection } from "./shipping-tax-section";
-import { VariantsSection } from "./variants-section";
-import { ProductSeoSection } from "./product-seo-section";
-import { ProductReadiness } from "./product-readiness";
-import { ProductFormActions, ProductFormStickyActions } from "./product-form-actions";
-import { ProductFormSectionNav, ProductFormSectionTabs } from "./product-form-navigation";
-import type { CategoryOption, ExistingProduct, ExistingVariant } from "./product-form-types";
+} from "@/lib/supplier/rich-text"
+import { ProductInformationSection } from "./product-information-section"
+import { ProductMediaSection } from "./product-media-section"
+import { PricingSection } from "./pricing-section"
+import { ShippingTaxSection } from "./shipping-tax-section"
+import { VariantsSection } from "./variants-section"
+import {
+  attributesFromVariants,
+  buildVariantRows,
+  type VariantAttribute,
+} from "./variant-builder"
+import { ProductSeoSection } from "./product-seo-section"
+import { ProductReadiness } from "./product-readiness"
+import {
+  ProductFormActions,
+  ProductFormStickyActions,
+} from "./product-form-actions"
+import {
+  ProductFormSectionNav,
+  ProductFormSectionTabs,
+} from "./product-form-navigation"
+import type {
+  CategoryOption,
+  ExistingProduct,
+  ExistingVariant,
+} from "./product-form-types"
 
-const initialState: ProductActionState = { ok: false, message: "" };
+const initialState: ProductActionState = { ok: false, message: "" }
 
 function productImageUrl(path: string): string {
-  return `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/product_images/${path}`;
-}
-
-function newVariant(): ExistingVariant {
-  return {
-    label: "",
-    attr_key: "",
-    attr_value: "",
-    seller_sku: "",
-    price: 0,
-    moq: null,
-    stock_qty: 0,
-  };
+  return `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/product_images/${path}`
 }
 
 function loadDraft(key: string): Map<string, string> | null {
-  if (typeof window === "undefined") return null;
+  if (typeof window === "undefined") return null
   try {
-    const raw = window.sessionStorage.getItem(key);
-    if (!raw) return null;
-    const parsed: unknown = JSON.parse(raw);
-    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return null;
-    const m = new Map<string, string>();
+    const raw = window.sessionStorage.getItem(key)
+    if (!raw) return null
+    const parsed: unknown = JSON.parse(raw)
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed))
+      return null
+    const m = new Map<string, string>()
     for (const [k, v] of Object.entries(parsed)) {
-      if (typeof v === "string") m.set(k, v);
+      if (typeof v === "string") m.set(k, v)
     }
-    return m;
+    return m
   } catch {
-    return null;
+    return null
   }
 }
 
@@ -93,157 +97,159 @@ export function ProductForm({
   description,
   storeId,
 }: {
-  mode: "create" | "edit";
-  product?: ExistingProduct;
-  categories: CategoryOption[];
-  title: string;
-  description: string;
-  storeId?: string;
+  mode: "create" | "edit"
+  product?: ExistingProduct
+  categories: CategoryOption[]
+  title: string
+  description: string
+  storeId?: string
 }) {
   const boundAction =
     mode === "create"
       ? createProduct
-      : updateProduct.bind(null, product?.id ?? "");
-  const showSubmit = product?.status !== "approved";
+      : updateProduct.bind(null, product?.id ?? "")
+  const showSubmit = product?.status !== "approved"
   const saveLabel =
-    product?.status === "approved" ? "Save changes" : "Save draft";
-  const [state, action, pending] = useActionState(boundAction, initialState);
-  const [invalidField, setInvalidField] = useState<{ id: string; message: string } | null>(null);
+    product?.status === "approved" ? "Save changes" : "Save draft"
+  // Live view only on the edit page of a published product.
+  const liveHref =
+    mode === "edit" && product?.status === "approved"
+      ? `/products/${product.id}`
+      : undefined
+  const [state, action, pending] = useActionState(boundAction, initialState)
+  const [invalidField, setInvalidField] = useState<{
+    id: string
+    message: string
+  } | null>(null)
   // Render-phase adjustment: when a server action returns an error, attach it
   // to the offending input by resolving the message to a field id. The
   // previous-action-state pattern is the React-sanctioned way to react to a
   // state change without an effect watching form state.
-  const [prevActionState, setPrevActionState] = useState(state);
+  const [prevActionState, setPrevActionState] = useState(state)
   if (state !== prevActionState) {
-    setPrevActionState(state);
+    setPrevActionState(state)
     if (state.ok) {
-      setInvalidField(null);
+      setInvalidField(null)
     } else if (state.message) {
-      const fieldId = fieldIdForMessage(state.message);
-      if (fieldId) setInvalidField({ id: fieldId, message: state.message });
+      const fieldId = fieldIdForMessage(state.message)
+      if (fieldId) setInvalidField({ id: fieldId, message: state.message })
     }
   }
-  const router = useRouter();
-  const [pendingAction, setPendingAction] = useState<"draft" | "submit" | null>(null);
-  const formRef = useRef<HTMLFormElement>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const seoImageInputRef = useRef<HTMLInputElement>(null);
+  const router = useRouter()
+  const [pendingAction, setPendingAction] = useState<"draft" | "submit" | null>(
+    null
+  )
+  const formRef = useRef<HTMLFormElement>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const seoImageInputRef = useRef<HTMLInputElement>(null)
   // Submission gate: the browser never POSTs unless our own code sets this
   // flag after explicit validation. Any stray submit (wrong button type,
   // Enter key, extension) is intercepted below and routed to validation.
-  const allowSubmitRef = useRef(false);
+  const allowSubmitRef = useRef(false)
   // When set, the next allowed POST additionally requests submission for
   // approval right after saving.
-  const autoSubmitRef = useRef(false);
+  const autoSubmitRef = useRef(false)
 
-  const [negotiable, setNegotiable] = useState(product?.negotiable ?? false);
-  const [isWinning, setIsWinning] = useState(product?.is_winning ?? false);
-  const [isHotSelling, setIsHotSelling] = useState(product?.is_hot_selling ?? false);
-  const [hasVariants, setHasVariants] = useState((product?.variants?.length ?? 0) > 0);
-  const [variants, setVariants] = useState<ExistingVariant[]>(product?.variants ?? []);
-  const [newFiles, setNewFiles] = useState<File[]>([]);
-  const [removedImagePaths, setRemovedImagePaths] = useState<string[]>([]);
-  const [previewUrls, setPreviewUrls] = useState<string[]>([]);
-  const [primaryImageKey, setPrimaryImageKey] = useState<string | null>(() => {
-    const cover = product?.images?.[0];
-    return cover ? existingImageKey(cover.path) : null;
-  });
-  const [youtubeUrl, setYoutubeUrl] = useState(product?.youtube_url ?? "");
-  const objectUrlsRef = useRef<string[]>([]);
+  const [negotiable, setNegotiable] = useState(product?.negotiable ?? false)
+  const [isWinning, setIsWinning] = useState(product?.is_winning ?? false)
+  const [isHotSelling, setIsHotSelling] = useState(
+    product?.is_hot_selling ?? false
+  )
+  const [attributes, setAttributes] = useState<VariantAttribute[]>(() =>
+    attributesFromVariants(product?.variants)
+  )
+  const [variants, setVariants] = useState<ExistingVariant[]>(
+    product?.variants ?? []
+  )
+  const hasVariants = variants.length > 0
+  const [newFiles, setNewFiles] = useState<File[]>([])
+  const [removedImagePaths, setRemovedImagePaths] = useState<string[]>([])
+  const [previewUrls, setPreviewUrls] = useState<string[]>([])
+  // Display order of the gallery (drag to reorder); the first image is the cover.
+  const [imageOrder, setImageOrder] = useState<string[]>(() =>
+    (product?.images ?? []).map((image) => existingImageKey(image.path))
+  )
+  const [youtubeUrl, setYoutubeUrl] = useState(product?.youtube_url ?? "")
+  const objectUrlsRef = useRef<string[]>([])
 
-  const [seoFile, setSeoFile] = useState<File | null>(null);
-  const [seoPreview, setSeoPreview] = useState<string | null>(null);
-  const [seoImageCleared, setSeoImageCleared] = useState(false);
+  const [seoFile, setSeoFile] = useState<File | null>(null)
+  const [seoPreview, setSeoPreview] = useState<string | null>(null)
+  const [seoImageCleared, setSeoImageCleared] = useState(false)
 
   // Real-time SKU duplicate check.
-  const [skuDuplicate, setSkuDuplicate] = useState<boolean | null>(null);
-  const seoObjectUrlRef = useRef<string | null>(null);
+  const [skuDuplicate, setSkuDuplicate] = useState<boolean | null>(null)
+  const seoObjectUrlRef = useRef<string | null>(null)
 
   // Draft persistence: text fields survive a full reload. Files, cropped
   // images and variant rows are browser-side objects and cannot be restored,
   // so they are intentionally excluded.
-  const draftKey = `b2b:pf:${mode}:${product?.id ?? "new"}`;
+  const draftKey = `b2b:pf:${mode}:${product?.id ?? "new"}`
 
   const initialFormValues = useMemo(() => {
-    const m = new Map<string, string>();
+    const m = new Map<string, string>()
     if (product) {
       const set = (key: string, value: string | number | null | undefined) => {
-        if (value === null || value === undefined) return;
-        m.set(key, String(value));
-      };
-      set("title", product.title);
-      set("category_id", product.category_id);
-      set("seller_sku", product.seller_sku);
-      set("hsn_code", product.hsn_code);
-      set("gst_rate", product.gst_rate);
-      set("carton_units", product.carton_units);
-      set("carton_dimensions", product.carton_dimensions);
-      set("carton_weight_kg", product.carton_weight_kg);
-      set("description", product.description);
-      set("unit", product.unit);
-      set("price_per_unit", product.price_per_unit);
-      set("packaging_details", product.packaging_details);
-      set("warranty_return", product.warranty_return);
-      set("youtube_url", product.youtube_url);
-      set("seo_title", product.seo_title);
-      set("seo_description", product.seo_description);
+        if (value === null || value === undefined) return
+        m.set(key, String(value))
+      }
+      set("title", product.title)
+      set("category_id", product.category_id)
+      set("seller_sku", product.seller_sku)
+      set("hsn_code", product.hsn_code)
+      set("gst_rate", product.gst_rate)
+      set("carton_units", product.carton_units)
+      set("carton_dimensions", product.carton_dimensions)
+      set("carton_weight_kg", product.carton_weight_kg)
+      set("description", product.description)
+      set("unit", product.unit)
+      set("price_per_unit", product.price_per_unit)
+      set("mrp", product.mrp)
+      set("packaging_details", product.packaging_details)
+      set("warranty_return", product.warranty_return)
+      set("youtube_url", product.youtube_url)
+      set("seo_title", product.seo_title)
+      set("seo_description", product.seo_description)
     }
-    return m;
-  }, [product]);
+    return m
+  }, [product])
 
-  const [formValues, setFormValues] = useState<Map<string, string>>(initialFormValues);
+  const [formValues, setFormValues] =
+    useState<Map<string, string>>(initialFormValues)
 
-  const [seoTitleTouched, setSeoTitleTouched] = useState(false);
-  const [seoDescriptionTouched, setSeoDescriptionTouched] = useState(false);
+  const [seoTitleTouched, setSeoTitleTouched] = useState(false)
+  const [seoDescriptionTouched, setSeoDescriptionTouched] = useState(false)
 
-  const youtubeId = useMemo(() => extractYoutubeId(youtubeUrl), [youtubeUrl]);
-  const existingImages = useMemo(() => product?.images ?? [], [product]);
-
-  const totalImages =
-    existingImages.length -
-    removedImagePaths.length +
-    Math.max(newFiles.length, fileInputRef.current?.files?.length || 0);
-
-  const isFormValid = useMemo(() => {
-    if (skuDuplicate === true) return false;
-    const title = (formValues.get("title") ?? "").trim();
-    if (title.length < 10) return false;
-    const category = (formValues.get("category_id") ?? "").trim();
-    if (!category) return false;
-    const sku = (formValues.get("seller_sku") ?? "").trim();
-    if (!/^[A-Za-z0-9-_]{3,30}$/i.test(sku)) return false;
-    const hsn = (formValues.get("hsn_code") ?? "").trim();
-    if (!/^\d{4,8}$/.test(hsn)) return false;
-    const gst = (formValues.get("gst_rate") ?? "").trim();
-    if (gst === "") return false;
-    const unit = (formValues.get("unit") ?? "").trim() || "pcs";
-    if (!["pcs", "kg", "box", "mtr", "ltr"].includes(unit)) return false;
-    const price = Number(formValues.get("price_per_unit") ?? "");
-    if (!Number.isFinite(price) || price <= 0) return false;
-    const descLen = plainTextLength(formValues.get("description") ?? "");
-    if (descLen < DESCRIPTION_MIN_TEXT_CHARS) return false;
-    if (totalImages < MIN_PRODUCT_IMAGES) return false;
-    return true;
-  }, [formValues, skuDuplicate, totalImages]);
+  const youtubeId = useMemo(() => extractYoutubeId(youtubeUrl), [youtubeUrl])
+  const existingImages = useMemo(() => product?.images ?? [], [product])
   const visibleExistingImages = useMemo(
-    () => existingImages.filter((image) => !removedImagePaths.includes(image.path)),
-    [existingImages, removedImagePaths],
-  );
+    () =>
+      existingImages.filter((image) => !removedImagePaths.includes(image.path)),
+    [existingImages, removedImagePaths]
+  )
   const imageKeys = useMemo(
     () => [
       ...visibleExistingImages.map((image) => existingImageKey(image.path)),
       ...newFiles.map((_, index) => stagedImageKey(index)),
     ],
-    [visibleExistingImages, newFiles],
-  );
-  const effectivePrimaryImageKey = useMemo(() => {
-    if (primaryImageKey && imageKeys.includes(primaryImageKey)) return primaryImageKey;
-    return imageKeys[0] ?? null;
-  }, [primaryImageKey, imageKeys]);
-  const canAddMore = totalImages < MAX_PRODUCT_IMAGES;
+    [visibleExistingImages, newFiles]
+  )
+  // Keys in display order: the supplier's arrangement first, then anything new.
+  const orderedImageKeys = useMemo(
+    () => [
+      ...imageOrder.filter((key) => imageKeys.includes(key)),
+      ...imageKeys.filter((key) => !imageOrder.includes(key)),
+    ],
+    [imageOrder, imageKeys]
+  )
+  const effectivePrimaryImageKey = orderedImageKeys[0] ?? null
+  const totalImages =
+    existingImages.length -
+    removedImagePaths.length +
+    Math.max(newFiles.length, fileInputRef.current?.files?.length || 0)
+  const canAddMore = totalImages < MAX_PRODUCT_IMAGES
 
   const variantsJson = useMemo(() => {
-    if (!hasVariants) return "";
+    if (!hasVariants) return ""
     return JSON.stringify(
       variants
         .filter((v) => v.label.trim() !== "")
@@ -252,27 +258,28 @@ export function ProductForm({
           label: v.label,
           attr_key: v.attr_key ?? "",
           attr_value: v.attr_value ?? "",
+          attrs: v.attrs,
           seller_sku: v.seller_sku,
           price: v.price,
           moq: v.moq,
           stock_qty: v.stock_qty,
-        })),
-    );
-  }, [hasVariants, variants]);
+        }))
+    )
+  }, [hasVariants, variants])
 
   const listedVariants = useMemo(
     () => (hasVariants ? variants.filter((v) => v.label.trim() !== "") : []),
-    [hasVariants, variants],
-  );
+    [hasVariants, variants]
+  )
 
   function setFormValue(key: string, value: string) {
     setFormValues((prev) => {
-      if (Object.is(prev.get(key), value)) return prev;
-      const next = new Map(prev);
-      next.set(key, value);
-      return next;
-    });
-    if (invalidField?.id === key) setInvalidField(null);
+      if (Object.is(prev.get(key), value)) return prev
+      const next = new Map(prev)
+      next.set(key, value)
+      return next
+    })
+    if (invalidField?.id === key) setInvalidField(null)
   }
 
   // Restore any saved draft after mount so the server-rendered markup and the
@@ -280,363 +287,396 @@ export function ProductForm({
   // hydration mismatch whenever a draft existed. Deferred so the restore does
   // not cascade a synchronous render inside the effect.
   useEffect(() => {
-    const draft = loadDraft(draftKey);
-    if (!draft) return;
-    const timer = window.setTimeout(() => setFormValues(draft), 0);
-    return () => window.clearTimeout(timer);
-  }, [draftKey]);
+    const draft = loadDraft(draftKey)
+    if (!draft) return
+    const timer = window.setTimeout(() => setFormValues(draft), 0)
+    return () => window.clearTimeout(timer)
+  }, [draftKey])
 
   // Persist text fields to sessionStorage (debounced).
-  const draftSaveTimerRef = useRef<number | null>(null);
+  const draftSaveTimerRef = useRef<number | null>(null)
   useEffect(() => {
-    if (draftSaveTimerRef.current) window.clearTimeout(draftSaveTimerRef.current);
+    if (draftSaveTimerRef.current)
+      window.clearTimeout(draftSaveTimerRef.current)
     draftSaveTimerRef.current = window.setTimeout(() => {
       try {
-        window.sessionStorage.setItem(draftKey, JSON.stringify(Object.fromEntries(formValues)));
+        window.sessionStorage.setItem(
+          draftKey,
+          JSON.stringify(Object.fromEntries(formValues))
+        )
       } catch {
         // storage unavailable — ignore
       }
-    }, 500);
+    }, 500)
     return () => {
-      if (draftSaveTimerRef.current) window.clearTimeout(draftSaveTimerRef.current);
-    };
-  }, [formValues, draftKey]);
+      if (draftSaveTimerRef.current)
+        window.clearTimeout(draftSaveTimerRef.current)
+    }
+  }, [formValues, draftKey])
 
   // Clear the draft once a save succeeds.
   useEffect(() => {
     if (state.ok) {
       try {
-        window.sessionStorage.removeItem(draftKey);
+        window.sessionStorage.removeItem(draftKey)
       } catch {
         // ignore
       }
     }
-  }, [state.ok, draftKey]);
+  }, [state.ok, draftKey])
 
   // Real-time SKU duplicate check (debounced).
   useEffect(() => {
-    const sku = formValues.get("seller_sku")?.trim() ?? "";
+    const sku = formValues.get("seller_sku")?.trim() ?? ""
     const timer = window.setTimeout(async () => {
       if (!sku) {
-        setSkuDuplicate(null);
-        return;
+        setSkuDuplicate(null)
+        return
       }
       try {
-        const res = await checkSkuDuplicate(sku, product?.id);
-        setSkuDuplicate(res.duplicate);
+        const res = await checkSkuDuplicate(sku, product?.id)
+        setSkuDuplicate(res.duplicate)
       } catch {
-        setSkuDuplicate(null);
+        setSkuDuplicate(null)
       }
-    }, 400);
-    return () => window.clearTimeout(timer);
-  }, [formValues, product?.id]);
+    }, 400)
+    return () => window.clearTimeout(timer)
+  }, [formValues, product?.id])
 
-  // Return to the all products page after a successful save.
+  // After a save: a new product goes to the products list; an edit stays on
+  // this page and refreshes, so the supplier can keep editing (the edit page
+  // remounts this form from the saved data, see its `key`).
   useEffect(() => {
     if (state.ok && state.productId) {
       // Cancel any pending draft save so it doesn't re-save after clear.
       if (draftSaveTimerRef.current) {
-        window.clearTimeout(draftSaveTimerRef.current);
-        draftSaveTimerRef.current = null;
+        window.clearTimeout(draftSaveTimerRef.current)
+        draftSaveTimerRef.current = null
       }
       // Clear the draft synchronously before navigating away.
       try {
-        window.sessionStorage.removeItem(draftKey);
+        window.sessionStorage.removeItem(draftKey)
       } catch {
         // ignore
       }
-      router.push("/supplier/dashboard/products");
+      if (mode === "edit") {
+        toast.add({
+          type: "success",
+          title: "Changes saved",
+          description: state.message,
+        })
+        router.refresh()
+      } else {
+        router.push("/supplier/dashboard/products")
+      }
     }
-  }, [state.ok, state.productId, router, draftKey]);
+  }, [state, mode, router, draftKey])
 
   // Route every field error to one scroll/focus path so client-side and
   // server-side errors behave identically. Hidden inputs (like #images) have
   // no focusable target, so scroll to their visible field wrapper instead.
   useEffect(() => {
-    if (!invalidField) return;
-    const el = document.getElementById(invalidField.id);
-    const wrap = el?.closest('[data-slot="field"]') ?? el;
-    wrap?.scrollIntoView({ block: "center", behavior: "smooth" });
+    if (!invalidField) return
+    const el = document.getElementById(invalidField.id)
+    const wrap = el?.closest('[data-slot="field"]') ?? el
+    wrap?.scrollIntoView({ block: "center", behavior: "smooth" })
     if (
       el instanceof HTMLInputElement ||
       el instanceof HTMLTextAreaElement ||
       el instanceof HTMLSelectElement
     ) {
-      if (!el.disabled && !el.hidden) el.focus({ preventScroll: true });
+      if (!el.disabled && !el.hidden) el.focus({ preventScroll: true })
     }
-  }, [invalidField]);
+  }, [invalidField])
 
   // Auto-fill SEO fields from the title/description until the supplier types
   // into the SEO fields themselves. Computed during render (never via an
   // effect) and handed to the SEO section so its controlled inputs, counters
   // and submitted FormData all reflect the effective value.
   const seoValues = useMemo(() => {
-    const next = new Map(formValues);
+    const next = new Map(formValues)
     if (!seoTitleTouched) {
-      const seo = next.get("seo_title") ?? "";
-      if (seo === "") next.set("seo_title", defaultSeoTitle(next.get("title") ?? ""));
+      const seo = next.get("seo_title") ?? ""
+      if (seo === "")
+        next.set("seo_title", defaultSeoTitle(next.get("title") ?? ""))
     }
     if (!seoDescriptionTouched) {
-      const seo = next.get("seo_description") ?? "";
-      if (seo === "") next.set("seo_description", defaultSeoDescription(next.get("description") ?? ""));
+      const seo = next.get("seo_description") ?? ""
+      if (seo === "")
+        next.set(
+          "seo_description",
+          defaultSeoDescription(next.get("description") ?? "")
+        )
     }
-    return next;
-  }, [formValues, seoTitleTouched, seoDescriptionTouched]);
+    return next
+  }, [formValues, seoTitleTouched, seoDescriptionTouched])
 
   function handleSeoTitleChange(value: string) {
-    setFormValue("seo_title", value);
-    setSeoTitleTouched(true);
+    setFormValue("seo_title", value)
+    setSeoTitleTouched(true)
   }
 
   function handleSeoDescriptionChange(value: string) {
-    setFormValue("seo_description", value);
-    setSeoDescriptionTouched(true);
+    setFormValue("seo_description", value)
+    setSeoDescriptionTouched(true)
   }
 
   function regenerateSeo() {
-    setFormValue("seo_title", defaultSeoTitle(formValues.get("title") ?? ""));
-    setFormValue("seo_description", defaultSeoDescription(formValues.get("description") ?? ""));
-    setSeoTitleTouched(false);
-    setSeoDescriptionTouched(false);
+    setFormValue("seo_title", defaultSeoTitle(formValues.get("title") ?? ""))
+    setFormValue(
+      "seo_description",
+      defaultSeoDescription(formValues.get("description") ?? "")
+    )
+    setSeoTitleTouched(false)
+    setSeoDescriptionTouched(false)
+  }
+
+  function commitFilesToInput(input: HTMLInputElement | null, files: File[]) {
+    if (!input) return
+    const dt = new DataTransfer()
+    for (const f of files) dt.items.add(f)
+    input.files = dt.files
   }
 
   function commitStagedFiles(files: File[]) {
-    const dt = new DataTransfer();
-    for (const f of files) dt.items.add(f);
-    if (fileInputRef.current) fileInputRef.current.files = dt.files;
-    for (const url of objectUrlsRef.current) URL.revokeObjectURL(url);
-    const urls = files.map((f) => URL.createObjectURL(f));
-    objectUrlsRef.current = urls;
-    setPreviewUrls(urls);
-    setNewFiles(files);
+    commitFilesToInput(fileInputRef.current, files)
+    for (const url of objectUrlsRef.current) URL.revokeObjectURL(url)
+    const urls = files.map((f) => URL.createObjectURL(f))
+    objectUrlsRef.current = urls
+    setPreviewUrls(urls)
+    setNewFiles(files)
   }
 
   function addFiles(files: File[]) {
-    if (files.length === 0) return;
-    const hadImages = imageKeys.length > 0;
-    const seen = new Set(newFiles.map((f) => `${f.name}:${f.size}:${f.lastModified}`));
+    if (files.length === 0) return
+    const seen = new Set(
+      newFiles.map((f) => `${f.name}:${f.size}:${f.lastModified}`)
+    )
     const merged = [
       ...newFiles,
-      ...files.filter((f) => !seen.has(`${f.name}:${f.size}:${f.lastModified}`)),
-    ].slice(0, MAX_PRODUCT_IMAGES);
-    commitStagedFiles(merged);
-    if (!hadImages && merged.length > 0) {
-      setPrimaryImageKey(stagedImageKey(0));
-    }
+      ...files.filter(
+        (f) => !seen.has(`${f.name}:${f.size}:${f.lastModified}`)
+      ),
+    ].slice(0, MAX_PRODUCT_IMAGES)
+    commitStagedFiles(merged)
+  }
+
+  function makePrimary(key: string) {
+    setImageOrder([key, ...orderedImageKeys.filter((k) => k !== key)])
   }
 
   function removeStaged(index: number) {
-    const nextFiles = newFiles.filter((_, i) => i !== index);
-    const currentPrimary = effectivePrimaryImageKey;
-    if (currentPrimary === stagedImageKey(index)) {
-      const fallbackExisting = visibleExistingImages[0];
-      setPrimaryImageKey(
-        fallbackExisting
-          ? existingImageKey(fallbackExisting.path)
-          : nextFiles.length > 0
-            ? stagedImageKey(0)
-            : null,
-      );
-    } else {
-      const primaryIndex = stagedImageIndex(currentPrimary);
-      if (primaryIndex !== null && index < primaryIndex) {
-        setPrimaryImageKey(stagedImageKey(primaryIndex - 1));
-      }
-    }
-    commitStagedFiles(nextFiles);
+    // Staged keys are index-based: drop the removed one and shift later ones.
+    setImageOrder(
+      orderedImageKeys.flatMap((key) => {
+        const i = stagedImageIndex(key)
+        if (i === null || i < index) return [key]
+        return i === index ? [] : [stagedImageKey(i - 1)]
+      })
+    )
+    commitStagedFiles(newFiles.filter((_, i) => i !== index))
   }
 
   function replaceStaged(index: number, file: File) {
-    commitStagedFiles(newFiles.map((f, i) => (i === index ? file : f)));
+    commitStagedFiles(newFiles.map((f, i) => (i === index ? file : f)))
   }
 
   function removeExisting(path: string) {
-    const wasPrimary = effectivePrimaryImageKey === existingImageKey(path);
-    const remainingExisting = visibleExistingImages.filter((image) => image.path !== path);
-    setRemovedImagePaths((prev) => (prev.includes(path) ? prev : [...prev, path]));
-    if (wasPrimary) {
-      setPrimaryImageKey(
-        remainingExisting[0]
-          ? existingImageKey(remainingExisting[0].path)
-          : newFiles.length > 0
-            ? stagedImageKey(0)
-            : null,
-      );
-    }
+    setRemovedImagePaths((prev) =>
+      prev.includes(path) ? prev : [...prev, path]
+    )
   }
 
   function replaceExisting(path: string, file: File) {
-    const wasPrimary = effectivePrimaryImageKey === existingImageKey(path);
-    const nextFiles = [...newFiles, file].slice(0, MAX_PRODUCT_IMAGES);
-    setRemovedImagePaths((prev) => (prev.includes(path) ? prev : [...prev, path]));
-    commitStagedFiles(nextFiles);
-    if (wasPrimary) {
-      setPrimaryImageKey(stagedImageKey(nextFiles.length - 1));
-    }
+    const nextFiles = [...newFiles, file].slice(0, MAX_PRODUCT_IMAGES)
+    // The cropped copy takes the original's place in the order.
+    const replacedKey = existingImageKey(path)
+    const newKey = stagedImageKey(nextFiles.length - 1)
+    setImageOrder(
+      orderedImageKeys.map((key) => (key === replacedKey ? newKey : key))
+    )
+    setRemovedImagePaths((prev) =>
+      prev.includes(path) ? prev : [...prev, path]
+    )
+    commitStagedFiles(nextFiles)
   }
 
   function onSeoFileChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0] ?? null;
-    e.target.value = "";
-    syncSeoInput(file);
-    if (seoObjectUrlRef.current) URL.revokeObjectURL(seoObjectUrlRef.current);
-    seoObjectUrlRef.current = null;
+    const file = e.target.files?.[0] ?? null
+    e.target.value = ""
+    syncSeoInput(file)
+    if (seoObjectUrlRef.current) URL.revokeObjectURL(seoObjectUrlRef.current)
+    seoObjectUrlRef.current = null
     if (!file) {
-      setSeoPreview(null);
-      setSeoFile(null);
-      return;
+      setSeoPreview(null)
+      setSeoFile(null)
+      return
     }
-    const url = URL.createObjectURL(file);
-    seoObjectUrlRef.current = url;
-    setSeoPreview(url);
-    setSeoFile(file);
-    setSeoImageCleared(false);
+    const url = URL.createObjectURL(file)
+    seoObjectUrlRef.current = url
+    setSeoPreview(url)
+    setSeoFile(file)
+    setSeoImageCleared(false)
   }
 
   function syncSeoInput(file: File | null) {
-    const dt = new DataTransfer();
-    if (file) dt.items.add(file);
-    if (seoImageInputRef.current) seoImageInputRef.current.files = dt.files;
+    commitFilesToInput(seoImageInputRef.current, file ? [file] : [])
   }
 
   function removeSeoImage() {
-    if (seoObjectUrlRef.current) URL.revokeObjectURL(seoObjectUrlRef.current);
-    seoObjectUrlRef.current = null;
-    syncSeoInput(null);
-    setSeoPreview(null);
-    setSeoFile(null);
-    setSeoImageCleared(true);
+    if (seoObjectUrlRef.current) URL.revokeObjectURL(seoObjectUrlRef.current)
+    seoObjectUrlRef.current = null
+    syncSeoInput(null)
+    setSeoPreview(null)
+    setSeoFile(null)
+    setSeoImageCleared(true)
   }
 
   function applySeoCrop(file: File) {
-    if (seoObjectUrlRef.current) URL.revokeObjectURL(seoObjectUrlRef.current);
-    const url = URL.createObjectURL(file);
-    seoObjectUrlRef.current = url;
-    syncSeoInput(file);
-    setSeoFile(file);
-    setSeoPreview(url);
-    setSeoImageCleared(false);
+    if (seoObjectUrlRef.current) URL.revokeObjectURL(seoObjectUrlRef.current)
+    const url = URL.createObjectURL(file)
+    seoObjectUrlRef.current = url
+    syncSeoInput(file)
+    setSeoFile(file)
+    setSeoPreview(url)
+    setSeoImageCleared(false)
   }
 
   function updateVariant(index: number, patch: Partial<ExistingVariant>) {
-    setVariants((prev) => prev.map((v, i) => (i === index ? { ...v, ...patch } : v)));
+    setVariants((prev) =>
+      prev.map((v, i) => (i === index ? { ...v, ...patch } : v))
+    )
   }
 
-  function handleHasVariantsChange(value: boolean) {
-    setHasVariants(value);
-    if (value && variants.length === 0) setVariants([newVariant()]);
+  function handleAttributesChange(next: VariantAttribute[]) {
+    setAttributes(next)
+    setVariants((prev) => buildVariantRows(next, prev))
   }
 
-  const addVariant = () =>
-    setVariants((prev) => (prev.length >= MAX_VARIANTS ? prev : [...prev, newVariant()]));
-  const removeLastVariant = () => setVariants((prev) => prev.slice(0, -1));
-
-  function controlKey(el: HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement): string {
-    return el.id || el.getAttribute("aria-label") || el.name;
+  function controlKey(
+    el: HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
+  ): string {
+    return el.id || el.getAttribute("aria-label") || el.name
   }
 
-  function pinpoint(el: HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement) {
-    setInvalidField({ id: controlKey(el), message: el.validationMessage });
+  function pinpoint(
+    el: HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
+  ) {
+    setInvalidField({ id: controlKey(el), message: el.validationMessage })
   }
 
-  function firstInvalidIn(root: Element | null): HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement | null {
-    const fields = root?.querySelectorAll("input, textarea, select") ?? [];
+  function firstInvalidIn(
+    root: Element | null
+  ): HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement | null {
+    const fields = root?.querySelectorAll("input, textarea, select") ?? []
     for (const field of fields) {
       if (
         field instanceof HTMLInputElement ||
         field instanceof HTMLTextAreaElement ||
         field instanceof HTMLSelectElement
       ) {
-        if (!field.checkValidity()) return field;
+        if (!field.checkValidity()) return field
       }
     }
-    return null;
+    return null
   }
 
   function invalidFor(id: string): boolean | undefined {
-    return invalidField?.id === id ? true : undefined;
+    return invalidField?.id === id ? true : undefined
   }
 
   function errorFor(id: string): ReactNode {
-    return invalidField?.id === id ? <FieldError>{invalidField.message}</FieldError> : null;
+    return invalidField?.id === id ? (
+      <FieldError>{invalidField.message}</FieldError>
+    ) : null
   }
 
   function clearInvalidForEvent(e: SyntheticEvent) {
-    if (!invalidField) return;
-    const t = e.target;
-    if (t instanceof HTMLInputElement || t instanceof HTMLTextAreaElement || t instanceof HTMLSelectElement) {
-      if (controlKey(t) === invalidField.id) setInvalidField(null);
+    if (!invalidField) return
+    const t = e.target
+    if (
+      t instanceof HTMLInputElement ||
+      t instanceof HTMLTextAreaElement ||
+      t instanceof HTMLSelectElement
+    ) {
+      if (controlKey(t) === invalidField.id) setInvalidField(null)
     }
   }
 
   // Rich-text descriptions need a custom length check because the browser
   // cannot count visible text inside HTML.
   function validateDescription(): boolean {
-    const text = plainTextLength(formValues.get("description") ?? "");
-    if (text >= DESCRIPTION_MIN_TEXT_CHARS) return true;
+    const text = plainTextLength(formValues.get("description") ?? "")
+    if (text >= DESCRIPTION_MIN_TEXT_CHARS) return true
     setInvalidField({
       id: "description",
       message: `Description needs at least ${DESCRIPTION_MIN_TEXT_CHARS} characters of text.`,
-    });
-    return false;
+    })
+    return false
   }
 
   function onFormSubmit(e: FormEvent<HTMLFormElement>) {
-    const form = formRef.current;
+    const form = formRef.current
     // Second pass: our own code explicitly allowed this POST.
     if (allowSubmitRef.current) {
-      allowSubmitRef.current = false;
-      return;
+      allowSubmitRef.current = false
+      return
     }
     // First pass: intercept EVERY submit — no POST leaves the browser
     // without passing explicit validation below.
-    e.preventDefault();
-    if (!form) return;
+    e.preventDefault()
+    if (!form) return
     if (skuDuplicate === true) {
       setInvalidField({
         id: "seller_sku",
         message: "This SKU is already used by another product.",
-      });
-      return;
+      })
+      return
     }
-    if (!validateDescription()) return;
+    if (!validateDescription()) return
     if (autoSubmitRef.current && totalImages < MIN_PRODUCT_IMAGES) {
       setInvalidField({
         id: "images",
         message: `Add at least ${MIN_PRODUCT_IMAGES} images before submitting.`,
-      });
-      return;
+      })
+      return
     }
-    const bad = firstInvalidIn(form);
+    const bad = firstInvalidIn(form)
     if (bad) {
-      pinpoint(bad);
-      return;
+      pinpoint(bad)
+      return
     }
+    // React resets the <form> after every server-action submit, which empties
+    // the file inputs while the previews (React state) stay on screen. Re-sync
+    // both inputs from state so a retry after any failed save still uploads
+    // the images the supplier can see.
+    commitFilesToInput(fileInputRef.current, newFiles)
+    commitFilesToInput(seoImageInputRef.current, seoFile ? [seoFile] : [])
     if (autoSubmitRef.current) {
-      const input = document.createElement("input");
-      input.type = "hidden";
-      input.name = "auto_submit";
-      input.value = "1";
-      form.appendChild(input);
+      const input = document.createElement("input")
+      input.type = "hidden"
+      input.name = "auto_submit"
+      input.value = "1"
+      form.appendChild(input)
     }
     // Explicitly allowed: re-submit programmatically so the POST goes
     // through the second pass above. Deferred to avoid re-entrancy issues
     // where requestSubmit() is ignored during an active submit handler.
-    allowSubmitRef.current = true;
+    allowSubmitRef.current = true
     setTimeout(() => {
       try {
-        form.requestSubmit();
+        form.requestSubmit()
       } catch {
-        allowSubmitRef.current = false;
+        allowSubmitRef.current = false
       }
-    }, 0);
+    }, 0)
   }
 
   function requestSave(kind: "draft" | "submit") {
-    if (pending) return;
-    autoSubmitRef.current = kind === "submit";
-    setPendingAction(kind);
-    formRef.current?.requestSubmit();
+    if (pending) return
+    autoSubmitRef.current = kind === "submit"
+    setPendingAction(kind)
+    formRef.current?.requestSubmit()
   }
 
   const statusAlert = state.message ? (
@@ -647,14 +687,17 @@ export function ProductForm({
         {state.ok ? (
           <>
             {" "}
-            <Link href="/supplier/dashboard/products" className="underline underline-offset-4 hover:text-primary">
+            <Link
+              href="/supplier/dashboard/products"
+              className="underline underline-offset-4 hover:text-primary"
+            >
               View products
             </Link>
           </>
         ) : null}
       </AlertDescription>
     </Alert>
-  ) : null;
+  ) : null
 
   return (
     <div className="mx-auto flex w-full max-w-6xl flex-col gap-4">
@@ -679,12 +722,35 @@ export function ProductForm({
       >
         <input type="hidden" name="wizard_complete" value="1" />
         <input type="hidden" name="variants_json" value={variantsJson} />
-        <input type="hidden" name="seo_image_clear" value={seoImageCleared ? "1" : ""} />
-        <input type="hidden" name="removed_image_paths" value={JSON.stringify(removedImagePaths)} />
-        <input type="hidden" name="primary_image" value={effectivePrimaryImageKey ?? ""} />
+        <input
+          type="hidden"
+          name="seo_image_clear"
+          value={seoImageCleared ? "1" : ""}
+        />
+        <input
+          type="hidden"
+          name="removed_image_paths"
+          value={JSON.stringify(removedImagePaths)}
+        />
+        <input
+          type="hidden"
+          name="primary_image"
+          value={effectivePrimaryImageKey ?? ""}
+        />
+        <input
+          type="hidden"
+          name="image_order"
+          value={JSON.stringify(orderedImageKeys)}
+        />
         <input type="hidden" name="is_winning" value={isWinning ? "1" : ""} />
-        <input type="hidden" name="is_hot_selling" value={isHotSelling ? "1" : ""} />
-        {storeId ? <input type="hidden" name="store_id" value={storeId} /> : null}
+        <input
+          type="hidden"
+          name="is_hot_selling"
+          value={isHotSelling ? "1" : ""}
+        />
+        {storeId ? (
+          <input type="hidden" name="store_id" value={storeId} />
+        ) : null}
 
         <ProductFormSectionTabs />
 
@@ -714,8 +780,9 @@ export function ProductForm({
               removedImagePaths={removedImagePaths}
               totalImages={totalImages}
               canAddMore={canAddMore}
-              primaryImageKey={effectivePrimaryImageKey}
-              onMakePrimary={setPrimaryImageKey}
+              orderedKeys={orderedImageKeys}
+              onReorder={setImageOrder}
+              onMakePrimary={makePrimary}
               onRemoveStaged={removeStaged}
               onRemoveExisting={removeExisting}
               onReplaceStaged={replaceStaged}
@@ -728,10 +795,6 @@ export function ProductForm({
               errorFor={errorFor}
             />
             <PricingSection
-              invalidFor={invalidFor}
-              errorFor={errorFor}
-              formValues={formValues}
-              onValueChange={setFormValue}
               negotiable={negotiable}
               onNegotiableChange={setNegotiable}
             />
@@ -743,7 +806,10 @@ export function ProductForm({
               </label>
               <label className="flex items-center justify-between gap-3 text-sm">
                 Hot selling product
-                <Switch checked={isHotSelling} onCheckedChange={setIsHotSelling} />
+                <Switch
+                  checked={isHotSelling}
+                  onCheckedChange={setIsHotSelling}
+                />
               </label>
             </div>
             <ShippingTaxSection
@@ -753,12 +819,10 @@ export function ProductForm({
             <VariantsSection
               invalidFor={invalidFor}
               invalidField={invalidField}
-              hasVariants={hasVariants}
-              onHasVariantsChange={handleHasVariantsChange}
+              attributes={attributes}
+              onAttributesChange={handleAttributesChange}
               variants={variants}
               onUpdateVariant={updateVariant}
-              addVariant={addVariant}
-              removeLastVariant={removeLastVariant}
             />
             <ProductSeoSection
               invalidFor={invalidFor}
@@ -795,7 +859,7 @@ export function ProductForm({
               onSaveSubmit={() => requestSave("submit")}
               showSubmit={showSubmit}
               saveLabel={saveLabel}
-              submitDisabled={!isFormValid}
+              liveHref={liveHref}
             />
             <div className="hidden @3xl/content:block">{statusAlert}</div>
           </aside>
@@ -808,12 +872,12 @@ export function ProductForm({
           onSaveSubmit={() => requestSave("submit")}
           showSubmit={showSubmit}
           saveLabel={saveLabel}
-          submitDisabled={!isFormValid}
+          liveHref={liveHref}
         />
       </form>
     </div>
-  );
+  )
 }
 
 // Kept for import compatibility with server pages.
-export type { ExistingProduct } from "./product-form-types";
+export type { ExistingProduct } from "./product-form-types"

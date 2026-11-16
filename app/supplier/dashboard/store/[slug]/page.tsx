@@ -13,7 +13,8 @@ import {
 } from "@/components/ui/card";
 import { Empty, EmptyDescription, EmptyTitle } from "@/components/ui/empty";
 
-const COMING_SOON_STORES = ["d2h-select", "ecom-package", "dropshopping"];
+// D2H Core and D2H Select use the main dashboard (store switcher).
+const COMING_SOON_STORES = ["ecom-package", "dropshopping"];
 
 export default async function ComingSoonStorePage({
   params,

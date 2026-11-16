@@ -23,7 +23,7 @@ the model; it POSTs validated uploads here and gets back a normalized
 
 ```bash
 cd services/image-search
-pnpm install
+npm install
 IMAGE_SEARCH_SERVICE_TOKEN=dev-secret node src/server.js
 # health
 curl localhost:8000/health

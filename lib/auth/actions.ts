@@ -97,6 +97,16 @@ export async function verifyOtp(
   });
 
   if (error) {
+    // Auth-attempt log for spotting brute force; the address is masked.
+    const [local, domain] = parsed.data.email.split("@");
+    console.warn(
+      JSON.stringify({
+        event: "auth.verify_otp_failed",
+        email: `${local.slice(0, 2)}***@${domain}`,
+        code: error.code ?? null,
+        status: error.status ?? null,
+      }),
+    );
     return { ok: false, message: "That code did not work. Check it and try again." };
   }
 

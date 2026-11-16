@@ -8,6 +8,7 @@ import { Delete02Icon, Edit01Icon, EyeIcon, EyeOffIcon, MoreHorizontalIcon, Send
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Switch } from "@/components/ui/switch";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -36,7 +37,13 @@ import {
 } from "@/components/ui/table";
 import { toast } from "@/components/ui/toast";
 import { StatusBadge } from "@/components/dashboard/status-badge";
-import { deleteProduct, hideProduct, submitProduct, unhideProduct } from "@/lib/supplier/product-actions";
+import {
+  deleteProduct,
+  hideProduct,
+  setProductInStock,
+  submitProduct,
+  unhideProduct,
+} from "@/lib/supplier/product-actions";
 
 export type ProductRow = {
   id: string;
@@ -50,7 +57,43 @@ export type ProductRow = {
   stock: number;
   status: string;
   is_hidden: boolean;
+  inStock: boolean;
 };
+
+/** On = in stock, off = out of stock. Optimistic, rolls back on failure. */
+function StockToggle({ productId, title, inStock }: { productId: string; title: string; inStock: boolean }) {
+  const [checked, setChecked] = useState(inStock);
+  const [pending, start] = useTransition();
+  const router = useRouter();
+
+  const change = (next: boolean) => {
+    setChecked(next);
+    start(async () => {
+      const result = await setProductInStock(productId, next);
+      if (result.ok) {
+        toast.add({ type: "success", title: result.message });
+        router.refresh();
+      } else {
+        setChecked(!next);
+        toast.add({ type: "error", title: "Could not update stock", description: result.message });
+      }
+    });
+  };
+
+  return (
+    <label className="inline-flex items-center gap-2 whitespace-nowrap">
+      <Switch
+        checked={checked}
+        disabled={pending}
+        onCheckedChange={change}
+        aria-label={`${title}: ${checked ? "in stock" : "out of stock"}`}
+      />
+      <span className={checked ? "text-sm text-success" : "text-sm text-destructive"}>
+        {checked ? "In stock" : "Out of stock"}
+      </span>
+    </label>
+  );
+}
 
 function ProductRowMenu({
   productId,
@@ -98,6 +141,7 @@ function ProductRowMenu({
     start(async () => {
       const result = await deleteProduct(productId);
       if (result.ok) {
+        toast.add({ type: "success", title: "Product deleted" });
         router.refresh();
       } else {
         toast.add({
@@ -158,6 +202,14 @@ function ProductRowMenu({
               <DropdownMenuItem disabled={pending} onClick={toggleVisibility}>
                 <HugeiconsIcon icon={isHidden ? EyeIcon : EyeOffIcon} strokeWidth={2} />
                 {isHidden ? "Show listing" : "Hide listing"}
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                variant="destructive"
+                disabled={pending}
+                onClick={() => setDeleteOpen(true)}
+              >
+                <HugeiconsIcon icon={Delete02Icon} strokeWidth={2} />
+                Delete
               </DropdownMenuItem>
             </>
           ) : status === "pending" ? (
@@ -280,7 +332,7 @@ export function ProductTable({
             </TableHead>
             <TableHead>Product</TableHead>
             <TableHead>Price</TableHead>
-            <TableHead className="hidden sm:table-cell">Inventory</TableHead>
+            <TableHead>Stock</TableHead>
             <TableHead>Status</TableHead>
             <TableHead className="text-right">Actions</TableHead>
           </TableRow>
@@ -337,12 +389,8 @@ export function ProductTable({
                   </span>
                 ) : null}
               </TableCell>
-              <TableCell className="hidden whitespace-nowrap tabular-nums sm:table-cell">
-                {p.stock > 0 ? (
-                  p.stock
-                ) : (
-                  <span className="text-muted-foreground">Made to order</span>
-                )}
+              <TableCell>
+                <StockToggle productId={p.id} title={p.title} inStock={p.inStock} />
               </TableCell>
               <TableCell>
                 <div className="flex items-center gap-2">

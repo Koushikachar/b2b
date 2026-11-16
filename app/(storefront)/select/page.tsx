@@ -1,5 +1,6 @@
 import { Suspense } from "react"
 import type { Metadata } from "next"
+import { getCachedDealsStoreId } from "@/lib/storefront-cache"
 import { SelectPromotionalCollections } from "@/components/storefront/select-promotional-collections"
 import { TopCategoriesSection } from "@/components/storefront/home-categories"
 import { RecentlyViewedSection } from "@/components/storefront/home-recently-viewed"
@@ -20,7 +21,10 @@ export const metadata: Metadata = {
   openGraph: { title: "D2H Select", url: "/select" },
 }
 
-export default function SelectPage() {
+export default async function SelectPage() {
+  // Everything on this page is D2H Select's own catalogue (never D2H Core).
+  const selectStoreId = await getCachedDealsStoreId()
+
   return (
     <div className="min-h-full bg-white">
       <h1 className="sr-only">D2H Select — curated wholesale picks</h1>
@@ -38,11 +42,11 @@ export default function SelectPage() {
       </Suspense>
 
       <Suspense fallback={<FrequentlyBoughtSkeleton />}>
-        <FrequentlyBoughtSection />
+        <FrequentlyBoughtSection storeId={selectStoreId} />
       </Suspense>
 
       <Suspense fallback={<RecommendedProductsSkeleton />}>
-        <RecommendedProductsSection />
+        <RecommendedProductsSection storeId={selectStoreId} />
       </Suspense>
     </div>
   )

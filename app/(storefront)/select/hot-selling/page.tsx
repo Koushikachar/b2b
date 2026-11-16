@@ -1,6 +1,7 @@
 import type { Metadata } from "next"
 import { getHotSellingProducts } from "@/lib/storefront"
 import { createClient } from "@/lib/supabase/server"
+import { getCachedDealsStoreId } from "@/lib/storefront-cache"
 import { SectionHeader } from "@/components/storefront/section-header"
 import { ProductCard, type ProductCardData } from "@/components/storefront/product-card"
 
@@ -11,7 +12,8 @@ export const metadata: Metadata = {
 
 export default async function HotSellingProductsPage() {
   const supabase = await createClient()
-  const products = await getHotSellingProducts(supabase, 48)
+  // D2H Select's own products only.
+  const products = await getHotSellingProducts(supabase, 48, await getCachedDealsStoreId())
 
   return (
     <div className="mx-auto w-full max-w-7xl px-4 py-5">

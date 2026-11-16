@@ -33,7 +33,7 @@ export default async function EditSupplierProductPage({
   const { data: product } = await supabase
     .from("products")
     .select(
-      "id, title, category_id, seller_sku, hsn_code, gst_rate, carton_units, carton_dimensions, carton_weight_kg, description, unit, negotiable, is_winning, is_hot_selling, packaging_details, warranty_return, youtube_url, seo_title, seo_description, seo_image_path, status, is_hidden",
+      "id, title, category_id, seller_sku, hsn_code, gst_rate, carton_units, carton_dimensions, carton_weight_kg, description, unit, negotiable, is_winning, is_hot_selling, packaging_details, warranty_return, youtube_url, seo_title, seo_description, seo_image_path, status, is_hidden, updated_at",
     )
     .eq("id", id)
     .eq("supplier_id", companyId)
@@ -60,7 +60,7 @@ export default async function EditSupplierProductPage({
   }
 
   // Images, variants, base prices and categories are independent reads.
-  const [{ data: images }, { data: variants }, { data: basePrices, error: basePricesError }, { data: categories }] =
+  const [{ data: images }, { data: variants }, { data: basePrices, error: basePricesError }, { data: categories }, mrpResult] =
     await Promise.all([
       supabase.from("product_images").select("id, path").eq("product_id", id).order("sort"),
       supabase
@@ -76,7 +76,10 @@ export default async function EditSupplierProductPage({
         .eq("product_id", id)
         .maybeSingle(),
       categoriesPromise,
+      // Separate read: tolerates a database without the `mrp` column yet.
+      supabase.from("products").select("mrp").eq("id", id).maybeSingle(),
     ]);
+  const mrp = mrpResult.error ? null : (mrpResult.data?.mrp as number | null) ?? null;
 
   // Never fall through to a zero base price here: the form would prefill 0 and
   // the supplier's real price would look like a mistake.
@@ -110,6 +113,7 @@ export default async function EditSupplierProductPage({
     description: product.description,
     unit: product.unit,
     price_per_unit: Number(basePrices?.price_per_unit ?? 0),
+    mrp: mrp != null ? Number(mrp) : null,
     negotiable: product.negotiable,
     is_winning: product.is_winning ?? false,
     is_hot_selling: product.is_hot_selling ?? false,
@@ -129,6 +133,7 @@ export default async function EditSupplierProductPage({
         label: v.label,
         attr_key: entries[0]?.[0] ?? "",
         attr_value: entries[0]?.[1] ?? "",
+        attrs,
         seller_sku: v.seller_sku,
         price: baseVariantPrices.get(v.id) ?? 0,
         moq: v.moq,
@@ -139,6 +144,8 @@ export default async function EditSupplierProductPage({
 
   return (
     <ProductForm
+      // Remount from the saved data after each save (the form stays open).
+      key={String(product.updated_at ?? "")}
       mode="edit"
       product={existing}
       categories={(categories ?? []).map((c) => ({

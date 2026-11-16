@@ -244,32 +244,26 @@ page (`/`, `/products`, `/category/[slug]`, `/products/[id]`). It is `lg:hidden`
 — desktop navigation is untouched. It is **separate from supplier/admin
 workspace navigation** and must not be added to `/supplier/*` or `/admin/*`.
 
-Five items, in order:
+Five items, in order (mockup-aligned 2026-11 refresh):
 
-| Item         | Action                                                                            | Active when                                |
-| ------------ | --------------------------------------------------------------------------------- | ------------------------------------------ |
-| Home         | `/`                                                                               | `pathname === "/"`                         |
-| Categories   | `/categories` (category discovery)                                                 | `/categories`, `/category/*`               |
-| All Products | `/products` (the complete catalog, never a search or category view)                | `/products` without a search query         |
-| Search       | opens a bottom sheet reusing `StorefrontSearchForm` (submits to `/products?q=…`)  | `/products` with `?q` or `?img`            |
-| Account      | signed in: existing `AccountMenu` (opens upward); signed out: `/auth/login`       | `/account/*`                               |
+| Item       | Action                                                                                   | Active when                                             |
+| ---------- | ---------------------------------------------------------------------------------------- | ------------------------------------------------------- |
+| Home       | `/`                                                                                      | `pathname === "/"`                                      |
+| Store      | `/stores` (store programmes: D2H Core, D2H Select)                                       | `/stores*`, `/store/*`, `/select*`, `/events/*`         |
+| Cart       | `/cart` with item-count badge                                                            | `/cart`                                                 |
+| My Account | signed in: `/account` hub; signed out: `/auth/login?next=/account`                       | `/account/*`, `/auth/*`                                 |
+| More       | bottom sheet: `StorefrontSearchForm` + All Products, Categories, Select, Orders, Wishlist, Notifications, Contact, workspace dashboard | `/products` (incl. search), `/categories`, `/category/*` |
 
-- Active-state logic lives in `isStorefrontTabActive()` (`lib/nav.ts`) and is
-  shared with the mobile drawer. Search results win over All Products:
-  `/products?q=…` (and image search `?img=…`) highlights Search, while every
-  other `/products` view highlights All Products.
-- Icons come from the existing Hugeicons set (`Home01Icon`, `GridViewIcon`,
-  `Package01Icon`, `Search01Icon`, `UserCircleIcon`). No new icon library.
+- Active-state logic lives in `isStorefrontTabActive()` (`lib/nav.ts`, `"store"`
+  case added). The More sheet is remounted per route + query so it closes on
+  navigation, and keeps the keyboard-inset handling the old Search sheet had.
+- Icons: `Home01Icon`, `Store01Icon`, `ShoppingCart01Icon`, `UserIcon`, `Menu01Icon`.
+- The bar now shows on `/select*` too; only product detail pages hide it (they
+  own a sticky buy bar).
 - Each item is `flex-1` with a visible 12px (`text-xs`) label below a 24px
-  (`size-6`) icon; the bar stays 56px tall, so five tabs fit 360px without
-  wrapping, clipping, or horizontal scrolling. Interactive areas are the full
-  56px-tall tab.
+  (`size-6`) icon; the bar stays 56px tall.
 - Active state is never colour alone: the icon turns `text-primary` and the
-  label becomes `text-brand-700` semibold (`font-semibold`) with a heavier
-  icon stroke; inactive items stay `text-muted-foreground`. The top rule was
-  removed in the mockup-aligned refresh. No pills, fills or gradients. Links set
-  `aria-current="page"`; the signed-in Account trigger and Search sheet trigger
-  expose it too. Every tab has an inset `focus-visible` ring.
+  label becomes `text-brand-700` semibold with a heavier icon stroke.
 - Semantic `<nav aria-label="Storefront">`; every item has a visible label and an
   accessible name.
 - The bar is `fixed inset-x-0 bottom-0 z-40`; sheets/dropdowns (`z-50`) cover it.
@@ -492,6 +486,46 @@ so navigation never reflows when content arrives.
   `h-14` rows, `h-[72px]` KPI cards).
 - Skeletons are decorative: `aria-hidden` on the tree, no fake counts, labels or
   focusable controls. `animate-pulse` stops under `prefers-reduced-motion`.
+
+### D2H Select deals slider (`components/storefront/select-promotional-collections.tsx`)
+
+One horizontal snap slider (`PromoSlider`, a tiny client island for desktop
+prev/next arrows; touch uses native scrolling) of `PromoCollectionCard`s:
+Winning → Hot Selling → live festival event → Under ₹9/₹29/₹49/₹99. Each card is
+mockup artwork header (`public/promos/*.webp`, 92px) + up to 4 rows (64px
+thumb, 2-line title, MOQ, price, compact `CardAddButton`) + full-width "See All"
+CTA. Data is a single cached read (`getCachedPromoCollections`). No MRP/strike
+price is shown because the catalogue has no MRP column. "See All Under ₹X" is
+`/select/under/[price]` — the shared infinite catalogue clamped to the bucket.
+Slides and the track are `relative` so `sr-only` headings cannot escape the
+scroller and widen the page.
+
+### Festival events (`/events/[key]`, `promo_events` table)
+
+Events are rows in `promo_events` (date window + max reward); visual themes are
+in `PROMO_EVENT_THEMES` (`lib/promotions.ts`). A live event adds a full-art
+slide to the Select slider. The event page is "tap the diya": the
+`claim_promo_event_reward` RPC picks a weighted reward, credits
+`wallet_transactions` and records the claim in one transaction, once per user.
+
+### Account hub (`/account`) and sub-pages
+
+Mockup layout: profile card (avatar circle, name, phone, email, edit) → wallet
+card (primary→destructive gradient, white balance chip) → Orders / Wishlist
+shortcut pair → one rounded menu list (Address Book, GST Details, Payments &
+Refunds, Account Statement, Recently Viewed, Account Privacy, Share the App,
+Contact Us, Notifications) → pale-red Logout with an AlertDialog confirmation.
+Two columns from `lg`. Every sub-page uses `AccountPageHeader` (back to
+`/account`) and owns a `loading.tsx` with `AccountSubpageSkeleton`. Legacy
+`/account?tab=` links redirect to `/account/wishlist|recent|addresses`.
+
+### Stores (`/stores`, `/stores/[slug]`)
+
+Store programmes are config (`lib/stores.ts`). `/stores` lists `StoreCard`s;
+`/stores/d2h-core` has the hero (logo, badge, location, stat tiles), sticky
+in-page anchor tabs (no JS), content panels, and a sticky Store Details + Buyer
+Protection sidebar on desktop. Product counts come from the real catalogue; no
+ratings are shown because there is no ratings data.
 
 ---
 

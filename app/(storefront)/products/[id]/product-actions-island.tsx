@@ -25,6 +25,7 @@ export async function ProductActionsIsland({
   moq,
   unit,
   variants,
+  outOfStock = false,
 }: {
   productId: string;
   title: string;
@@ -32,6 +33,7 @@ export async function ProductActionsIsland({
   moq: number;
   unit: string;
   variants: IslandVariant[];
+  outOfStock?: boolean;
 }) {
   const supabase = await createClient();
   const user = await getSessionUser(supabase);
@@ -52,16 +54,23 @@ export async function ProductActionsIsland({
           image={image}
         />
       )}
-      <AddToCartForm
-        productId={productId}
-        moq={moq}
-        unit={unit}
-        variants={variants}
-        signedIn={!!user}
-      />
-      <div className="grid grid-cols-2 gap-2">
-        <SaveButton productId={productId} saved={saved} />
-      </div>
+      {outOfStock ? (
+        <p
+          role="status"
+          className="flex h-11 items-center justify-center rounded-lg border border-destructive/30 bg-destructive/5 text-sm font-semibold text-destructive"
+        >
+          Currently out of stock
+        </p>
+      ) : (
+        <AddToCartForm
+          productId={productId}
+          moq={moq}
+          unit={unit}
+          variants={variants}
+          signedIn={!!user}
+        />
+      )}
+      <SaveButton productId={productId} saved={saved} />
     </div>
   );
 }

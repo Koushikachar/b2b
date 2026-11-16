@@ -108,6 +108,24 @@ export async function placeOrder(
     return errState("Choose a valid delivery address from your saved addresses.");
   }
 
+  // Items can go out of stock after they were added to the cart.
+  const { data: cartRows } = await supabase
+    .from("cart_items")
+    .select("product_id")
+    .eq("buyer_id", user.id);
+  const cartProductIds = [...new Set((cartRows ?? []).map((row) => row.product_id as string))];
+  if (cartProductIds.length > 0) {
+    const { data: unavailable, error: stockError } = await supabase
+      .from("products")
+      .select("title")
+      .in("id", cartProductIds)
+      .eq("is_out_of_stock", true);
+    if (!stockError && unavailable && unavailable.length > 0) {
+      const names = unavailable.map((row) => row.title as string).join(", ");
+      return errState(`Out of stock: ${names}. Remove it from your cart to place the order.`);
+    }
+  }
+
   const { data, error } = await supabase.rpc("create_orders_from_cart", {
     p_delivery: delivery,
     p_buyer_note: parsed.data.buyerNote ?? null,

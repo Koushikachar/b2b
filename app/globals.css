@@ -39,6 +39,9 @@
   --color-success: var(--success);
   --color-warning: var(--warning);
   --color-info: var(--info);
+  --color-superpi: var(--superpi);
+  --color-whatsapp: var(--whatsapp);
+  --color-whatsapp-dark: var(--whatsapp-dark);
   --color-violet: var(--violet);
   --color-brand-dark: var(--brand-dark);
   --color-brand-amber: var(--brand-amber);
@@ -112,6 +115,11 @@
   --success: oklch(0.5022 0.1597 140.0395);
   --warning: oklch(0.5806 0.1293 65.9314);
   --info: oklch(0.5044 0.2095 260.968);
+  /* SuperPi product mark (More Services card only). */
+  --superpi: #1aa88f;
+  /* WhatsApp brand green (WhatsApp CTAs only) + its dark teal for text on tints. */
+  --whatsapp: #25d366;
+  --whatsapp-dark: #075e54;
   --violet: #7c3aed;
   --brand-dark: #e85f00;
   --brand-amber: #ff9a00;
@@ -213,6 +221,14 @@
   transition-timing-function: ease-out;
   &:active {
     transform: scale(0.97);
+  }
+}
+
+/* Horizontal sliders: keep native touch/trackpad scrolling, hide the bar. */
+@utility no-scrollbar {
+  scrollbar-width: none;
+  &::-webkit-scrollbar {
+    display: none;
   }
 }
 

@@ -52,7 +52,7 @@ export function RecentlyViewedBlock({
       <SectionHeader
         title="Recently viewed"
         actionLabel={showViewAll ? "View all" : undefined}
-        actionHref={showViewAll ? "/account?tab=recent" : undefined}
+        actionHref={showViewAll ? "/account/recent" : undefined}
       />
       <RecentlyViewedRail items={items} />
     </section>

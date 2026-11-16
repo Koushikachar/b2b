@@ -1,6 +1,6 @@
 "use server";
 
-import { revalidatePath, revalidateTag } from "next/cache";
+import { revalidatePath, updateTag } from "next/cache";
 import { redirect } from "next/navigation";
 import sharp from "sharp";
 import { z } from "zod";
@@ -123,7 +123,8 @@ async function uploadImage(
 function revalidateBanners() {
   revalidatePath("/admin/dashboard/banners");
   revalidatePath("/");
-  revalidateTag("banners", "max");
+  // Immediate, so the admin sees the new banner on the next page load.
+  updateTag("banners");
 }
 
 export async function createBanner(
@@ -246,6 +247,40 @@ export async function deleteBanner(
   if (row.image_path && row.image_path !== "pending") {
     await supabase.storage.from("banners").remove([row.image_path]);
   }
+
+  revalidateBanners();
+  redirect("/admin/dashboard/banners");
+}
+
+/**
+ * "Reset to default design": remove every banner (and its stored image) in a
+ * home-page tile slot, so the storefront shows its built-in design again.
+ */
+export async function resetBannerSlot(
+  _prevState: BannerActionState,
+  formData: FormData,
+): Promise<BannerActionState | never> {
+  const { supabase } = await requireAdmin();
+  const slot = z.enum(BANNER_SLOTS).safeParse(formData.get("slot"));
+  if (!slot.success) return { ok: false, message: "Invalid slot." };
+
+  const { data: rows, error: readError } = await supabase
+    .from("home_banners")
+    .select("id, image_path")
+    .eq("slot", slot.data);
+  if (readError) {
+    console.error("resetBannerSlot read failed:", readError);
+    return { ok: false, message: "Could not reset. Try again." };
+  }
+  if (!rows || rows.length === 0) return { ok: true, message: "Already using the default design." };
+
+  const { error } = await supabase.from("home_banners").delete().eq("slot", slot.data);
+  if (error) {
+    console.error("resetBannerSlot failed:", error);
+    return { ok: false, message: "Could not reset. Try again." };
+  }
+  const paths = rows.map((row) => row.image_path as string).filter((path) => path && path !== "pending");
+  if (paths.length > 0) await supabase.storage.from("banners").remove(paths);
 
   revalidateBanners();
   redirect("/admin/dashboard/banners");

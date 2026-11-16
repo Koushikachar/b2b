@@ -1,3 +1,4 @@
+import { canAccess, homeFor, isMemberRole, type DashboardArea, type MemberRole } from "@/lib/supplier/permissions";
 import { cache } from "react";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
@@ -36,7 +37,8 @@ export async function requireAdmin(): Promise<AuthContext> {
   return ctx;
 }
 
-export type SupplierRole = "owner" | "staff";
+/** "owner" owns the company; the rest are team roles (lib/supplier/permissions). */
+export type SupplierRole = "owner" | MemberRole;
 
 export type SupplierContext = {
   companyId: string;
@@ -70,7 +72,7 @@ export const getSupplierContext = cache(async (
   }
   const { data: membership } = await supabase
     .from("company_members")
-    .select("company_id")
+    .select("company_id, role")
     .eq("user_id", userId)
     .maybeSingle();
   if (!membership) return null;
@@ -82,7 +84,7 @@ export const getSupplierContext = cache(async (
   if (!company) return null;
   return {
     companyId: company.id as string,
-    role: "staff",
+    role: isMemberRole(membership.role) ? membership.role : "staff",
     verified: company.kyb_status === "verified",
   };
 });
@@ -113,4 +115,15 @@ export async function requireOwnerCompany(
   if (!ctx) return "";
   if (ctx.role !== "owner") redirect("/supplier/dashboard");
   return ctx.companyId;
+}
+/**
+ * Dashboard section guard: a team member outside this area (e.g. an order
+ * manager opening Products) is sent to their own home section. The database
+ * enforces the same rules, so this is about navigation, not the security
+ * boundary.
+ */
+export async function requireDashboardArea(area: DashboardArea): Promise<void> {
+  const { supabase, user } = await requireUser();
+  const ctx = await getSupplierContext(supabase, user.id);
+  if (ctx && !canAccess(ctx.role, area)) redirect(homeFor(ctx.role));
 }

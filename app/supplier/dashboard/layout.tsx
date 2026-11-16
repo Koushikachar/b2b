@@ -1,19 +1,18 @@
 import { Suspense } from "react";
-import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import type { Metadata } from "next";
 import { createClient } from "@/lib/supabase/server";
 import { LOGIN_PATH } from "@/lib/auth/paths";
 import { getAuthUser } from "@/lib/auth/session";
-import { resolveStore } from "@/lib/store-context";
-import { STORE_COOKIE_NAME } from "@/lib/store-context-types";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { Header } from "@/components/layout/header";
 import { Main } from "@/components/layout/main";
 import { TopBar } from "@/components/dashboard/top-bar";
 import { SupplierSidebar } from "./sidebar";
 import { DashboardStoreSelector } from "@/components/dashboard/dashboard-store-selector";
-import { getAccountStores } from "@/lib/supplier/account-stores";
+import { getDashboardStore } from "@/lib/supplier/dashboard-store";
+import { getSupplierContext } from "@/lib/auth/guard";
+import { areaAccess } from "@/lib/supplier/permissions";
 
 // Private workspace: never indexed.
 export const metadata: Metadata = {
@@ -33,14 +32,14 @@ export default async function SupplierDashboardLayout({
     redirect(LOGIN_PATH);
   }
 
-  const cookieStore = await cookies();
-  const storeId = cookieStore.get(STORE_COOKIE_NAME)?.value ?? null;
-
-  const [{ data: profile }, accountStores, activeStore] = await Promise.all([
+  const [{ data: profile }, { store: activeStore, stores: accountStores }, ctx] = await Promise.all([
     supabase.from("profiles").select("user_type").eq("id", user.id).maybeSingle(),
-    getAccountStores(),
-    resolveStore(supabase, storeId),
+    getDashboardStore(),
+    getSupplierContext(supabase, user.id),
   ]);
+  // Owner: everything. Team members: their role's sections only. No company
+  // context yet (e.g. a membership not visible yet): no sections at all.
+  const access = ctx ? areaAccess(ctx.role) : { products: false, orders: false, all: false };
 
   let userType = profile?.user_type;
 
@@ -69,13 +68,14 @@ export default async function SupplierDashboardLayout({
             email: user.email ?? "",
           }}
           kybStatus="verified"
-          isStaff={userType === "staff"}
+          isStaff={ctx?.role !== "owner"}
+          access={access}
         />
       </Suspense>
       <SidebarInset className="@container/content">
         <Header>
           <TopBar
-            title="Supplier dashboard"
+            title={activeStore ? `${activeStore.name} dashboard` : "Supplier dashboard"}
             actions={
               <DashboardStoreSelector
                 stores={accountStores}

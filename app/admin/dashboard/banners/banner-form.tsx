@@ -11,7 +11,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
 import { type BannerActionState } from "@/lib/admin/banners";
-import { SLOT_ASPECTS, SLOT_LABELS, type BannerSlot } from "@/lib/admin/banner-slots";
+import { BANNER_SLOTS, SLOT_ASPECTS, SLOT_LABELS, type BannerSlot } from "@/lib/admin/banner-slots";
 import dynamic from "next/dynamic";
 
 const ImageUploadEditor = dynamic(
@@ -64,7 +64,7 @@ export function BannerForm({
             disabled={Boolean(id)}
             onChange={(e) => setSelectedSlot(e.target.value as BannerSlot)}
           >
-            {(["hero", "promo"] as BannerSlot[]).map((value) => (
+            {BANNER_SLOTS.map((value) => (
               <NativeSelectOption key={value} value={value}>
                 {SLOT_LABELS[value]}
               </NativeSelectOption>

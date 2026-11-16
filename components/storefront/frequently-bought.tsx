@@ -12,7 +12,7 @@ const BUNDLE_SIZE = 4
 function coverUrl(images: { path: string; sort: number }[] | null) {
   const cover = [...(images ?? [])].sort((a, b) => a.sort - b.sort)[0]
   return cover
-    ? publicTransformedImageUrl("product_images", cover.path, { width: 240, height: 240 })
+    ? publicTransformedImageUrl("product_images", cover.path, { width: 240, height: 240, fit: "contain" })
     : null
 }
 
@@ -23,8 +23,8 @@ function coverUrl(images: { path: string; sort: number }[] | null) {
  * into sample bundles and labels them as a preview. Replace the grouping (not
  * the card layout) when the real query lands.
  */
-export async function FrequentlyBoughtSection() {
-  const products = await getCachedHomeProducts()
+export async function FrequentlyBoughtSection({ storeId = null }: { storeId?: string | null }) {
+  const products = await getCachedHomeProducts(storeId)
   if (products.length < BUNDLE_SIZE) return null
 
   const bundles: (typeof products)[] = []

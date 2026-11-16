@@ -1,3 +1,4 @@
+import { requireDashboardArea } from "@/lib/auth/guard";
 import Link from "next/link"
 import Image from "next/image"
 import { redirect } from "next/navigation"
@@ -80,6 +81,9 @@ export default async function SupplierOverviewPage({
 }: {
   searchParams: Promise<{ range?: string }>
 }) {
+  // The overview (sales, analytics) is for full-access roles only.
+  await requireDashboardArea("all");
+
   const { range: rawRange } = await searchParams
   const range = parseDashboardRange(rawRange)
 
