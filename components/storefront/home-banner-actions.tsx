@@ -35,19 +35,31 @@ function Artwork({ src, alt, sizes, priority = false }: { src: string; alt: stri
   )
 }
 
+/** Pre-resized widths on disk (`/promos/<name>-<layout>-<w>.webp`). */
+const ART_WIDTHS = {
+  tile: { mobile: [128, 256, 480], desktop: [400, 780], sizes: "(min-width: 768px) 28vw, 28vw" },
+  card: { mobile: [192, 384, 690], desktop: [600, 1160], sizes: "(min-width: 768px) 42vw, 36vw" },
+}
+
+const srcSet = (name: string, layout: string, widths: number[]) =>
+  widths.map((w) => `/promos/${name}-${layout}-${w}.webp ${w}w`).join(", ")
+
 /**
- * Built-in art drawn for each layout: `/promos/<name>-mobile.webp` below md
- * (portrait card, square tiles), `/promos/<name>-desktop.webp` from md up
- * (landscape card, wide tiles). Fills the frame; the art already matches it.
- * Served as-is, not through the image optimizer: the files are pre-sized at
- * 2x and its q75 re-encode + downsizing blurred the lettering in the art.
+ * Built-in art drawn for each layout: mobile below md (portrait card, square
+ * tiles), desktop from md up (landscape card, wide tiles). Fills the frame;
+ * the art already matches it. Served as-is, not through the image optimizer:
+ * its q75 re-encode blurred the lettering, so the files are pre-resized with
+ * a sharp filter at the widths each screen density needs.
  */
-function ResponsiveArt({ name, alt }: { name: string; alt: string }) {
+function ResponsiveArt({ name, kind, alt }: { name: string; kind: keyof typeof ART_WIDTHS; alt: string }) {
+  const { mobile, desktop, sizes } = ART_WIDTHS[kind]
   return (
     <picture>
-      <source media="(min-width: 768px)" srcSet={`/promos/${name}-desktop.webp`} />
+      <source media="(min-width: 768px)" srcSet={srcSet(name, "desktop", desktop)} sizes={sizes} />
       <img
-        src={`/promos/${name}-mobile.webp`}
+        src={`/promos/${name}-mobile-${mobile[1]}.webp`}
+        srcSet={srcSet(name, "mobile", mobile)}
+        sizes={sizes}
         alt={alt}
         fetchPriority="high"
         className="absolute inset-0 size-full object-cover transition-transform duration-500 group-hover:scale-[1.02]"
@@ -85,6 +97,7 @@ async function DealCard({ banner }: { banner: BannerRow | undefined }) {
       <Link href={`/events/${live.key}`} className={FILL_LINK}>
         <ResponsiveArt
           name={theme.homeArt}
+          kind="card"
           alt={`${live.title} — ${theme.tagline(live.maxReward)}. ${theme.ctaLabel}`}
         />
       </Link>
@@ -140,7 +153,7 @@ function UnderTile({ price, banner }: { price: UnderTilePrice; banner: BannerRow
       </span>
     </>
   ) : (
-    <ResponsiveArt name={`tile-under-${price}`} alt={label} />
+    <ResponsiveArt name={`tile-under-${price}`} kind="tile" alt={label} />
   )
 
   return banner?.link_url ? (

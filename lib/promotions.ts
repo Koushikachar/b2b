@@ -103,7 +103,7 @@ export type PromoEventThemeConfig = {
   cardImage: string
   cardImageWidth: number
   cardImageHeight: number
-  /** Home deal card art: `/promos/<homeArt>-mobile.webp` and `-desktop.webp`. */
+  /** Home deal card art: `/promos/<homeArt>-{mobile,desktop}-<width>.webp`. */
   homeArt: string
   heroImage: string
   heroImageWidth: number
