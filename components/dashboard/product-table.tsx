@@ -39,6 +39,7 @@ import { toast } from "@/components/ui/toast";
 import { StatusBadge } from "@/components/dashboard/status-badge";
 import {
   deleteProduct,
+  deleteProducts,
   hideProduct,
   setProductInStock,
   submitProduct,
@@ -282,6 +283,9 @@ export function ProductTable({
   verified: boolean;
 }) {
   const [selected, setSelected] = useState<string[]>([]);
+  const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
+  const [bulkPending, startBulk] = useTransition();
+  const router = useRouter();
 
   const visibleIds = products.map((p) => p.id);
   const allChecked =
@@ -302,10 +306,32 @@ export function ProductTable({
     );
   };
 
+  const removeSelected = () =>
+    startBulk(async () => {
+      const result = await deleteProducts(selected);
+      if (result.ok) {
+        toast.add({
+          type: "success",
+          title: "Products deleted",
+          description: result.message,
+        });
+        setSelected((prev) =>
+          prev.filter((id) => !result.deletedIds.includes(id)),
+        );
+        router.refresh();
+      } else {
+        toast.add({
+          type: "error",
+          title: "Could not delete",
+          description: result.message,
+        });
+      }
+    });
+
   return (
     <>
       {selected.length > 0 ? (
-        <div className="flex items-center gap-2 border-b border-border bg-muted/50 px-4 py-2">
+        <div className="flex flex-wrap items-center gap-2 border-b border-border bg-muted/50 px-4 py-2">
           <span className="text-sm tabular-nums">
             {selected.length} selected
           </span>
@@ -313,9 +339,21 @@ export function ProductTable({
             variant="ghost"
             size="xs"
             onClick={() => setSelected([])}
+            disabled={bulkPending}
           >
             Clear
           </Button>
+          {verified ? (
+            <Button
+              variant="destructive"
+              size="xs"
+              onClick={() => setBulkDeleteOpen(true)}
+              disabled={bulkPending}
+            >
+              <HugeiconsIcon icon={Delete02Icon} strokeWidth={2} />
+              Delete selected
+            </Button>
+          ) : null}
         </div>
       ) : null}
       <Table>
@@ -418,6 +456,38 @@ export function ProductTable({
           ))}
         </TableBody>
       </Table>
+
+      <AlertDialog open={bulkDeleteOpen} onOpenChange={setBulkDeleteOpen}>
+        <AlertDialogContent size="default">
+          <AlertDialogHeader>
+            <AlertDialogMedia>
+              <HugeiconsIcon icon={Delete02Icon} strokeWidth={2} />
+            </AlertDialogMedia>
+            <AlertDialogTitle>
+              Delete {selected.length} product{selected.length === 1 ? "" : "s"}?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              This removes the selected products and their images permanently.
+              Products under review or with past orders are skipped and kept.
+              This cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setBulkDeleteOpen(false)}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              variant="destructive"
+              onClick={() => {
+                setBulkDeleteOpen(false);
+                removeSelected();
+              }}
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }

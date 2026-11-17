@@ -1,6 +1,6 @@
 "use server";
 
-import { revalidatePath, updateTag } from "next/cache";
+import { revalidatePath } from "next/cache";
 import { requireUser, getVerifiedSupplierId } from "@/lib/auth/guard";
 import {
   MAX_PRODUCT_IMAGES,
@@ -19,9 +19,13 @@ import { defaultSeoDescription, defaultSeoTitle } from "@/lib/supplier/rich-text
 import { sanitizeRichText } from "@/lib/supplier/sanitize";
 import { indexProductImages } from "@/lib/ai/index-product-image";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { CATALOGUE_TAGS } from "@/lib/catalogue-tags";
+import { refreshCatalogue } from "@/lib/supplier/catalogue-cache";
 import { getDashboardStore } from "@/lib/supplier/dashboard-store";
-import { optimizeImageUpload } from "@/lib/image-optimize";
+import {
+  removeStoredPaths,
+  uploadProductImage,
+} from "@/lib/supplier/product-image-upload";
+import { isMissingMrpColumn } from "@/lib/supplier/mrp-column";
 
 export type ProductActionState = {
   ok: boolean;
@@ -31,82 +35,14 @@ export type ProductActionState = {
 
 const initialState: ProductActionState = { ok: false, message: "" };
 
-/**
- * Storefront caches that list products: listings, prices, category counts and
- * the home rows. `updateTag` (not stale-while-revalidate `revalidateTag`)
- * expires them now, so the very next page load shows the change without a
- * manual refresh.
- */
-function refreshCatalogue(): void {
-  for (const tag of CATALOGUE_TAGS) updateTag(tag);
-  revalidatePath("/supplier/dashboard/products");
-}
-
 function boolOf(v: FormDataEntryValue | null): boolean {
   return v === "on" || v === "true" || v === "1";
-}
-
-/** PostgREST error for a write that names the not-yet-migrated `mrp` column. */
-function isMissingMrpColumn(error: { code?: string; message?: string } | null): boolean {
-  return (
-    !!error &&
-    (error.code === "PGRST204" || error.code === "42703") &&
-    /\bmrp\b/.test(error.message ?? "")
-  );
 }
 
 function nullIfEmpty(v: FormDataEntryValue | null): string | null {
   if (v === null || v === undefined) return null;
   const s = String(v).trim();
   return s === "" ? null : s;
-}
-
-async function uploadProductImage(
-  supabase: Awaited<ReturnType<typeof requireUser>>["supabase"],
-  userId: string,
-  productId: string,
-  file: File,
-  folder: string | null = null,
-): Promise<string> {
-  const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
-  const baseName = safeName.replace(/\.[^.]+$/, "");
-
-  // Compress at upload time so storage stays small. Fall back to the original
-  // file if optimization fails, so uploads never break.
-  let body: Buffer | File = file;
-  let contentType = file.type || "application/octet-stream";
-  let extension = safeName.includes(".") ? safeName.split(".").pop()! : "bin";
-  try {
-    const optimized = await optimizeImageUpload(file, {
-      maxDimension: 1600,
-      targetBytes: 100 * 1024,
-    });
-    body = optimized.buffer;
-    contentType = optimized.contentType;
-    extension = optimized.extension;
-  } catch (err) {
-    console.error("product image optimization failed, uploading original:", err);
-  }
-
-  const path = folder
-    ? `${userId}/${folder}/${productId}_${Date.now()}_${baseName}.${extension}`
-    : `${userId}/${productId}_${Date.now()}_${baseName}.${extension}`;
-  const { error } = await supabase.storage
-    .from("product_images")
-    .upload(path, body, { contentType, upsert: false });
-  if (error) throw new Error("Could not upload product image. Try again.");
-  return path;
-}
-
-async function removeStoredPaths(
-  supabase: Awaited<ReturnType<typeof requireUser>>["supabase"],
-  paths: string[],
-): Promise<void> {
-  if (paths.length === 0) return;
-  const { error } = await supabase.storage.from("product_images").remove(paths);
-  if (error) {
-    console.error("storage cleanup failed:", error);
-  }
 }
 
 async function uploadImages(
@@ -905,6 +841,141 @@ export async function deleteProduct(productId: string): Promise<ProductActionSta
   revalidatePath("/products");
   revalidatePath(`/products/${productId}`);
   return { ok: true, message: "Deleted." };
+}
+
+export type BulkDeleteState = {
+  ok: boolean;
+  message: string;
+  deletedIds: string[];
+};
+
+/** Upper bound on one bulk request; the products page selects at most a page. */
+const MAX_BULK_DELETE = 100;
+
+/**
+ * Delete several products with the same rules as deleteProduct: only the
+ * supplier's own draft, rejected or approved products, never a product with
+ * order history or one still under review. Returns the ids that were removed
+ * so the table can clear just those selections.
+ */
+export async function deleteProducts(productIds: string[]): Promise<BulkDeleteState> {
+  const { supabase, user } = await requireUser();
+
+  const supplierId = await getVerifiedSupplierId(supabase, user.id);
+  if (!supplierId) {
+    return { ok: false, message: "Only suppliers can delete products.", deletedIds: [] };
+  }
+
+  const ids = Array.from(
+    new Set(
+      productIds.filter(
+        (id): id is string => typeof id === "string" && id.trim() !== "",
+      ),
+    ),
+  ).slice(0, MAX_BULK_DELETE);
+  if (ids.length === 0) {
+    return { ok: false, message: "Select at least one product.", deletedIds: [] };
+  }
+
+  const { data: owned, error: ownedError } = await supabase
+    .from("products")
+    .select("id, status")
+    .eq("supplier_id", supplierId)
+    .in("id", ids);
+  if (ownedError) {
+    console.error("deleteProducts ownership check failed:", ownedError);
+    return { ok: false, message: "Could not delete. Try again.", deletedIds: [] };
+  }
+  const ownedProducts = owned ?? [];
+  if (ownedProducts.length === 0) {
+    return { ok: false, message: "No matching products found.", deletedIds: [] };
+  }
+
+  const ownedIds = ownedProducts.map((product) => product.id);
+
+  // order_items.product_id is ON DELETE CASCADE, so ordered products are kept
+  // and hidden instead (same reason as deleteProduct).
+  const { data: ordered, error: orderedError } = await supabase
+    .from("order_items")
+    .select("product_id")
+    .in("product_id", ownedIds);
+  if (orderedError) {
+    console.error("deleteProducts order check failed:", orderedError);
+    return { ok: false, message: "Could not delete. Try again.", deletedIds: [] };
+  }
+  const orderedIds = new Set(
+    (ordered ?? [])
+      .map((row) => row.product_id as string | null)
+      .filter((id): id is string => Boolean(id)),
+  );
+
+  const deletableIds = ownedProducts
+    .filter((product) => product.status !== "pending" && !orderedIds.has(product.id))
+    .map((product) => product.id);
+
+  const skipped = ownedProducts.length - deletableIds.length;
+  if (deletableIds.length === 0) {
+    return {
+      ok: false,
+      message:
+        skipped === 1
+          ? "That product can't be deleted. Products under review or with past orders are kept."
+          : "None of those products can be deleted. Products under review or with past orders are kept.",
+      deletedIds: [],
+    };
+  }
+
+  const { data: images } = await supabase
+    .from("product_images")
+    .select("path")
+    .in("product_id", deletableIds);
+
+  const { data: deletedRows, error } = await supabase
+    .from("products")
+    .delete()
+    .eq("supplier_id", supplierId)
+    .in("id", deletableIds)
+    .in("status", ["draft", "rejected", "approved"])
+    .select("id");
+  if (error) {
+    console.error("deleteProducts failed:", error);
+    return { ok: false, message: "Could not delete. Try again.", deletedIds: [] };
+  }
+
+  const deletedIds = (deletedRows ?? []).map((row) => row.id as string);
+  if (deletedIds.length === 0) {
+    return { ok: false, message: "Could not delete those products.", deletedIds: [] };
+  }
+
+  if (images && images.length > 0) {
+    // Same service-role cleanup as deleteProduct: teammates' uploads live in
+    // folders the current user may not own.
+    const { error: storageError } = await createAdminClient()
+      .storage.from("product_images")
+      .remove(images.map((image) => image.path as string));
+    if (storageError) {
+      console.error("deleteProducts storage cleanup failed:", storageError);
+    }
+  }
+
+  refreshCatalogue();
+  revalidatePath("/products");
+  for (const id of deletedIds) revalidatePath(`/products/${id}`);
+
+  const count = deletedIds.length;
+  const remaining = skipped + (deletableIds.length - count);
+  return {
+    ok: true,
+    message:
+      remaining === 0
+        ? count === 1
+          ? "Deleted 1 product."
+          : `Deleted ${count} products.`
+        : count === 1
+          ? `Deleted 1 product. ${remaining} could not be deleted (under review or with past orders).`
+          : `Deleted ${count} products. ${remaining} could not be deleted (under review or with past orders).`,
+    deletedIds,
+  };
 }
 
 async function setHidden(productId: string, hidden: boolean): Promise<ProductActionState> {
