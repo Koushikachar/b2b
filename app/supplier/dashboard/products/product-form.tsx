@@ -50,6 +50,7 @@ import {
   type VariantAttribute,
 } from "./variant-builder"
 import { ProductSeoSection } from "./product-seo-section"
+import { shrinkImageFile } from "@/lib/shrink-image"
 import { ProductReadiness } from "./product-readiness"
 import {
   ProductFormActions,
@@ -163,6 +164,9 @@ export function ProductForm({
   )
   const hasVariants = variants.length > 0
   const [newFiles, setNewFiles] = useState<File[]>([])
+  // Latest staged files for the async (shrink-then-stage) handlers, so two
+  // quick picks don't overwrite each other with a stale list.
+  const newFilesRef = useRef<File[]>([])
   const [removedImagePaths, setRemovedImagePaths] = useState<string[]>([])
   const [previewUrls, setPreviewUrls] = useState<string[]>([])
   // Display order of the gallery (drag to reorder); the first image is the cover.
@@ -443,17 +447,21 @@ export function ProductForm({
     for (const url of objectUrlsRef.current) URL.revokeObjectURL(url)
     const urls = files.map((f) => URL.createObjectURL(f))
     objectUrlsRef.current = urls
+    newFilesRef.current = files
     setPreviewUrls(urls)
     setNewFiles(files)
   }
 
-  function addFiles(files: File[]) {
-    if (files.length === 0) return
+  async function addFiles(picked: File[]) {
+    if (picked.length === 0) return
+    // Shrink before staging: Vercel rejects a save request over 4.5 MB (413).
+    const files = await Promise.all(picked.map(shrinkImageFile))
+    const current = newFilesRef.current
     const seen = new Set(
-      newFiles.map((f) => `${f.name}:${f.size}:${f.lastModified}`)
+      current.map((f) => `${f.name}:${f.size}:${f.lastModified}`)
     )
     const merged = [
-      ...newFiles,
+      ...current,
       ...files.filter(
         (f) => !seen.has(`${f.name}:${f.size}:${f.lastModified}`)
       ),
@@ -477,8 +485,9 @@ export function ProductForm({
     commitStagedFiles(newFiles.filter((_, i) => i !== index))
   }
 
-  function replaceStaged(index: number, file: File) {
-    commitStagedFiles(newFiles.map((f, i) => (i === index ? file : f)))
+  async function replaceStaged(index: number, cropped: File) {
+    const file = await shrinkImageFile(cropped)
+    commitStagedFiles(newFilesRef.current.map((f, i) => (i === index ? file : f)))
   }
 
   function removeExisting(path: string) {
@@ -487,8 +496,9 @@ export function ProductForm({
     )
   }
 
-  function replaceExisting(path: string, file: File) {
-    const nextFiles = [...newFiles, file].slice(0, MAX_PRODUCT_IMAGES)
+  async function replaceExisting(path: string, cropped: File) {
+    const file = await shrinkImageFile(cropped)
+    const nextFiles = [...newFilesRef.current, file].slice(0, MAX_PRODUCT_IMAGES)
     // The cropped copy takes the original's place in the order.
     const replacedKey = existingImageKey(path)
     const newKey = stagedImageKey(nextFiles.length - 1)
@@ -501,9 +511,10 @@ export function ProductForm({
     commitStagedFiles(nextFiles)
   }
 
-  function onSeoFileChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0] ?? null
+  async function onSeoFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const picked = e.target.files?.[0] ?? null
     e.target.value = ""
+    const file = picked ? await shrinkImageFile(picked) : null
     syncSeoInput(file)
     if (seoObjectUrlRef.current) URL.revokeObjectURL(seoObjectUrlRef.current)
     seoObjectUrlRef.current = null
