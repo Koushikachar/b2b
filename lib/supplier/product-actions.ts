@@ -894,11 +894,17 @@ export async function deleteProduct(productId: string): Promise<ProductActionSta
     // Storage only lets a user delete files in their own folder, so photos a
     // teammate uploaded would be orphaned. The product row is already gone
     // (authorised above via RLS) and these paths were read under the user's
-    // own permissions, so remove them with the service role.
-    const { error: storageError } = await createAdminClient()
-      .storage.from("product_images")
-      .remove(images.map((i) => i.path as string));
-    if (storageError) console.error("deleteProduct storage cleanup failed:", storageError);
+    // own permissions, so remove them with the service role. Best-effort: the
+    // delete already succeeded, so a cleanup failure (e.g. no service-role key
+    // on the server) is logged, never shown to the supplier as a crash.
+    try {
+      const { error: storageError } = await createAdminClient()
+        .storage.from("product_images")
+        .remove(images.map((i) => i.path as string));
+      if (storageError) console.error("deleteProduct storage cleanup failed:", storageError);
+    } catch (err) {
+      console.error("deleteProduct storage cleanup failed:", err);
+    }
   }
   refreshCatalogue();
   // A live product disappears from the storefront too.
