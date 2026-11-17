@@ -800,6 +800,13 @@ export async function deleteProduct(productId: string): Promise<ProductActionSta
     .from("product_images")
     .select("path")
     .eq("product_id", productId);
+  // The SEO/search image is tracked on the product row, not product_images.
+  const { data: seoRow } = await supabase
+    .from("products")
+    .select("seo_image_path")
+    .eq("id", productId)
+    .eq("supplier_id", supplierId)
+    .maybeSingle();
   const { error, data: deletedRows } = await supabase
     .from("products")
     .delete()
@@ -831,9 +838,16 @@ export async function deleteProduct(productId: string): Promise<ProductActionSta
     // teammate uploaded would be orphaned. The product row is already gone
     // (authorised above via RLS) and these paths were read under the user's
     // own permissions, so remove them with the service role.
+    const storagePaths = Array.from(
+      new Set([
+        ...images.map((i) => i.path as string),
+        // The SEO/search image lives on the product row, not product_images.
+        ...(seoRow?.seo_image_path ? [seoRow.seo_image_path] : []),
+      ]),
+    );
     const { error: storageError } = await createAdminClient()
       .storage.from("product_images")
-      .remove(images.map((i) => i.path as string));
+      .remove(storagePaths);
     if (storageError) console.error("deleteProduct storage cleanup failed:", storageError);
   }
   refreshCatalogue();
@@ -879,7 +893,7 @@ export async function deleteProducts(productIds: string[]): Promise<BulkDeleteSt
 
   const { data: owned, error: ownedError } = await supabase
     .from("products")
-    .select("id, status")
+    .select("id, status, seo_image_path")
     .eq("supplier_id", supplierId)
     .in("id", ids);
   if (ownedError) {
@@ -927,7 +941,7 @@ export async function deleteProducts(productIds: string[]): Promise<BulkDeleteSt
 
   const { data: images } = await supabase
     .from("product_images")
-    .select("path")
+    .select("product_id, path")
     .in("product_id", deletableIds);
 
   const { data: deletedRows, error } = await supabase
@@ -947,12 +961,26 @@ export async function deleteProducts(productIds: string[]): Promise<BulkDeleteSt
     return { ok: false, message: "Could not delete those products.", deletedIds: [] };
   }
 
-  if (images && images.length > 0) {
+  const deletedSet = new Set(deletedIds);
+  const storagePaths = Array.from(
+    new Set([
+      ...(images ?? [])
+        .filter((image) => deletedSet.has(image.product_id))
+        .map((image) => image.path as string),
+      // SEO/search images live on the product row, not product_images.
+      ...ownedProducts
+        .filter((product) => deletedSet.has(product.id))
+        .map((product) => product.seo_image_path)
+        .filter((path): path is string => Boolean(path)),
+    ]),
+  );
+
+  if (storagePaths.length > 0) {
     // Same service-role cleanup as deleteProduct: teammates' uploads live in
     // folders the current user may not own.
     const { error: storageError } = await createAdminClient()
       .storage.from("product_images")
-      .remove(images.map((image) => image.path as string));
+      .remove(storagePaths);
     if (storageError) {
       console.error("deleteProducts storage cleanup failed:", storageError);
     }
