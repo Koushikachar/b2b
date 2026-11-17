@@ -50,14 +50,17 @@ export async function optimizeImageUpload(
         .rotate()
         .resize(dim, dim, { fit: "inside", withoutEnlargement: true });
 
-      const buffer =
+      // resolveWithObject returns the output size too, so the result isn't
+      // decoded a second time just to read its dimensions.
+      const { data: buffer, info } =
         format === "webp"
-          ? await pipeline.webp({ quality }).toBuffer()
-          : await pipeline.jpeg({ quality, progressive: true, mozjpeg: true }).toBuffer();
+          ? await pipeline.webp({ quality }).toBuffer({ resolveWithObject: true })
+          : await pipeline
+              .jpeg({ quality, progressive: true, mozjpeg: true })
+              .toBuffer({ resolveWithObject: true });
 
-      const meta = await sharp(buffer).metadata();
-      const width = meta.width ?? dim;
-      const height = meta.height ?? dim;
+      const width = info.width ?? dim;
+      const height = info.height ?? dim;
 
       if (!best || buffer.byteLength < best.buffer.byteLength) {
         best = { buffer, width, height };
