@@ -12,6 +12,7 @@ import {
   type ImageSearchResponse,
 } from "@/lib/ai/image-search-config";
 import { encodeImageResultToken } from "@/lib/ai/image-result-token";
+import { shrinkImageFile } from "@/lib/shrink-image";
 
 type Status = "idle" | "searching" | "empty" | "error";
 
@@ -72,7 +73,8 @@ export function ImageSearchButton({
 
       try {
         const body = new FormData();
-        body.append(IMAGE_SEARCH_UPLOAD_FIELD, file);
+        // Phone photos can exceed Vercel's 4.5 MB request cap (413).
+        body.append(IMAGE_SEARCH_UPLOAD_FIELD, await shrinkImageFile(file));
 
         const response = await fetch("/api/search/image", { method: "POST", body });
         const payload = (await response.json().catch(() => null)) as

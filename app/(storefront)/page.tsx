@@ -1,11 +1,15 @@
 import { Suspense } from "react"
 import type { Metadata } from "next"
 import type { CatalogueSearchParams } from "@/lib/catalogue"
-import { getCachedStoreId } from "@/lib/storefront-cache"
+import { getCachedHomeBanners, getCachedStoreId } from "@/lib/storefront-cache"
+import { publicImageUrl } from "@/lib/storage"
+import { getBannerOutputSize } from "@/lib/admin/banner-images"
+import type { BannerSlot } from "@/lib/admin/banner-slots"
 import { AllProductsSection } from "@/components/storefront/home-sections"
 import { SearchMegaMenuSection } from "@/components/storefront/search-mega-menu-section"
 import { HomeBannerActions } from "@/components/storefront/home-banner-actions"
 import { HomeHeroSection } from "@/components/storefront/home-hero"
+import { NewSellerOfferPopup } from "@/components/storefront/new-seller-offer-popup"
 import { TopCategoriesSection } from "@/components/storefront/home-categories"
 import { RecentlyViewedSection } from "@/components/storefront/home-recently-viewed"
 import { FrequentlyBoughtSection } from "@/components/storefront/frequently-bought"
@@ -30,6 +34,40 @@ export const metadata: Metadata = {
       "Source wholesale products across textiles, electronics, chemicals, packaging and more — directly from verified Indian suppliers with live pricing.",
     url: "/",
   },
+}
+
+type BannerRow = { slot: string; title: string | null; link_url: string | null; image_path: string }
+
+const DEFAULT_POPUP = {
+  desktop: { src: "/promos/new-seller-offer.webp", width: 1200, height: 600 },
+  mobile: { src: "/promos/new-seller-offer-mobile.webp", width: 900, height: 1599 },
+}
+
+/**
+ * Offer popup for every visitor, signed in or not. Images come from
+ * Dashboard → Banners (popup_desktop / popup_mobile); one upload covers every
+ * device. Without either, the built-in art shows.
+ */
+async function OfferPopup() {
+  const banners = (await getCachedHomeBanners()) as BannerRow[]
+
+  const desktopRow = banners.find((b) => b.slot === "popup_desktop")
+  const mobileRow = banners.find((b) => b.slot === "popup_mobile")
+  const asImage = (row: BannerRow) => {
+    const { width, height } = getBannerOutputSize(row.slot as BannerSlot)
+    return { src: publicImageUrl("banners", row.image_path), width, height }
+  }
+  const desktop = desktopRow ?? mobileRow
+  const mobile = mobileRow ?? desktopRow
+
+  return (
+    <NewSellerOfferPopup
+      desktop={desktop ? asImage(desktop) : DEFAULT_POPUP.desktop}
+      mobile={mobile ? asImage(mobile) : DEFAULT_POPUP.mobile}
+      href={desktop?.link_url || mobile?.link_url || "/products"}
+      alt={desktop?.title || mobile?.title || "Direct2Hub offer"}
+    />
+  )
 }
 
 export default async function HomePage({
@@ -58,6 +96,9 @@ export default async function HomePage({
       </Suspense>
 
       <HomeBannerActions />
+      <Suspense fallback={null}>
+        <OfferPopup />
+      </Suspense>
 
       <Suspense fallback={<TopCategoriesSkeleton />}>
         <TopCategoriesSection />

@@ -136,11 +136,6 @@ export function ProductInformationSection({
   const gstError =
     gst === "" ? (touched.has("gst_rate") ? "Required." : null) : null;
 
-  const unit = v("unit").trim() || "pcs";
-  const unitError = !["pcs", "kg", "box", "mtr", "ltr"].includes(unit)
-    ? "Pick a valid unit."
-    : null;
-
   const priceRaw = v("price_per_unit").trim();
   const price = Number(priceRaw);
   const priceError =
@@ -237,7 +232,7 @@ export function ProductInformationSection({
             <FieldLabel htmlFor="price_per_unit">Selling price</FieldLabel>
             <Input id="price_per_unit" name="price_per_unit" required type="number" min={0.01} step="0.01" inputMode="decimal" aria-invalid={invalidFor("price_per_unit")} value={v("price_per_unit")} onChange={(e) => onValueChange("price_per_unit", e.target.value)} placeholder="50" />
             <FieldDescription>Price per unit, before GST.</FieldDescription>
-            {errorFor("price_per_unit")}
+            {priceError ? <FieldError>{priceError}</FieldError> : errorFor("price_per_unit")}
           </Field>
           <PricePreview mrp={v("mrp")} price={v("price_per_unit")} />
           <Field>

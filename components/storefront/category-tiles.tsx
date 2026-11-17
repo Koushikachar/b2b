@@ -77,7 +77,7 @@ export function CategoryTile({
       </div>
       <p
         className={cn(
-          "mt-1.5 line-clamp-2 text-center text-[11px] leading-snug font-semibold group-hover:text-primary sm:text-xs",
+          "mt-1.5 line-clamp-2 text-center text-xs leading-snug font-semibold group-hover:text-primary",
           active ? "text-primary" : "text-foreground"
         )}
       >

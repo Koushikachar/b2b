@@ -6,7 +6,7 @@ import sharp from "sharp";
 import { z } from "zod";
 import { requireAdmin } from "@/lib/auth/guard";
 import { isSupportedImageType, sniffImageType } from "@/lib/storage";
-import { getBannerOutputSize } from "./banner-images";
+import { BANNER_MAX_HEIGHT, BANNER_OUTPUT_WIDTH } from "./banner-images";
 import { BANNER_SLOTS, type BannerSlot } from "./banner-slots";
 
 export type BannerActionState = {
@@ -74,13 +74,10 @@ async function validateImage(file: File | null, required: boolean): Promise<stri
 }
 
 /**
- * The browser crop exists for human composition; this step is the storage
- * contract. Decoding and re-encoding here means a direct request to the action
- * cannot store an arbitrary image that would not fill the slot.
- *
- * Uploads smaller than the target are upscaled rather than passed through:
- * `withoutEnlargement` would skip the resize entirely and let an off-ratio
- * file reach storage untouched.
+ * Banners keep their own shape: the storefront shows any shape whole (blurred
+ * fill around it where the slot differs), so nothing is cropped here. Decoding
+ * and re-encoding still means a direct request to the action can only store a
+ * clean JPEG of bounded size.
  */
 async function uploadImage(
   supabase: Awaited<ReturnType<typeof requireAdmin>>["supabase"],
@@ -88,16 +85,14 @@ async function uploadImage(
   file: File,
   slot: BannerSlot,
 ): Promise<string> {
-  const { width, height } = getBannerOutputSize(slot);
-
   let output: Buffer;
   try {
     const input = Buffer.from(await file.arrayBuffer());
     output = await sharp(input)
       .rotate()
-      .resize(width, height, {
-        fit: "cover",
-        position: "centre",
+      .resize(BANNER_OUTPUT_WIDTH, BANNER_MAX_HEIGHT, {
+        fit: "inside",
+        withoutEnlargement: true,
       })
       .jpeg({ quality: 90, progressive: true, mozjpeg: true })
       .toBuffer();

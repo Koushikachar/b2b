@@ -5,6 +5,7 @@ import { useActionState } from "react";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { ConfirmDialog } from "@/components/dashboard/confirm-dialog";
+import { shrinkFileInput } from "@/lib/shrink-image";
 import {
   deleteCategory,
   setCategoryImage,
@@ -94,8 +95,9 @@ export function CategoryImageUpload({
         accept="image/jpeg,image/png,image/webp"
         className="sr-only"
         aria-label={`Upload photo for ${name}`}
-        onChange={(event) => {
-          const file = event.target.files?.[0];
+        onChange={async (event) => {
+          // Shrink first: Vercel rejects requests over 4.5 MB (413).
+          const file = await shrinkFileInput(event.currentTarget);
           if (!file) return;
           setPreview(URL.createObjectURL(file));
           formRef.current?.requestSubmit();

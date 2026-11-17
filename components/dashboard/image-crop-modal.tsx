@@ -12,6 +12,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { loadOrientedImage } from "@/lib/shrink-image";
 
 const OUTPUT_WIDTH = 1600;
 const OUTPUT_QUALITY = 0.9;
@@ -34,29 +35,6 @@ function rotateSize(width: number, height: number, rotation: number) {
     width: Math.abs(Math.cos(rotRad)) * width + Math.abs(Math.sin(rotRad)) * height,
     height: Math.abs(Math.sin(rotRad)) * width + Math.abs(Math.cos(rotRad)) * height,
   };
-}
-
-/**
- * Resolve a URL to a drawable image while honoring EXIF orientation (matters
- * for phone photos). Falls back to <img> where createImageBitmap is missing.
- */
-async function loadOrientedImage(url: string): Promise<ImageBitmap | HTMLImageElement> {
-  if (typeof createImageBitmap === "function" && typeof ImageBitmap !== "undefined") {
-    try {
-      const res = await fetch(url);
-      if (!res.ok) throw new Error("fetch failed");
-      const blob = await res.blob();
-      return await createImageBitmap(blob, { imageOrientation: "from-image" });
-    } catch {
-      // Fall through to the classic <img> loader.
-    }
-  }
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    img.onload = () => resolve(img);
-    img.onerror = () => reject(new Error("Could not load the image."));
-    img.src = url;
-  });
 }
 
 async function cropOrientedImage(
