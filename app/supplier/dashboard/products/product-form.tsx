@@ -50,7 +50,7 @@ import {
   type VariantAttribute,
 } from "./variant-builder"
 import { ProductSeoSection } from "./product-seo-section"
-import { shrinkImageFile } from "@/components/dashboard/image-crop-modal"
+import { shrinkImageFile } from "@/lib/shrink-image"
 import { ProductReadiness } from "./product-readiness"
 import {
   ProductFormActions,

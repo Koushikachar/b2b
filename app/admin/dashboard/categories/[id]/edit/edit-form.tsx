@@ -10,6 +10,7 @@ import {
   FieldLabel,
 } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
+import { shrinkFileInput } from "@/lib/shrink-image";
 import {
   updateCategory,
   type CategoryActionState,
@@ -56,6 +57,8 @@ export function EditCategoryForm({
             name="image"
             type="file"
             accept=".jpg,.jpeg,.png,.webp"
+            // Shrink in place: Vercel rejects requests over 4.5 MB (413).
+            onChange={(e) => void shrinkFileInput(e.currentTarget)}
           />
         </Field>
         {state.message ? (
