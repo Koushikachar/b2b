@@ -244,7 +244,6 @@ export function SearchMegaMenu({
                         alt=""
                         aria-hidden
                         fill
-                        unoptimized
                         sizes="32px"
                         className="object-cover"
                       />

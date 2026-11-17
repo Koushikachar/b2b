@@ -105,7 +105,6 @@ async function CategoryGrid() {
                 alt=""
                 priority={index < 4}
                 sizes={CATEGORY_IMAGE_SIZES}
-                unoptimized
               />
             </div>
 
