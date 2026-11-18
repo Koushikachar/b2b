@@ -1,6 +1,6 @@
 "use server";
 
-import { revalidatePath, updateTag } from "next/cache";
+import { revalidatePath } from "next/cache";
 import { after } from "next/server";
 import { requireUser, getVerifiedSupplierId } from "@/lib/auth/guard";
 import {
@@ -847,9 +847,16 @@ export async function deleteProduct(productId: string): Promise<ProductActionSta
     // delete already succeeded, so a cleanup failure (e.g. no service-role key
     // on the server) is logged, never shown to the supplier as a crash.
     try {
+      // The SEO/search image lives on the product row, not product_images.
+      const storagePaths = Array.from(
+        new Set([
+          ...images.map((i) => i.path as string),
+          ...(seoRow?.seo_image_path ? [seoRow.seo_image_path] : []),
+        ]),
+      );
       const { error: storageError } = await createAdminClient()
         .storage.from("product_images")
-        .remove(images.map((i) => i.path as string));
+        .remove(storagePaths);
       if (storageError) console.error("deleteProduct storage cleanup failed:", storageError);
     } catch (err) {
       console.error("deleteProduct storage cleanup failed:", err);
