@@ -306,6 +306,185 @@
   }
 }
 
+/* -----------------------------------------------------------------------------
+   Store tabs (components/storefront/store-tabs.tsx): animated header strip.
+   Warm gradient with floating blobs + dot grid, cards rise in, lift and shine on
+   hover; the active store gets a rotating gradient border and a bobbing icon;
+   SOON badges shimmer. All colours are brand tokens. Off for reduced motion.
+   -------------------------------------------------------------------------- */
+@property --store-tab-angle {
+  syntax: "<angle>";
+  inherits: false;
+  initial-value: 0deg;
+}
+
+.store-tabs {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  background: linear-gradient(120deg, var(--brand-50), var(--card) 40%, var(--brand-50));
+}
+.store-tabs::before {
+  /* faint dot grid, fading out at the sides */
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background-image: radial-gradient(color-mix(in oklch, var(--primary) 12%, transparent) 1px, transparent 1px);
+  background-size: 18px 18px;
+  mask-image: linear-gradient(90deg, transparent, #000 20%, #000 80%, transparent);
+}
+.store-tabs-blob {
+  position: absolute;
+  z-index: -1;
+  border-radius: 50%;
+  filter: blur(40px);
+  opacity: 0.55;
+  pointer-events: none;
+  animation: store-tab-float 14s ease-in-out infinite;
+}
+
+.store-tab {
+  position: relative;
+  overflow: hidden;
+  background: color-mix(in oklch, var(--card) 72%, transparent);
+  backdrop-filter: blur(8px);
+  box-shadow: inset 0 0 0 1px var(--border), 0 2px 6px rgb(0 0 0 / 0.04);
+  transition:
+    transform 0.35s cubic-bezier(0.2, 0.9, 0.3, 1.4),
+    box-shadow 0.35s;
+  opacity: 0;
+  animation: store-tab-rise 0.6s cubic-bezier(0.2, 0.9, 0.3, 1.2) forwards;
+}
+.store-tab::after {
+  /* light sweep on hover */
+  content: "";
+  position: absolute;
+  top: 0;
+  left: -60%;
+  width: 40%;
+  height: 100%;
+  background: linear-gradient(100deg, transparent, rgb(255 255 255 / 0.8), transparent);
+  transform: skewX(-20deg);
+  transition: left 0.7s ease;
+  pointer-events: none;
+}
+.store-tab-icon {
+  filter: drop-shadow(0 3px 6px color-mix(in oklch, var(--primary) 20%, transparent));
+  transition: transform 0.4s cubic-bezier(0.2, 0.9, 0.3, 1.6);
+}
+@media (hover: hover) {
+  .store-tab:hover {
+    transform: translateY(-4px);
+    box-shadow: inset 0 0 0 1px var(--brand-200), 0 12px 24px -8px color-mix(in oklch, var(--primary) 25%, transparent);
+  }
+  .store-tab:hover::after {
+    left: 130%;
+  }
+  .store-tab:hover .store-tab-icon {
+    transform: translateY(-3px) scale(1.12) rotate(-6deg);
+  }
+}
+
+/* Touch screens have no hover: the same lift / sweep / tilt plays while the
+   card is pressed, and an idle light sweep crosses each card in turn. */
+@media (hover: none) {
+  .store-tab:active {
+    transform: translateY(-3px) scale(0.98);
+    box-shadow: inset 0 0 0 1px var(--brand-200), 0 10px 20px -8px color-mix(in oklch, var(--primary) 25%, transparent);
+  }
+  .store-tab:active .store-tab-icon {
+    transform: translateY(-3px) scale(1.12) rotate(-6deg);
+  }
+  .store-tab::after {
+    animation: store-tab-sweep 5s ease-in-out infinite;
+    animation-delay: var(--store-tab-sweep-delay, 0s);
+  }
+}
+
+.store-tab[data-active="true"] {
+  background: linear-gradient(180deg, var(--card), var(--brand-50));
+  box-shadow: 0 10px 30px -10px color-mix(in oklch, var(--primary) 40%, transparent);
+}
+.store-tab[data-active="true"]::before {
+  /* rotating gradient border: a 2px ring cut out of a conic gradient */
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 2px;
+  background: conic-gradient(
+    from var(--store-tab-angle),
+    var(--primary),
+    var(--brand-200),
+    var(--brand-600),
+    var(--brand-300),
+    var(--primary)
+  );
+  mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  mask-composite: exclude;
+  animation: store-tab-spin 3s linear infinite;
+  pointer-events: none;
+}
+.store-tab[data-active="true"] .store-tab-icon {
+  animation: store-tab-bob 2.4s ease-in-out infinite;
+}
+
+.store-tab-badge {
+  position: absolute;
+  overflow: hidden;
+}
+.store-tab-badge::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(100deg, transparent 30%, color-mix(in oklch, var(--brand-300) 45%, transparent) 50%, transparent 70%);
+  background-size: 250% 100%;
+  animation: store-tab-shimmer 2.6s linear infinite;
+}
+
+@keyframes store-tab-rise {
+  from { opacity: 0; transform: translateY(16px) scale(0.96); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes store-tab-float {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  33% { transform: translate(60px, 30px) scale(1.12); }
+  66% { transform: translate(-40px, 20px) scale(0.92); }
+}
+@keyframes store-tab-spin {
+  to { --store-tab-angle: 360deg; }
+}
+@keyframes store-tab-bob {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-4px); }
+}
+@keyframes store-tab-shimmer {
+  from { background-position: 150% 0; }
+  to { background-position: -100% 0; }
+}
+@keyframes store-tab-sweep {
+  /* one quick pass, then rest for the rest of the cycle */
+  0% { left: -60%; }
+  20%, 100% { left: 130%; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .store-tab,
+  .store-tab[data-active="true"]::before,
+  .store-tab[data-active="true"] .store-tab-icon,
+  .store-tab-badge::after,
+  .store-tab::after,
+  .store-tabs-blob {
+    animation: none !important;
+  }
+  .store-tab {
+    opacity: 1;
+  }
+}
+
 /* Reduced transparency: frost goes solid, legibility wins (apple-design §14). */
 @media (prefers-reduced-transparency: reduce) {
   .material,
