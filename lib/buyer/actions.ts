@@ -5,7 +5,9 @@ import { after } from "next/server";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { getSessionUser } from "@/lib/auth/session";
+import { fetchCustomerPriceMap } from "@/lib/storefront";
 import { logStorefrontEvent } from "@/lib/storefront/events";
+import type { ProductCardData } from "@/components/storefront/product-card";
 
 // ---------------------------------------------------------------------------
 // Saved products
@@ -151,4 +153,62 @@ export async function recordRecentlyViewed(productId: string): Promise<void> {
       .eq("buyer_id", user.id)
       .not("id", "in", `[${[...keepIds].join(",")}]`);
   }
+}
+
+const recentCardIdsSchema = z.array(z.string().uuid()).max(12);
+
+type RecentCardRow = {
+  id: string;
+  title: string;
+  unit: string;
+  moq: number;
+  mrp: number | null;
+  stock_qty: number | null;
+  images: { path: string; sort: number }[] | null;
+};
+
+/**
+ * Fresh card data for a guest's localStorage recently-viewed ids.
+ *
+ * Snapshots deliberately store no price, so the homepage fetches current
+ * approved/priced products for those ids instead of rendering a stale snapshot
+ * or inventing a price.
+ */
+export async function getRecentlyViewedCards(productIds: string[]): Promise<ProductCardData[]> {
+  const parsed = recentCardIdsSchema.safeParse(productIds);
+  if (!parsed.success || parsed.data.length === 0) return [];
+
+  const supabase = await createClient();
+  const ids = [...new Set(parsed.data)];
+  const [{ data: rows }, priceMap] = await Promise.all([
+    supabase
+      .from("products")
+      .select("id, title, unit, moq, mrp, stock_qty, images:product_images(path, sort)")
+      .in("id", ids)
+      .eq("status", "approved")
+      .eq("is_hidden", false),
+    fetchCustomerPriceMap(supabase, ids),
+  ]);
+
+  const byId = new Map(
+    ((rows ?? []) as unknown as RecentCardRow[]).map((row) => [row.id, row]),
+  );
+
+  // Keep the caller's most-recent-first order.
+  return ids
+    .map((id) => byId.get(id))
+    .filter((row): row is RecentCardRow => Boolean(row))
+    .map((row) => {
+      const pricing = priceMap.get(row.id) ?? null;
+      return {
+        id: row.id,
+        title: row.title,
+        unit: row.unit,
+        moq: row.moq,
+        mrp: row.mrp == null ? null : Number(row.mrp),
+        images: row.images,
+        pricing: pricing ? { customer_price: pricing.customer_price } : null,
+        is_out_of_stock: (row.stock_qty ?? 0) <= 0,
+      };
+    });
 }

@@ -6,6 +6,7 @@
 // than one order reads as Returning; everyone else reads as New. Order
 // counts and sales always come from the orders table, never from columns.
 import { z } from "zod";
+import { parseCsv } from "@/lib/csv";
 import { normalizeUserPhone } from "@/lib/user-phone";
 
 export const CUSTOMER_SOURCES = ["manual", "import", "order"] as const;
@@ -113,51 +114,7 @@ export function validateCustomerRow(input: {
 // ---------------------------------------------------------------------------
 
 /** Split CSV text into rows of cells. */
-export function parseCustomerCsv(text: string): string[][] {
-  const rows: string[][] = [];
-  let row: string[] = [];
-  let cell = "";
-  let inQuotes = false;
-
-  const pushCell = () => {
-    row.push(cell);
-    cell = "";
-  };
-  const pushRow = () => {
-    pushCell();
-    // Skip fully-empty rows (trailing newline, blank lines).
-    if (row.some((c) => c.trim() !== "")) rows.push(row);
-    row = [];
-  };
-
-  for (let i = 0; i < text.length; i++) {
-    const char = text[i];
-    if (inQuotes) {
-      if (char === '"') {
-        if (text[i + 1] === '"') {
-          cell += '"';
-          i++;
-        } else {
-          inQuotes = false;
-        }
-      } else {
-        cell += char;
-      }
-    } else if (char === '"') {
-      inQuotes = true;
-    } else if (char === ",") {
-      pushCell();
-    } else if (char === "\n") {
-      pushRow();
-    } else if (char === "\r") {
-      // Ignore; \n handles the break.
-    } else {
-      cell += char;
-    }
-  }
-  pushRow();
-  return rows;
-}
+export const parseCustomerCsv = parseCsv;
 
 const HEADER_ALIASES: Record<string, "name" | "phone" | "email" | "city"> = {
   name: "name",
