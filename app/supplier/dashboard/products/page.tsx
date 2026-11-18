@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { HugeiconsIcon } from "@hugeicons/react";
-import { Add01Icon, Package01Icon } from "@hugeicons/core-free-icons";
+import { Add01Icon, Package01Icon, Upload01Icon } from "@hugeicons/core-free-icons";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import {
@@ -271,10 +271,20 @@ export default async function SupplierProductsPage({
           </p>
         </div>
         {verified ? (
-          <Button render={<Link href={`${BASE}/new`} />} nativeButton={false}>
-            <HugeiconsIcon icon={Add01Icon} strokeWidth={2} />
-            Add new product
-          </Button>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              variant="outline"
+              render={<Link href={`${BASE}/import`} />}
+              nativeButton={false}
+            >
+              <HugeiconsIcon icon={Upload01Icon} strokeWidth={2} />
+              Import
+            </Button>
+            <Button render={<Link href={`${BASE}/new`} />} nativeButton={false}>
+              <HugeiconsIcon icon={Add01Icon} strokeWidth={2} />
+              Add new product
+            </Button>
+          </div>
         ) : null}
       </div>
 

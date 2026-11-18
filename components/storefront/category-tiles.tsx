@@ -64,7 +64,6 @@ export function CategoryTile({
             alt=""
             sizes={sizes}
             priority={priority}
-            unoptimized
           />
         ) : (
           <span

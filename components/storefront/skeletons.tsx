@@ -915,80 +915,58 @@ export function HomeBannerActionsSkeleton() {
 }
 
 export function RecentRailSkeleton() {
-  return (
-    <section aria-hidden className="mx-auto w-full max-w-7xl px-4 py-5">
-      <div className="mb-1 flex items-end justify-between gap-2 pb-1">
-        <Skeleton className="h-6 w-40" />
-        <Skeleton className="h-5 w-16" />
-      </div>
-      <div
-        className="-mx-4 no-scrollbar flex snap-x gap-3 overflow-x-auto scroll-pl-4 px-4 pb-1 md:mx-0 md:grid md:grid-cols-4 md:overflow-visible md:px-0 lg:grid-cols-6"
-      >
-        {Array.from({ length: 6 }, (_, i) => (
-          <div key={i} className="w-36 shrink-0 md:w-auto">
-            <Skeleton className="aspect-square w-full rounded-lg border border-border bg-muted" />
-            <Skeleton className="mt-1.5 h-3 w-3/4" />
-          </div>
-        ))}
-      </div>
-    </section>
-  )
+  return <ProductRailSkeleton titleWidth="w-40" />
 }
 
 export function FrequentlyBoughtSkeleton() {
+  return <ProductRailSkeleton titleWidth="w-56" subtitle />
+}
+
+function ProductRailSkeleton({
+  titleWidth,
+  subtitle = false,
+}: {
+  titleWidth: string
+  subtitle?: boolean
+}) {
   return (
     <section aria-hidden className="mx-auto w-full max-w-7xl px-4 py-5">
       <div className="mb-1 flex items-end justify-between gap-2 pb-1">
         <div className="flex flex-col gap-2">
-          <Skeleton className="h-6 w-44" />
-          <Skeleton className="h-3 w-64 max-w-full" />
+          <div className="flex items-center gap-2">
+            <Skeleton className="size-8 rounded-lg" />
+            <Skeleton className={`h-6 ${titleWidth}`} />
+          </div>
+          {subtitle ? <Skeleton className="h-3 w-64 max-w-full" /> : null}
         </div>
+        <Skeleton className="h-5 w-16" />
       </div>
-      <div className="grid grid-cols-2 gap-3">
-        {Array.from({ length: 2 }, (_, i) => (
+      <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
+        {Array.from({ length: 5 }, (_, i) => (
           <div
             key={i}
-            className="rounded-xl border border-border bg-card p-1.5 pb-2"
+            className="overflow-hidden rounded-xl border border-border bg-card"
           >
-            <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-4">
-              {Array.from({ length: 4 }, (_, j) => (
-                <Skeleton
-                  key={j}
-                  className={
-                    j > 1
-                      ? "hidden aspect-square w-full rounded-md sm:block"
-                      : "aspect-square w-full rounded-md"
-                  }
-                />
-              ))}
-            </div>
-            <div className="relative z-10 -mt-4 flex justify-center">
-              <Skeleton className="h-8 w-24 rounded-md" />
+            <Skeleton className="aspect-square w-full rounded-none" />
+            <div className="flex flex-col gap-2 p-2.5">
+              <Skeleton className="h-3.5 w-4/5" />
+              <Skeleton className="h-3.5 w-2/5" />
+              <Skeleton className="h-9 w-full rounded-md" />
             </div>
           </div>
         ))}
       </div>
-      <Skeleton className="mt-2 h-10 w-full rounded-md" />
+      <div className="mt-3 flex justify-center gap-1.5">
+        {Array.from({ length: 3 }, (_, i) => (
+          <Skeleton key={i} className="size-1.5 rounded-full" />
+        ))}
+      </div>
     </section>
   )
 }
 
 export function RecommendedProductsSkeleton() {
-  return (
-    <section aria-hidden className="mx-auto w-full max-w-7xl px-4 py-5">
-      <div className="mb-1 flex items-end justify-between gap-2 pb-1">
-        <div className="flex flex-col gap-2">
-          <Skeleton className="h-6 w-48" />
-          <Skeleton className="h-3 w-56 max-w-full" />
-        </div>
-        <Skeleton className="h-5 w-16" />
-      </div>
-      <ProductGridSkeleton
-        count={8}
-        className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-4"
-      />
-    </section>
-  )
+  return <ProductRailSkeleton titleWidth="w-48" subtitle />
 }
 
 export function TopCategoriesSkeleton() {

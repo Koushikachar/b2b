@@ -12,19 +12,20 @@ export function publicImageUrl(bucket: string, path: string): string {
 export function publicTransformedImageUrl(
   bucket: string,
   path: string,
-  opts: {
+  _opts: {
     width: number
     height?: number
     quality?: number
     fit?: "cover" | "contain"
   },
 ): string {
-  const quality = opts.quality ?? 75;
-  // Default fills the frame (avatars, logos, category tiles). Product photos
-  // pass fit: "contain" so they are never cropped.
-  const fit = opts.fit ?? "cover";
-  const height = opts.height ? `&height=${opts.height}` : "";
-  return `${SUPABASE_URL}/storage/v1/render/image/public/${bucket}/${path}?width=${opts.width}${height}&quality=${quality}&resize=${fit}`;
+  void _opts;
+  // Supabase Image Transformations are not enabled on this project's tenant
+  // ("feature not enabled for this tenant" / HTTP 403), so the
+  // /render/image/... endpoint always fails. Fall back to the original object
+  // URL and let Next.js' own image optimizer (remotePatterns covers
+  // /storage/v1/object/public/**) handle resizing.
+  return publicImageUrl(bucket, path);
 }
 
 type SniffedType =

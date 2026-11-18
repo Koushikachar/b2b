@@ -199,7 +199,6 @@ export default async function CategoryPage({
               )}
               alt={category.name}
               fill
-              unoptimized
               priority
               sizes="64px"
               className="object-cover"

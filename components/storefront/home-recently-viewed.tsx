@@ -1,13 +1,10 @@
 import { createClient } from "@/lib/supabase/server"
 import { getSessionUser } from "@/lib/auth/session"
 import { getBuyerRecentlyViewed } from "@/lib/buyer/queries"
-import { publicTransformedImageUrl } from "@/lib/storage"
 import { RECENTLY_VIEWED_LIMIT } from "@/lib/recently-viewed"
 import { GuestRecentlyViewed } from "@/components/storefront/guest-recently-viewed"
-import {
-  RecentlyViewedBlock,
-  type RecentRailItem,
-} from "@/components/storefront/recently-viewed-rail"
+import { RecentlyViewedBlock } from "@/components/storefront/recently-viewed-rail"
+import type { ProductCardData } from "@/components/storefront/product-card"
 
 /**
  * Signed-in buyers get their real server-side history. Guests read the
@@ -28,20 +25,17 @@ export async function RecentlyViewedSection() {
   )
   if (products.length === 0) return null
 
-  const items: RecentRailItem[] = products.map((product) => {
-    const cover = [...(product.images ?? [])].sort((a, b) => a.sort - b.sort)[0]
-    return {
-      id: product.id,
-      title: product.title,
-      image: cover
-        ? publicTransformedImageUrl("product_images", cover.path, {
-            width: 320,
-            height: 320,
-            fit: "contain",
-          })
-        : null,
-    }
-  })
+  const cards: ProductCardData[] = products.map((product) => ({
+    id: product.id,
+    title: product.title,
+    unit: product.unit,
+    moq: product.moq,
+    negotiable: product.negotiable,
+    images: product.images,
+    pricing: product.pricing
+      ? { customer_price: product.pricing.customer_price }
+      : null,
+  }))
 
-  return <RecentlyViewedBlock items={items} showViewAll />
+  return <RecentlyViewedBlock products={cards} showViewAll />
 }
