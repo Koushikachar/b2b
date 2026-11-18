@@ -3,6 +3,7 @@
 import Image from "next/image"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
+import { toast } from "@/components/ui/toast"
 import { cn } from "@/lib/utils"
 
 type StoreTab = {
@@ -30,10 +31,11 @@ function isActiveTab(tab: StoreTab, pathname: string): boolean {
   return false
 }
 
-// White card, brand icon over the name (store-brands design); the active
-// store gets an orange border. A touch smaller on desktop.
+// Frosted card, brand icon over the name. Motion and the active gradient border
+// live in globals.css (.store-tab*). Staggered rise-in by position.
 const CARD =
-  "relative flex h-full flex-col items-center justify-center gap-1 rounded-2xl border bg-card px-1 py-2.5 shadow-xs transition-[border-color,box-shadow] sm:gap-1.5 sm:py-3 lg:gap-1 lg:py-2.5"
+  "store-tab flex h-full w-full flex-col items-center justify-center gap-1 rounded-2xl px-1 py-2.5 sm:gap-1.5 sm:py-3 lg:gap-1 lg:py-2.5 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+const RISE_DELAY = ["0.05s", "0.15s", "0.25s", "0.35s"]
 
 function CardBody({ tab, soon }: { tab: StoreTab; soon: boolean }) {
   return (
@@ -46,13 +48,18 @@ function CardBody({ tab, soon }: { tab: StoreTab; soon: boolean }) {
         height={128}
         priority
         unoptimized
-        className="h-7 w-auto shrink-0 sm:h-8 lg:h-7"
+        className="store-tab-icon h-7 w-auto shrink-0 sm:h-8 lg:h-7"
       />
-      <span className="w-full truncate text-center text-sm leading-tight font-extrabold tracking-tight text-foreground sm:text-base">
+      <span
+        className={cn(
+          "w-full truncate text-center text-sm leading-tight font-extrabold tracking-tight sm:text-base",
+          soon ? "text-foreground/70" : "text-foreground",
+        )}
+      >
         {tab.name}
       </span>
       {soon ? (
-        <span className="absolute top-1.5 right-1.5 rounded-md border border-border bg-card px-1 text-[10px] font-bold tracking-wide text-foreground/70 uppercase shadow-xs">
+        <span className="store-tab-badge top-1.5 right-1.5 rounded-md border border-border bg-card px-1 text-[10px] font-bold tracking-wide text-foreground/70 uppercase shadow-xs">
           Soon
         </span>
       ) : null}
@@ -64,10 +71,18 @@ function CardBody({ tab, soon }: { tab: StoreTab; soon: boolean }) {
 export function StoreTabs() {
   const pathname = usePathname() ?? "/"
   return (
-    <nav aria-label="Stores inside Direct2Hub" className="border-b border-border bg-card">
+    <nav aria-label="Stores inside Direct2Hub" className="store-tabs border-b border-border">
+      <span aria-hidden className="store-tabs-blob -top-40 left-[5%] size-80 bg-brand-200" />
+      <span aria-hidden className="store-tabs-blob -bottom-36 left-[45%] size-64 bg-brand-100 [animation-delay:-5s]" />
+      <span aria-hidden className="store-tabs-blob -top-32 right-[4%] size-56 bg-brand-300 [animation-delay:-9s]" />
       <ul className="mx-auto grid w-full max-w-7xl grid-cols-4 gap-2 px-4 py-2.5 sm:gap-3 sm:py-3">
-        {STORE_TABS.map((tab) => {
+        {STORE_TABS.map((tab, i) => {
           const active = isActiveTab(tab, pathname)
+          // Rise-in stagger, and (touch screens) the idle sweep crossing cards in turn.
+          const style = {
+            animationDelay: RISE_DELAY[i],
+            "--store-tab-sweep-delay": `${1.2 + i * 0.35}s`,
+          } as React.CSSProperties
           return (
             <li key={tab.id} className="min-w-0">
               {tab.href ? (
@@ -75,25 +90,22 @@ export function StoreTabs() {
                   href={tab.href}
                   aria-label={tab.fullName}
                   aria-current={active ? "page" : undefined}
-                  className={cn(
-                    CARD,
-                    "press focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
-                    active
-                      ? "border-primary shadow-sm ring-1 ring-primary"
-                      : "border-border hover:border-primary/50",
-                  )}
+                  data-active={active}
+                  style={style}
+                  className={cn(CARD, "press")}
                 >
                   <CardBody tab={tab} soon={false} />
                 </Link>
               ) : (
-                <div
-                  aria-disabled="true"
-                  title={`${tab.fullName} — coming soon`}
-                  className={cn(CARD, "border-border opacity-80")}
+                <button
+                  type="button"
+                  aria-label={`${tab.fullName}, coming soon`}
+                  style={style}
+                  className={cn(CARD, "press")}
+                  onClick={() => toast.add({ title: `${tab.fullName} is coming soon` })}
                 >
                   <CardBody tab={tab} soon />
-                  <span className="sr-only">{tab.fullName}, coming soon</span>
-                </div>
+                </button>
               )}
             </li>
           )
