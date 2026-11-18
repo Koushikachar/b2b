@@ -58,11 +58,17 @@ async function sendTeamEmail(email: string, isNewAccount: boolean): Promise<bool
   const loginUrl = `${appUrl}/auth/login?next=${encodeURIComponent("/supplier/dashboard")}`;
 
   if (isNewAccount) {
-    const { error } = await createAdminClient().auth.admin.inviteUserByEmail(email, {
-      redirectTo: loginUrl,
-    });
-    if (error) console.error("team invite email failed:", error.code, error.message);
-    return !error;
+    try {
+      const { error } = await createAdminClient().auth.admin.inviteUserByEmail(email, {
+        redirectTo: loginUrl,
+      });
+      if (error) console.error("team invite email failed:", error.code, error.message);
+      return !error;
+    } catch (err) {
+      // e.g. no service-role key on the server: report "email not sent", don't crash.
+      console.error("team invite email failed:", err);
+      return false;
+    }
   }
 
   // Cookie-less client: sending the link must not touch the owner's session.

@@ -271,12 +271,8 @@ export default async function SupplierProductsPage({
           </p>
         </div>
         {verified ? (
-          <div className="flex flex-wrap items-center gap-2">
-            <Button
-              variant="outline"
-              render={<Link href={`${BASE}/import`} />}
-              nativeButton={false}
-            >
+          <div className="flex flex-wrap gap-2">
+            <Button variant="outline" render={<Link href={`${BASE}/import`} />} nativeButton={false}>
               <HugeiconsIcon icon={Upload01Icon} strokeWidth={2} />
               Import
             </Button>

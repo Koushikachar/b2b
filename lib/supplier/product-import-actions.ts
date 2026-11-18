@@ -1,477 +1,359 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { after } from "next/server";
 import { requireUser, getVerifiedSupplierId } from "@/lib/auth/guard";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { optimizeImageUpload } from "@/lib/image-optimize";
+import { indexProductImages } from "@/lib/ai/index-product-image";
 import { getDashboardStore } from "@/lib/supplier/dashboard-store";
-import {
-  MAX_PRODUCT_IMAGES,
-  MIN_PRODUCT_IMAGES,
-  extractYoutubeId,
-  generateSku,
-  validateProductImageFile,
-} from "@/lib/supplier/products";
+import { MAX_PRODUCT_IMAGES, MAX_VARIANTS, extractYoutubeId, generateSku } from "@/lib/supplier/products";
 import { defaultSeoDescription, defaultSeoTitle } from "@/lib/supplier/rich-text";
 import { sanitizeRichText } from "@/lib/supplier/sanitize";
+import { fetchRemoteImage } from "@/lib/supplier/fetch-remote-image";
 import {
-  removeStoredPaths,
-  uploadProductImage,
-} from "@/lib/supplier/product-image-upload";
-import { isMissingMrpColumn } from "@/lib/supplier/mrp-column";
-import {
-  refreshCatalogue,
-  SUPPLIER_PRODUCTS_PATH,
-} from "@/lib/supplier/catalogue-cache";
-import {
-  PRODUCT_IMPORT_IMAGE_MAX_BYTES,
-  PRODUCT_IMPORT_MAX_BYTES,
-  PRODUCT_IMPORT_MAX_PHOTOS,
-  PRODUCT_IMPORT_MAX_ROWS,
-  PRODUCT_IMPORT_WRITE_BATCH_SIZE,
-  PRODUCT_IMPORT_XLSX_MAX_BYTES,
-  buildProductImportPreview,
-  createCategoryLookup,
-  imageWarnings,
-  parseProductImportCsv,
-  validateProductImportRows,
-  type ImportCategory,
-  type ProductImportBatchResult,
-  type ProductImportFilePreview,
-  type ProductImportImageEntry,
-  type ProductImportImagesResult,
-  type ProductImportRawRow,
+  IMPORT_CHUNK_SIZE,
+  IMPORT_COLUMNS,
+  validateImportUnit,
+  type ImportRow,
+  type ImportUnit,
 } from "@/lib/supplier/product-import";
-import { parseProductImportWorkbook } from "@/lib/supplier/product-import-xlsx";
+
+export type ImportMode = "create" | "upsert";
+
+export type ImportUnitResult = {
+  /** Spreadsheet line numbers of the product's rows (header = line 1). */
+  lines: number[];
+  status: "created" | "updated" | "failed";
+  message?: string;
+  productId?: string;
+  sku?: string;
+};
 
 type Supabase = Awaited<ReturnType<typeof requireUser>>["supabase"];
 
-const NO_SUPPLIER_MESSAGE = "Only suppliers can import products.";
-/** 500 rows × 8 photos: the largest manifest the import accepts. */
-const MAX_MANIFEST_ENTRIES = PRODUCT_IMPORT_MAX_ROWS * PRODUCT_IMPORT_MAX_PHOTOS;
-
-async function loadCategories(supabase: Supabase): Promise<ImportCategory[]> {
-  const { data, error } = await supabase
-    .from("categories")
-    .select("id, name, slug")
-    .eq("is_active", true)
-    .order("sort_order");
-  if (error) throw error;
-  return (data ?? []).map((row) => ({
-    id: row.id as string,
-    name: row.name as string,
-    slug: row.slug as string,
-  }));
+function indexLater(ids: string[]) {
+  if (ids.length === 0) return;
+  // Search-by-image indexing after the response, like single saves.
+  after(async () => {
+    for (const id of ids) {
+      try {
+        await indexProductImages(createAdminClient(), id);
+      } catch (err) {
+        console.error(`[image-search] skipped indexing for imported product ${id}:`, err);
+      }
+    }
+  });
 }
 
-function chunk<T>(items: T[], size: number): T[][] {
-  const out: T[][] = [];
-  for (let i = 0; i < items.length; i += size) out.push(items.slice(i, i + size));
-  return out;
-}
-
-async function loadExistingSkus(
-  supabase: Supabase,
-  supplierId: string,
-  skus: string[],
-): Promise<Set<string>> {
-  const unique = Array.from(new Set(skus.map((sku) => sku.trim().toUpperCase()).filter(Boolean)));
-  const found = new Set<string>();
-  for (const batch of chunk(unique, 150)) {
-    const { data, error } = await supabase
-      .from("products")
-      .select("seller_sku")
-      .eq("supplier_id", supplierId)
-      .in("seller_sku", batch);
-    if (error) throw error;
-    for (const row of data ?? []) found.add(row.seller_sku as string);
+/** Point the product at a new search (social preview) image; removes the old file. */
+async function setSearchImage(supabase: Supabase, supplierId: string, productId: string, path: string) {
+  const { data: old } = await supabase.from("products").select("seo_image_path").eq("id", productId).maybeSingle();
+  const { error } = await supabase
+    .from("products")
+    .update({ seo_image_path: path })
+    .eq("id", productId)
+    .eq("supplier_id", supplierId);
+  if (error) {
+    await supabase.storage.from("product_images").remove([path]);
+    throw new Error("Could not save the social preview image.");
   }
-  return found;
+  const oldPath = old?.seo_image_path as string | null | undefined;
+  if (oldPath && oldPath !== path) await supabase.storage.from("product_images").remove([oldPath]);
 }
 
-/** Plain CSV descriptions become paragraphs instead of one collapsed line. */
-function toRichText(text: string): string {
-  const paragraphs = text
-    .split(/\n{2,}/)
-    .map((paragraph) => paragraph.trim())
-    .filter(Boolean)
-    .map((paragraph) => `<p>${paragraph.replace(/\n/g, "<br>")}</p>`);
-  return sanitizeRichText(paragraphs.join("") || text);
+/** Set a product's images; removes the replaced files. Throws on failure. */
+async function replaceImages(supabase: Supabase, productId: string, paths: string[]) {
+  const { data: old } = await supabase.from("product_images").select("path").eq("product_id", productId);
+  const { error } = await supabase.rpc("replace_product_images", { p_product_id: productId, p_paths: paths });
+  if (error) throw new Error("Could not attach the images.");
+  const oldPaths = (old ?? []).map((r) => r.path as string).filter((p) => !paths.includes(p));
+  if (oldPaths.length) await supabase.storage.from("product_images").remove(oldPaths);
 }
 
-/**
- * Keep only manifest fields the preview needs, and reject absurd payloads.
- * File bytes are never sent here: the folder selector sends names and sizes,
- * and `importProductImages` validates each real file before compressing it.
- */
-function sanitizeManifest(
-  value: ProductImportImageEntry[] | undefined,
-): { ok: true; entries: ProductImportImageEntry[] } | { ok: false; message: string } {
-  if (value == null) return { ok: true, entries: [] };
-  if (!Array.isArray(value)) return { ok: true, entries: [] };
-  if (value.length > MAX_MANIFEST_ENTRIES) {
-    return {
-      ok: false,
-      message: `That folder holds more than ${MAX_MANIFEST_ENTRIES} files. Select a folder with only the photos for this file, or split the import.`,
-    };
+/** Fetch, compress and store a product's image links; all-or-nothing. */
+async function storeLinkedImages(supabase: Supabase, userId: string, productId: string, urls: string[]) {
+  const results = await Promise.allSettled(
+    urls.map(async (url, i) => {
+      const optimized = await optimizeImageUpload(await fetchRemoteImage(url), {
+        maxDimension: 1600,
+        targetBytes: 100 * 1024,
+      });
+      const path = `${userId}/${productId}_${Date.now()}_import${i}.${optimized.extension}`;
+      const { error } = await supabase.storage
+        .from("product_images")
+        .upload(path, optimized.buffer, { contentType: optimized.contentType, upsert: false });
+      if (error) throw new Error("Could not store the image.");
+      return path;
+    }),
+  );
+  const paths = results.flatMap((r) => (r.status === "fulfilled" ? [r.value] : []));
+  const failedIndex = results.findIndex((r) => r.status === "rejected");
+  if (failedIndex !== -1) {
+    if (paths.length) await supabase.storage.from("product_images").remove(paths);
+    const reason = (results[failedIndex] as PromiseRejectedResult).reason;
+    throw new Error(`Image ${failedIndex + 1}: ${reason instanceof Error ? reason.message : "could not be downloaded."}`);
   }
+  return paths;
+}
 
-  const entries: ProductImportImageEntry[] = [];
-  for (const item of value) {
-    if (!item || typeof item !== "object") continue;
-    const record = item as Record<string, unknown>;
-    const relativePath =
-      typeof record.relativePath === "string" ? record.relativePath.trim() : "";
-    const size =
-      typeof record.size === "number" && Number.isFinite(record.size)
-        ? record.size
-        : -1;
-    if (!relativePath || relativePath.length > 400) continue;
-    if (relativePath.split("/").some((part) => part === "..")) continue;
-    if (size < 0) continue;
-    entries.push({
-      relativePath,
-      size,
-      ...(typeof record.type === "string" ? { type: record.type.slice(0, 100) } : {}),
-    });
-  }
-  return { ok: true, entries };
+/** Untrusted payload → exactly our columns as bounded strings. */
+function cleanRow(input: unknown): ImportRow {
+  const src = (input ?? {}) as Record<string, unknown>;
+  return Object.fromEntries(
+    IMPORT_COLUMNS.map((c) => [c, typeof src[c] === "string" ? (src[c] as string).slice(0, 10_000) : ""]),
+  ) as ImportRow;
 }
 
 /**
- * Read an uploaded .xlsx or .csv on the server, then check it against the
- * catalogue and the selected photos folder. Excel parsing stays server-side so
- * the client bundle does not carry a spreadsheet parser.
+ * Import one chunk of products (≤ IMPORT_CHUNK_SIZE; a product is one row or
+ * one variant group). Everything is validated again here; the supplier and
+ * store come from the session, never from the file. New products are drafts —
+ * the supplier reviews them, adds images if needed, and submits as usual.
  */
-export async function previewProductImportFile(
-  formData: FormData,
-  images?: ProductImportImageEntry[],
-): Promise<ProductImportFilePreview> {
-  const file = formData.get("file");
-  if (!(file instanceof File) || file.size === 0) {
-    return { ok: false, message: "Choose a file to check." };
+export async function importProductsChunk(
+  units: ImportUnit[],
+  mode: ImportMode,
+): Promise<{ results: ImportUnitResult[] } | { error: string }> {
+  if (!Array.isArray(units) || units.length === 0 || units.length > IMPORT_CHUNK_SIZE) {
+    return { error: `Send between 1 and ${IMPORT_CHUNK_SIZE} products per request.` };
   }
-
-  const name = file.name.toLowerCase();
-  const isXlsx = name.endsWith(".xlsx");
-  const isCsv = name.endsWith(".csv");
-  if (!isXlsx && !isCsv) {
-    return { ok: false, message: "Use an Excel (.xlsx) or CSV (.csv) file." };
-  }
-
-  const maxBytes = isXlsx ? PRODUCT_IMPORT_XLSX_MAX_BYTES : PRODUCT_IMPORT_MAX_BYTES;
-  if (file.size > maxBytes) {
-    return {
-      ok: false,
-      message: `That file is ${(file.size / (1024 * 1024)).toFixed(1)} MB. ${isXlsx ? "Excel" : "CSV"} files can be up to ${maxBytes / (1024 * 1024)} MB.`,
-    };
-  }
-
-  const manifest = sanitizeManifest(images);
-  if (!manifest.ok) return { ok: false, message: manifest.message };
-
-  const parsed = isXlsx
-    ? await parseProductImportWorkbook(await file.arrayBuffer())
-    : parseProductImportCsv(await file.text());
-  if (!parsed.ok) return { ok: false, message: parsed.message };
-  if (parsed.rows.length > PRODUCT_IMPORT_MAX_ROWS) {
-    return {
-      ok: false,
-      message: `Check up to ${PRODUCT_IMPORT_MAX_ROWS} rows at a time.`,
-    };
-  }
+  if (mode !== "create" && mode !== "upsert") return { error: "Unknown import mode." };
 
   const { supabase, user } = await requireUser();
   const supplierId = await getVerifiedSupplierId(supabase, user.id);
-  if (!supplierId) return { ok: false, message: NO_SUPPLIER_MESSAGE };
+  if (!supplierId) return { error: "Only verified suppliers can import products." };
 
-  try {
-    const [categories, existing] = await Promise.all([
-      loadCategories(supabase),
-      loadExistingSkus(
-        supabase,
-        supplierId,
-        parsed.rows.map((row) => row.cells.seller_sku ?? ""),
-      ),
-    ]);
+  const [{ data: categoryRows }, { store }] = await Promise.all([
+    supabase.from("categories").select("id, name").eq("is_active", true),
+    getDashboardStore(),
+  ]);
+  const categories = (categoryRows ?? []).map((c) => ({ id: c.id as string, name: c.name as string }));
 
-    return {
-      ok: true,
-      rows: parsed.rows,
-      preview: buildProductImportPreview({
-        rows: parsed.rows,
-        categories,
-        existing,
-        images: manifest.entries,
-      }),
+  const results: ImportUnitResult[] = [];
+  const indexIds: string[] = [];
+
+  for (const raw of units) {
+    const rows = Array.isArray(raw?.rows) ? raw.rows.slice(0, MAX_VARIANTS).map(cleanRow) : [];
+    const lines = Array.isArray(raw?.lines) ? raw.lines.slice(0, rows.length).map(Number) : [];
+    if (rows.length === 0 || lines.length !== rows.length) {
+      results.push({ lines, status: "failed", message: "Malformed product." });
+      continue;
+    }
+    const checked = validateImportUnit({ lines, rows }, categories);
+    if (!checked.ok) {
+      results.push({ lines, status: "failed", message: `Row ${checked.line}: ${checked.message}` });
+      continue;
+    }
+    const v = checked.values;
+    const sku = v.seller_sku ? v.seller_sku.toUpperCase() : null;
+    const seoTitle = v.seo_title?.trim() || null;
+    const seoDescription = v.seo_description?.trim() || null;
+
+    // The same columns the Add-product form saves.
+    const fields = {
+      category_id: v.category_id,
+      title: v.title.trim(),
+      description: sanitizeRichText(v.description),
+      hsn_code: v.hsn_code || null,
+      gst_rate: v.gst_rate,
+      carton_units: v.carton_units,
+      carton_dimensions: v.carton_dimensions?.trim() || null,
+      carton_weight_kg: v.carton_weight_kg,
+      unit: v.unit,
+      price_per_unit: v.price_per_unit,
+      stock_qty: checked.stock,
+      ...(v.mrp != null ? { mrp: v.mrp } : {}),
+      negotiable: v.negotiable,
+      is_winning: v.is_winning,
+      is_hot_selling: v.is_hot_selling,
+      packaging_details: v.packaging_details?.trim() || null,
+      warranty_return: v.warranty_return?.trim() || null,
+      youtube_url: v.youtube_url?.trim() || null,
+      youtube_id: v.youtube_url?.trim() ? extractYoutubeId(v.youtube_url.trim()) : null,
+      // An update only touches SEO the file actually fills in.
+      ...(seoTitle ? { seo_title: seoTitle } : {}),
+      ...(seoDescription ? { seo_description: seoDescription } : {}),
     };
-  } catch (err) {
-    console.error("previewProductImportFile failed:", err);
-    return { ok: false, message: "Could not check the file. Try again." };
-  }
-}
 
-type ProductInsert = Record<string, unknown>;
+    try {
+      const { data: existing } = sku
+        ? await supabase
+            .from("products")
+            .select("id, status")
+            .eq("supplier_id", supplierId)
+            .eq("seller_sku", sku)
+            .maybeSingle()
+        : { data: null };
 
-/**
- * Create one short batch of products as drafts. Photos are uploaded by
- * `importProductImages` afterwards, one product at a time, so no request has
- * to carry every photo in one body.
- */
-export async function importProductBatch(
-  rows: ProductImportRawRow[],
-  options: { storeId?: string },
-): Promise<ProductImportBatchResult> {
-  if (!Array.isArray(rows) || rows.length === 0) {
-    return { ok: false, message: "There are no rows to import." };
-  }
-  if (rows.length > PRODUCT_IMPORT_WRITE_BATCH_SIZE) {
-    return {
-      ok: false,
-      message: `Import at most ${PRODUCT_IMPORT_WRITE_BATCH_SIZE} rows per batch.`,
-    };
-  }
-
-  const { supabase, user } = await requireUser();
-  const supplierId = await getVerifiedSupplierId(supabase, user.id);
-  if (!supplierId) return { ok: false, message: NO_SUPPLIER_MESSAGE };
-
-  const requestedStore = options.storeId?.trim() || null;
-  const { stores } = await getDashboardStore();
-  const allowedStores = new Set(stores.map((store) => store.id));
-  if (requestedStore && !allowedStores.has(requestedStore)) {
-    return { ok: false, message: "You can't add products to that store." };
-  }
-  const storeId = requestedStore;
-
-  try {
-    const [categories, existing] = await Promise.all([
-      loadCategories(supabase),
-      loadExistingSkus(
-        supabase,
-        supplierId,
-        rows.map((row) => row.cells.seller_sku ?? ""),
-      ),
-    ]);
-    const { ready, failed } = validateProductImportRows(
-      rows,
-      createCategoryLookup(categories),
-      existing,
-    );
-    const failedRows = failed.map((row) => ({
-      line: row.line,
-      title: row.title,
-      message: row.message,
-    }));
-    if (ready.length === 0) {
-      return { ok: true, created: [], failed: failedRows };
-    }
-
-    const usedSkus = new Set([...existing, ...ready.map((row) => row.values.seller_sku)]);
-    for (const row of ready) {
-      if (row.values.seller_sku) continue;
-      let sku = generateSku();
-      while (usedSkus.has(sku)) sku = generateSku();
-      usedSkus.add(sku);
-      row.values.seller_sku = sku;
-    }
-
-    const payload: ProductInsert[] = ready.map((row) => {
-      const values = row.values;
-      return {
-        supplier_id: supplierId,
-        store_id: storeId,
-        category_id: values.category_id,
-        title: values.title,
-        description: toRichText(values.description),
-        seller_sku: values.seller_sku,
-        hsn_code: values.hsn_code,
-        gst_rate: values.gst_rate,
-        carton_units: values.carton_units,
-        carton_dimensions: values.carton_dimensions,
-        carton_weight_kg: values.carton_weight_kg,
-        unit: values.unit,
-        price_per_unit: values.price_per_unit,
-        ...(values.mrp != null ? { mrp: values.mrp } : {}),
-        moq: values.moq,
-        stock_qty: values.stock_qty,
-        lead_time_days: 7,
-        negotiable: values.negotiable,
-        is_winning: false,
-        is_hot_selling: false,
-        sample_available: false,
-        sample_price: null,
-        packaging_details: values.packaging_details,
-        warranty_return: values.warranty_return,
-        youtube_url: values.youtube_url || null,
-        youtube_id: values.youtube_url ? extractYoutubeId(values.youtube_url) : null,
-        seo_title: values.seo_title || defaultSeoTitle(values.title),
-        seo_description:
-          values.seo_description || defaultSeoDescription(values.description),
-        status: "draft",
-      };
-    });
-
-    const insert = () =>
-      supabase.from("products").insert(payload).select("id, seller_sku");
-
-    let { data: inserted, error: insertError } = await insert();
-    // Database without the `mrp` column yet: retry when nothing needs it.
-    if (
-      isMissingMrpColumn(insertError) &&
-      ready.every((row) => row.values.mrp == null)
-    ) {
-      for (const row of payload) delete row.mrp;
-      ({ data: inserted, error: insertError } = await insert());
-    }
-    if (insertError) {
-      console.error("importProductBatch insert failed:", insertError);
-      return {
-        ok: false,
-        message:
-          insertError.code === "23505"
-            ? "A SKU in this batch already exists. Re-check the file and try again."
-            : "Could not create the products. Try again.",
-      };
-    }
-
-    const idBySku = new Map<string, string>();
-    for (const row of (inserted ?? []) as { id: string; seller_sku: string }[]) {
-      idBySku.set(row.seller_sku, row.id);
-    }
-
-    const created: {
-      line: number;
-      title: string;
-      sku: string;
-      productId: string;
-      warnings: string[];
-    }[] = [];
-
-    for (const row of ready) {
-      const productId = idBySku.get(row.values.seller_sku);
-      if (!productId) {
-        failedRows.push({
-          line: row.line,
-          title: row.title,
-          message: "The product was not created. Try this row again.",
-        });
+      if (existing && mode === "create") {
+        results.push({ lines, status: "failed", sku: sku ?? undefined, message: `SKU ${sku} already exists (choose "Update it" to update it).` });
         continue;
       }
-      created.push({
-        line: row.line,
-        title: row.title,
-        sku: row.values.seller_sku,
-        productId,
-        warnings: [...row.warnings],
-      });
-    }
+      if (existing?.status === "pending") {
+        results.push({ lines, status: "failed", sku: sku ?? undefined, message: `SKU ${sku} is under review and can't be changed right now.` });
+        continue;
+      }
 
-    return { ok: true, created, failed: failedRows };
-  } catch (err) {
-    console.error("importProductBatch failed:", err);
-    return { ok: false, message: "Could not import this batch. Try again." };
+      let productId: string;
+      const finalSku = sku ?? generateSku();
+      if (existing) {
+        const { error } = await supabase.from("products").update(fields).eq("id", existing.id).eq("supplier_id", supplierId);
+        if (error) throw error;
+        productId = existing.id as string;
+      } else {
+        const { data: created, error } = await supabase
+          .from("products")
+          .insert({
+            ...fields,
+            // Like the form: blank SEO fields default from the title / description.
+            seo_title: seoTitle ?? defaultSeoTitle(v.title),
+            seo_description: seoDescription ?? defaultSeoDescription(v.description),
+            supplier_id: supplierId,
+            store_id: store?.id ?? null,
+            seller_sku: finalSku,
+            moq: 1,
+            lead_time_days: 7,
+            sample_available: false,
+            // Publishing (submit) happens after images are attached, from the browser.
+            status: "draft",
+          })
+          .select("id")
+          .single();
+        if (error || !created) {
+          if (error?.code === "23505") {
+            results.push({ lines, status: "failed", sku: finalSku, message: `SKU ${finalSku} is already used.` });
+            continue;
+          }
+          throw error;
+        }
+        productId = created.id as string;
+      }
+
+      // Variant groups replace the product's variants; a simple row on update leaves them as they are.
+      if (checked.variants.length > 0) {
+        const { error } = await supabase.rpc("replace_product_variants", {
+          p_product_id: productId,
+          p_variants: checked.variants,
+        });
+        if (error) {
+          results.push({
+            lines, status: existing ? "updated" : "created", productId, sku: finalSku,
+            message: `Saved without variants: ${error.message || "variants could not be saved."}`,
+          });
+          continue;
+        }
+      }
+
+      // Web links are downloaded here; local files are uploaded by the browser
+      // afterwards and appended (attachUploadedImages).
+      const imageUrls = checked.images.flatMap((r) => (r.kind === "url" ? [r.url] : []));
+      const warnings: string[] = [];
+      if (imageUrls.length > 0) {
+        try {
+          const paths = await storeLinkedImages(supabase, user.id, productId, imageUrls);
+          try {
+            await replaceImages(supabase, productId, paths);
+          } catch (err) {
+            await supabase.storage.from("product_images").remove(paths);
+            throw err;
+          }
+          indexIds.push(productId);
+        } catch (err) {
+          warnings.push(`Saved without web images: ${err instanceof Error ? err.message : "images failed."}`);
+        }
+      }
+      if (checked.searchImage?.kind === "url") {
+        try {
+          const [path] = await storeLinkedImages(supabase, user.id, `seo/${productId}`, [checked.searchImage.url]);
+          await setSearchImage(supabase, supplierId, productId, path);
+        } catch (err) {
+          warnings.push(`Social preview image skipped: ${err instanceof Error ? err.message : "failed."}`);
+        }
+      }
+      results.push({
+        lines, status: existing ? "updated" : "created", productId, sku: finalSku,
+        ...(warnings.length ? { message: warnings.join(" ") } : {}),
+      });
+    } catch (err) {
+      console.error("importProductsChunk product failed:", lines, err);
+      results.push({ lines, status: "failed", message: "Could not save this product. Try again." });
+    }
   }
+
+  indexLater(indexIds);
+  revalidatePath("/supplier/dashboard/products");
+  return { results };
 }
 
 /**
- * Compress and attach one product's photos, then optionally publish it. Kept
- * to one product per request so each body stays well under the server-action
- * size limit and the browser can show real progress.
+ * Attach images the browser already uploaded to Storage (matched by file name
+ * to a SKU). Paths must sit in the caller's own folder (where the storage
+ * policy let them upload) and the product must belong to the caller's company.
  */
-export async function importProductImages(
-  formData: FormData,
-): Promise<ProductImportImagesResult> {
-  const productId = String(formData.get("product_id") ?? "").trim();
-  if (!productId) return { ok: false, message: "Choose a product for these photos." };
-  const publish = formData.get("publish") === "true";
-
-  const files = formData
-    .getAll("images")
-    .filter((value): value is File => value instanceof File && value.size > 0);
-  if (files.length === 0) return { ok: false, message: "There are no photos to add." };
-  if (files.length > MAX_PRODUCT_IMAGES) {
-    return {
-      ok: false,
-      message: `A product can have up to ${MAX_PRODUCT_IMAGES} photos. Remove the extras and try again.`,
-    };
-  }
-  for (const file of files) {
-    if (file.size > PRODUCT_IMPORT_IMAGE_MAX_BYTES) {
-      return {
-        ok: false,
-        message: `${file.name} is over 2 MB. Resize it and select the folder again.`,
-      };
-    }
-    const invalid = await validateProductImageFile(file);
-    if (invalid) return { ok: false, message: `${file.name}: ${invalid}` };
-  }
-
+export async function attachUploadedImages(
+  productId: string,
+  options: { images?: string[]; append?: boolean; searchImage?: string },
+): Promise<{ ok: true } | { ok: false; message: string }> {
   const { supabase, user } = await requireUser();
   const supplierId = await getVerifiedSupplierId(supabase, user.id);
-  if (!supplierId) return { ok: false, message: NO_SUPPLIER_MESSAGE };
+  if (!supplierId) return { ok: false, message: "Only verified suppliers can add images." };
 
-  const { data: product, error: productError } = await supabase
+  const images = Array.isArray(options?.images) ? options.images : [];
+  const searchImage = typeof options?.searchImage === "string" ? options.searchImage : null;
+  // Only files the caller could have uploaded: their own storage folder.
+  const ownPath = (p: unknown) => typeof p === "string" && p.startsWith(`${user.id}/`) && !p.includes("..");
+  if (images.length > MAX_PRODUCT_IMAGES || !images.every(ownPath) || (searchImage && !ownPath(searchImage))) {
+    return { ok: false, message: "Invalid image list." };
+  }
+  if (images.length === 0 && !searchImage) return { ok: true };
+
+  const { data: product } = await supabase
     .from("products")
-    .select("id")
+    .select("id, status")
     .eq("id", productId)
     .eq("supplier_id", supplierId)
     .maybeSingle();
-  if (productError) {
-    console.error("importProductImages product lookup failed:", productError);
-    return { ok: false, message: "Could not find that product. Try importing again." };
-  }
-  if (!product) {
-    return { ok: false, message: "Could not find that product. Try importing again." };
-  }
+  if (!product) return { ok: false, message: "Product not found." };
+  if (product.status === "pending") return { ok: false, message: "Product is under review." };
 
-  const paths: string[] = [];
   try {
-    for (const file of files) {
-      paths.push(await uploadProductImage(supabase, user.id, productId, file));
+    if (images.length > 0) {
+      let paths = images;
+      if (options.append) {
+        const { data: current } = await supabase
+          .from("product_images")
+          .select("path")
+          .eq("product_id", productId)
+          .order("sort", { ascending: true });
+        paths = [...(current ?? []).map((r) => r.path as string), ...images];
+        if (paths.length > MAX_PRODUCT_IMAGES) {
+          return { ok: false, message: `Products can have up to ${MAX_PRODUCT_IMAGES} images.` };
+        }
+      }
+      await replaceImages(supabase, productId, paths);
     }
-
-    const { error: attachError } = await supabase.rpc("replace_product_images", {
-      p_product_id: productId,
-      p_paths: paths,
-    });
-    if (attachError) {
-      console.error("importProductImages attach failed:", attachError);
-      await removeStoredPaths(supabase, paths);
-      return {
-        ok: false,
-        message: "Photos could not be attached. Open the product and add them again.",
-      };
-    }
+    if (searchImage) await setSearchImage(supabase, supplierId, productId, searchImage);
   } catch (err) {
-    console.error("importProductImages upload failed:", err);
-    await removeStoredPaths(supabase, paths);
-    return {
-      ok: false,
-      message:
-        err instanceof Error ? err.message : "Photos could not be uploaded. Try again.",
-    };
+    return { ok: false, message: err instanceof Error ? err.message : "Could not attach the images." };
   }
-
-  const warnings = imageWarnings(paths.length);
-  let published = false;
-  if (publish && paths.length >= MIN_PRODUCT_IMAGES) {
-    const { error: publishError } = await supabase.rpc(
-      "submit_product_for_approval",
-      { p_product_id: productId },
-    );
-    if (publishError) {
-      console.error("importProductImages publish failed:", publishError);
-      warnings.push(`Saved as a draft; could not publish: ${publishError.message}`);
-    } else {
-      published = true;
-    }
-  }
-
-  return { ok: true, productId, attached: paths.length, published, warnings };
+  if (images.length > 0) indexLater([productId]);
+  revalidatePath("/supplier/dashboard/products");
+  return { ok: true };
 }
 
-/** One cache refresh for the whole import, after every batch has finished. */
-export async function finishProductImport(published: number): Promise<void> {
-  revalidatePath(SUPPLIER_PRODUCTS_PATH);
-  // Only published rows changed the storefront.
-  if (published > 0) refreshCatalogue();
+/** SKU → product id for the caller's products (to match image files after import). */
+export async function findProductsBySku(
+  skus: string[],
+): Promise<Record<string, string>> {
+  const { supabase, user } = await requireUser();
+  const supplierId = await getVerifiedSupplierId(supabase, user.id);
+  if (!supplierId || !Array.isArray(skus) || skus.length === 0) return {};
+  const wanted = [...new Set(skus.filter((s) => typeof s === "string").map((s) => s.toUpperCase()))].slice(0, 1000);
+  const { data } = await supabase
+    .from("products")
+    .select("id, seller_sku")
+    .eq("supplier_id", supplierId)
+    .in("seller_sku", wanted);
+  return Object.fromEntries((data ?? []).map((p) => [String(p.seller_sku).toUpperCase(), p.id as string]));
 }

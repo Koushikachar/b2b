@@ -49,9 +49,11 @@ const nextConfig: NextConfig = {
   },
   experimental: {
     serverActions: {
-      // KYB uploads: 3 documents × 10 MB max. Per-file type/size rules are
-      // enforced in lib/supplier/kyb.ts after parsing.
-      bodySizeLimit: "32mb",
+      // Match Vercel's hard 4.5 MB request cap (it returns 413 above it, and
+      // this setting cannot raise it), so local dev fails the same way prod
+      // would. Image uploads are shrunk in the browser to stay under it
+      // (lib/shrink-image.ts); per-file rules are enforced in each action.
+      bodySizeLimit: "4.5mb",
     },
     // Dev-memory fix (8 GB RAM machines were swapping): several dependencies
     // ship a single barrel that re-exports thousands of modules — notably

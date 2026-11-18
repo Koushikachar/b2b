@@ -1,6 +1,7 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { revalidatePath, updateTag } from "next/cache";
+import { after } from "next/server";
 import { requireUser, getVerifiedSupplierId } from "@/lib/auth/guard";
 import {
   MAX_PRODUCT_IMAGES,
@@ -51,14 +52,16 @@ async function uploadImages(
   productId: string,
   files: File[],
 ): Promise<string[]> {
-  const uploaded: string[] = [];
-  try {
-    for (const file of files) {
-      uploaded.push(await uploadProductImage(supabase, userId, productId, file));
-    }
-  } catch (err) {
+  // In parallel (order preserved): one-by-one made an 8-image save wait for 8
+  // optimize+upload round trips back to back.
+  const results = await Promise.allSettled(
+    files.map((file) => uploadProductImage(supabase, userId, productId, file)),
+  );
+  const uploaded = results.flatMap((r) => (r.status === "fulfilled" ? [r.value] : []));
+  const failed = results.find((r): r is PromiseRejectedResult => r.status === "rejected");
+  if (failed) {
     await removeStoredPaths(supabase, uploaded);
-    throw err;
+    throw failed.reason;
   }
   return uploaded;
 }
@@ -424,7 +427,10 @@ export async function createProduct(
     }
   }
 
-  await indexImagesForSearch(product.id);
+  // After the response: CLIP indexing (model load + embed) used to hold the
+  // save for seconds, and only search-by-image needs it.
+  const createdId = product.id;
+  after(() => indexImagesForSearch(createdId));
 
   refreshCatalogue();
   if (boolOf(formData.get("auto_submit"))) {
@@ -617,7 +623,7 @@ const removedPaths = parseRemovedPaths(String(formData.get("removed_image_paths"
     return { ok: false, message: rpcMessage(variantsError, "Product saved but variant sync failed. Edit to retry."), productId };
   }
 
-  await indexImagesForSearch(productId);
+  after(() => indexImagesForSearch(productId));
 
   refreshCatalogue();
   revalidatePath("/products");
@@ -837,18 +843,17 @@ export async function deleteProduct(productId: string): Promise<ProductActionSta
     // Storage only lets a user delete files in their own folder, so photos a
     // teammate uploaded would be orphaned. The product row is already gone
     // (authorised above via RLS) and these paths were read under the user's
-    // own permissions, so remove them with the service role.
-    const storagePaths = Array.from(
-      new Set([
-        ...images.map((i) => i.path as string),
-        // The SEO/search image lives on the product row, not product_images.
-        ...(seoRow?.seo_image_path ? [seoRow.seo_image_path] : []),
-      ]),
-    );
-    const { error: storageError } = await createAdminClient()
-      .storage.from("product_images")
-      .remove(storagePaths);
-    if (storageError) console.error("deleteProduct storage cleanup failed:", storageError);
+    // own permissions, so remove them with the service role. Best-effort: the
+    // delete already succeeded, so a cleanup failure (e.g. no service-role key
+    // on the server) is logged, never shown to the supplier as a crash.
+    try {
+      const { error: storageError } = await createAdminClient()
+        .storage.from("product_images")
+        .remove(images.map((i) => i.path as string));
+      if (storageError) console.error("deleteProduct storage cleanup failed:", storageError);
+    } catch (err) {
+      console.error("deleteProduct storage cleanup failed:", err);
+    }
   }
   refreshCatalogue();
   // A live product disappears from the storefront too.
