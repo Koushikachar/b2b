@@ -1,6 +1,7 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { plainTextLength } from "../lib/supplier/rich-text";
+import { upgradeToAal2 } from "./helpers/totp";
 
 // Local dev stack only — never the remote project. Start it with `npx
 // supabase start` (ports override in supabase/config.toml when another stack
@@ -202,6 +203,8 @@ describe.skipIf(!available)("product lifecycle hardening", () => {
     const unverifiedCompanyId = await makeCompany(unverifiedUserId, "draft");
 
     const adminClient = await signIn(adminEmail);
+    // Admin powers need an MFA-verified (aal2) session (migration 20261120040000).
+    await upgradeToAal2(adminClient);
     const supplierClient = await signIn(supplierEmail);
     const unverifiedClient = await signIn(unverifiedEmail);
 

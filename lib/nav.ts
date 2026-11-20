@@ -39,7 +39,8 @@ export function isStorefrontTabActive(
 ): boolean {
   switch (tab) {
     case "home":
-      return pathname === "/"
+      // D2H Select is a store's home page like D2H Core ("/"), not the stores list.
+      return pathname === "/" || pathname === "/select" || pathname.startsWith("/select/")
     case "categories":
       return pathname === "/categories" || pathname.startsWith("/category/")
     case "products":
@@ -55,8 +56,6 @@ export function isStorefrontTabActive(
         pathname === "/stores" ||
         pathname.startsWith("/stores/") ||
         pathname.startsWith("/store/") ||
-        pathname === "/select" ||
-        pathname.startsWith("/select/") ||
         pathname.startsWith("/events/")
       )
   }

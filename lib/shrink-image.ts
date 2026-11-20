@@ -10,8 +10,8 @@ const MAX_DIMENSION = 1600;
 
 /**
  * Per-image upload budget. A product save sends up to 8 images + 1 search
- * image in one request: 9 × 450 KB keeps it under 4.5 MB. The server
- * re-optimizes to ~100 KB anyway.
+ * image in one request: 9 × 450 KB keeps it under 4.5 MB. The server then
+ * stores a high-quality 1600px master (lib/image-optimize.ts).
  */
 export const MAX_UPLOAD_IMAGE_BYTES = 450 * 1024;
 
@@ -61,7 +61,8 @@ export async function shrinkImageFile(file: File): Promise<File> {
     ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
 
     let blob: Blob | null = null;
-    for (const quality of [0.82, 0.7, 0.55, 0.4]) {
+    // Highest quality that fits the budget; most 1600px photos fit at 0.9–0.85.
+    for (const quality of [0.9, 0.85, 0.8, 0.72]) {
       blob = await new Promise<Blob | null>((resolve) =>
         canvas.toBlob(resolve, "image/jpeg", quality),
       );

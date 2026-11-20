@@ -7,6 +7,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { optimizeImageUpload } from "@/lib/image-optimize";
 import { indexProductImages } from "@/lib/ai/index-product-image";
 import { getDashboardStore } from "@/lib/supplier/dashboard-store";
+import { getCachedActiveCategories } from "@/lib/storefront-cache";
 import { MAX_PRODUCT_IMAGES, MAX_VARIANTS, extractYoutubeId, generateSku } from "@/lib/supplier/products";
 import { defaultSeoDescription, defaultSeoTitle } from "@/lib/supplier/rich-text";
 import { sanitizeRichText } from "@/lib/supplier/sanitize";
@@ -75,10 +76,7 @@ async function replaceImages(supabase: Supabase, productId: string, paths: strin
 async function storeLinkedImages(supabase: Supabase, userId: string, productId: string, urls: string[]) {
   const results = await Promise.allSettled(
     urls.map(async (url, i) => {
-      const optimized = await optimizeImageUpload(await fetchRemoteImage(url), {
-        maxDimension: 1600,
-        targetBytes: 100 * 1024,
-      });
+      const optimized = await optimizeImageUpload(await fetchRemoteImage(url));
       const path = `${userId}/${productId}_${Date.now()}_import${i}.${optimized.extension}`;
       const { error } = await supabase.storage
         .from("product_images")
@@ -124,27 +122,49 @@ export async function importProductsChunk(
   const supplierId = await getVerifiedSupplierId(supabase, user.id);
   if (!supplierId) return { error: "Only verified suppliers can import products." };
 
-  const [{ data: categoryRows }, { store }] = await Promise.all([
-    supabase.from("categories").select("id, name").eq("is_active", true),
-    getDashboardStore(),
-  ]);
-  const categories = (categoryRows ?? []).map((c) => ({ id: c.id as string, name: c.name as string }));
+  const [categoryRows, { store }] = await Promise.all([getCachedActiveCategories(), getDashboardStore()]);
+  const categories = categoryRows.map(({ id, name }) => ({ id, name }));
 
   const results: ImportUnitResult[] = [];
   const indexIds: string[] = [];
 
-  for (const raw of units) {
+  // Pass 1 (no database): validate every product in the chunk.
+  type Prepared =
+    | { lines: number[]; checked: Extract<ReturnType<typeof validateImportUnit>, { ok: true }> }
+    | { lines: number[]; error: string };
+  const prepared: Prepared[] = units.map((raw) => {
     const rows = Array.isArray(raw?.rows) ? raw.rows.slice(0, MAX_VARIANTS).map(cleanRow) : [];
     const lines = Array.isArray(raw?.lines) ? raw.lines.slice(0, rows.length).map(Number) : [];
-    if (rows.length === 0 || lines.length !== rows.length) {
-      results.push({ lines, status: "failed", message: "Malformed product." });
-      continue;
-    }
+    if (rows.length === 0 || lines.length !== rows.length) return { lines, error: "Malformed product." };
     const checked = validateImportUnit({ lines, rows }, categories);
-    if (!checked.ok) {
-      results.push({ lines, status: "failed", message: `Row ${checked.line}: ${checked.message}` });
+    return checked.ok ? { lines, checked } : { lines, error: `Row ${checked.line}: ${checked.message}` };
+  });
+
+  // One query for every SKU in the chunk (was one query per product).
+  const skus = prepared.flatMap((p) =>
+    "checked" in p && p.checked.values.seller_sku ? [p.checked.values.seller_sku.toUpperCase()] : [],
+  );
+  const existingBySku = new Map<string, { id: string; status: string }>();
+  if (skus.length > 0) {
+    const { data, error } = await supabase
+      .from("products")
+      .select("id, status, seller_sku")
+      .eq("supplier_id", supplierId)
+      .in("seller_sku", [...new Set(skus)]);
+    if (error) return { error: "Could not check existing SKUs. Try again." };
+    for (const row of data ?? []) {
+      existingBySku.set(String(row.seller_sku).toUpperCase(), { id: row.id as string, status: row.status as string });
+    }
+  }
+
+  // Pass 2: save.
+  for (const item of prepared) {
+    const { lines } = item;
+    if (!("checked" in item)) {
+      results.push({ lines, status: "failed", message: item.error });
       continue;
     }
+    const { checked } = item;
     const v = checked.values;
     const sku = v.seller_sku ? v.seller_sku.toUpperCase() : null;
     const seoTitle = v.seo_title?.trim() || null;
@@ -177,14 +197,7 @@ export async function importProductsChunk(
     };
 
     try {
-      const { data: existing } = sku
-        ? await supabase
-            .from("products")
-            .select("id, status")
-            .eq("supplier_id", supplierId)
-            .eq("seller_sku", sku)
-            .maybeSingle()
-        : { data: null };
+      const existing = sku ? existingBySku.get(sku) : undefined;
 
       if (existing && mode === "create") {
         results.push({ lines, status: "failed", sku: sku ?? undefined, message: `SKU ${sku} already exists (choose "Update it" to update it).` });
@@ -228,6 +241,8 @@ export async function importProductsChunk(
           throw error;
         }
         productId = created.id as string;
+        // A later row in this chunk with the same SKU now finds it (as the old per-row lookup did).
+        existingBySku.set(finalSku.toUpperCase(), { id: productId, status: "draft" });
       }
 
       // Variant groups replace the product's variants; a simple row on update leaves them as they are.

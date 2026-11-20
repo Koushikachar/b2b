@@ -77,6 +77,8 @@ export function ProductGallery({
                         alt={img.alt ?? title}
                         fill
                         priority={i === 0}
+                        // The large product photo: keep detail (allowed in next.config).
+                        quality={90}
                         sizes="(min-width: 1024px) 720px, 100vw"
                         className="object-contain"
                       />

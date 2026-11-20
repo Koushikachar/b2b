@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { requireUser, getVerifiedSupplierId } from "@/lib/auth/guard";
 import { getDashboardStore } from "@/lib/supplier/dashboard-store";
+import { getCachedActiveCategories } from "@/lib/storefront-cache";
 import {
   MAX_PRODUCT_IMAGES,
   MIN_PRODUCT_IMAGES,
@@ -48,18 +49,9 @@ const NO_SUPPLIER_MESSAGE = "Only suppliers can import products.";
 /** 500 rows × 8 photos: the largest manifest the import accepts. */
 const MAX_MANIFEST_ENTRIES = PRODUCT_IMPORT_MAX_ROWS * PRODUCT_IMPORT_MAX_PHOTOS;
 
-async function loadCategories(supabase: Supabase): Promise<ImportCategory[]> {
-  const { data, error } = await supabase
-    .from("categories")
-    .select("id, name, slug")
-    .eq("is_active", true)
-    .order("sort_order");
-  if (error) throw error;
-  return (data ?? []).map((row) => ({
-    id: row.id as string,
-    name: row.name as string,
-    slug: row.slug as string,
-  }));
+/** Shared cached list, refreshed when an admin edits a category. */
+function loadCategories(): Promise<ImportCategory[]> {
+  return getCachedActiveCategories();
 }
 
 function chunk<T>(items: T[], size: number): T[][] {
@@ -185,7 +177,7 @@ export async function previewProductImportFile(
 
   try {
     const [categories, existing] = await Promise.all([
-      loadCategories(supabase),
+      loadCategories(),
       loadExistingSkus(
         supabase,
         supplierId,
@@ -244,7 +236,7 @@ export async function importProductBatch(
 
   try {
     const [categories, existing] = await Promise.all([
-      loadCategories(supabase),
+      loadCategories(),
       loadExistingSkus(
         supabase,
         supplierId,

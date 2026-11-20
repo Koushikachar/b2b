@@ -1,8 +1,9 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { useActionState } from "react";
+import { useActionState, useOptimistic, useTransition } from "react";
 import { Button } from "@/components/ui/button";
+import { toast } from "@/components/ui/toast";
 import { Spinner } from "@/components/ui/spinner";
 import { ConfirmDialog } from "@/components/dashboard/confirm-dialog";
 import { shrinkFileInput } from "@/lib/shrink-image";
@@ -22,19 +23,23 @@ export function ToggleVisibilityButton({
   id: string;
   isActive: boolean;
 }) {
-  const [, action, pending] = useActionState(toggleCategory, initialState);
+  // Optimistic: flips at once, flips back with a toast if the save fails.
+  const [pending, startTransition] = useTransition();
+  const [shown, setShown] = useOptimistic(isActive);
+  const toggle = () => {
+    if (pending) return;
+    startTransition(async () => {
+      setShown(!shown);
+      const formData = new FormData();
+      formData.set("id", id);
+      const result = await toggleCategory(initialState, formData);
+      if (!result.ok) toast.add({ type: "error", title: result.message || "Could not update. Try again." });
+    });
+  };
   return (
-    <form action={action}>
-      <input type="hidden" name="id" value={id} />
-      <Button
-        type="submit"
-        variant="outline"
-        disabled={pending}
-        aria-pressed={isActive}
-      >
-        {isActive ? "Visible" : "Hidden"}
-      </Button>
-    </form>
+    <Button type="button" variant="outline" aria-pressed={shown} aria-busy={pending} onClick={toggle}>
+      {shown ? "Visible" : "Hidden"}
+    </Button>
   );
 }
 

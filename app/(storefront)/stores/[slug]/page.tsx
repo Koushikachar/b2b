@@ -23,8 +23,7 @@ import {
   CustomerSupportIcon,
 } from "@hugeicons/core-free-icons"
 import { STORE_PROGRAMMES, getStoreProgramme } from "@/lib/stores"
-import { getCachedHomeCategories, getCachedProducts } from "@/lib/storefront-cache"
-import { createClient } from "@/lib/supabase/server"
+import { getCachedHomeCategories, getCachedProducts, getCachedStoreId } from "@/lib/storefront-cache"
 import { publicTransformedImageUrl } from "@/lib/storage"
 import { formatRupees } from "@/lib/format"
 import { SUPPORT_WHATSAPP } from "@/lib/site"
@@ -79,13 +78,7 @@ export default async function StoreProgrammePage({ params }: Props) {
   if (!store) notFound()
 
   // Products are scoped per store (stores table); same lookup as the homepage.
-  const supabase = await createClient()
-  const { data: storeRow } = await supabase
-    .from("stores")
-    .select("id")
-    .eq("slug", store.slug)
-    .maybeSingle()
-  const storeId = (storeRow?.id as string | null) ?? undefined
+  const storeId = (await getCachedStoreId(store.slug)) ?? undefined
 
   const catalogue = await getCachedProducts({ perPage: 1, sort: "newest", storeId })
   const whatsapp = SUPPORT_WHATSAPP

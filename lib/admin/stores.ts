@@ -1,10 +1,22 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { revalidatePath, revalidateTag } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { requireAdmin } from "@/lib/auth/guard";
+import { uniqueSlug } from "@/lib/admin/unique-slug";
+
+/**
+ * After any store edit: refresh the admin pages and the storefront's cached
+ * store lookups (getCachedStoreId, tag "stores"), which otherwise stay stale
+ * for up to an hour.
+ */
+function refreshStores() {
+  revalidateTag("stores", "max");
+  revalidatePath("/admin/dashboard/stores");
+  revalidatePath("/admin/dashboard");
+}
 
 export type StoreActionState = {
   ok: boolean;
@@ -17,36 +29,6 @@ const baseSchema = z.object({
   status: z.enum(["active", "inactive"]),
 });
 
-function slugify(name: string): string {
-  return name
-    .toLowerCase()
-    .trim()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "") || "store";
-}
-
-async function uniqueSlug(
-  supabase: Awaited<ReturnType<typeof requireAdmin>>["supabase"],
-  name: string,
-  ignoreId?: string,
-): Promise<string> {
-  const base = slugify(name);
-  for (let attempt = 0; attempt < 10; attempt += 1) {
-    const slug = attempt === 0 ? base : `${base}-${attempt + 1}`;
-    let query = supabase
-      .from("stores")
-      .select("id", { head: true })
-      .eq("slug", slug);
-    if (ignoreId) {
-      query = query.neq("id", ignoreId);
-    }
-    const { count } = await query;
-    if (!count) {
-      return slug;
-    }
-  }
-  return `${base}-${Date.now()}`;
-}
 
 export async function getStoreSelectorItems(): Promise<{
   id: string;
@@ -80,7 +62,7 @@ export async function createStore(
     };
   }
 
-  const slug = await uniqueSlug(supabase, parsed.data.name);
+  const slug = await uniqueSlug(supabase, "stores", parsed.data.name, "store");
 
   const { error } = await supabase.from("stores").insert({
     name: parsed.data.name.trim(),
@@ -94,8 +76,7 @@ export async function createStore(
     return { ok: false, message: "Could not save. Try again." };
   }
 
-  revalidatePath("/admin/dashboard/stores");
-  revalidatePath("/admin/dashboard");
+  refreshStores();
   redirect("/admin/dashboard/stores");
 }
 
@@ -146,8 +127,7 @@ export async function toggleStore(
     return { ok: false, message: "Could not update. Try again." };
   }
 
-  revalidatePath("/admin/dashboard/stores");
-  revalidatePath("/admin/dashboard");
+  refreshStores();
   redirect("/admin/dashboard/stores");
 }
 
@@ -180,7 +160,7 @@ export async function updateStore(
     return { ok: false, message: "Store not found." };
   }
 
-  const slug = await uniqueSlug(supabase, parsed.data.name, row.id);
+  const slug = await uniqueSlug(supabase, "stores", parsed.data.name, "store", row.id);
 
   const { error } = await supabase
     .from("stores")
@@ -196,8 +176,7 @@ export async function updateStore(
     return { ok: false, message: "Could not save. Try again." };
   }
 
-  revalidatePath("/admin/dashboard/stores");
-  revalidatePath("/admin/dashboard");
+  refreshStores();
   redirect("/admin/dashboard/stores");
 }
 
@@ -265,8 +244,7 @@ export async function assignStoreProduct(
     return { ok: false, message: "Could not assign product. Try again." };
   }
 
-  revalidatePath("/admin/dashboard/stores");
-  revalidatePath("/admin/dashboard");
+  refreshStores();
   redirect("/admin/dashboard/stores");
 }
 
@@ -302,8 +280,7 @@ export async function toggleStoreProductListing(
     return { ok: false, message: "Could not update. Try again." };
   }
 
-  revalidatePath("/admin/dashboard/stores");
-  revalidatePath("/admin/dashboard");
+  refreshStores();
   redirect("/admin/dashboard/stores");
 }
 
@@ -326,8 +303,7 @@ export async function deleteStoreProductAssignment(
     return { ok: false, message: "Could not delete. Try again." };
   }
 
-  revalidatePath("/admin/dashboard/stores");
-  revalidatePath("/admin/dashboard");
+  refreshStores();
   redirect("/admin/dashboard/stores");
 }
 
@@ -448,8 +424,7 @@ export async function assignStoreProductVariant(
     return { ok: false, message: "Could not add variant. Try again." };
   }
 
-  revalidatePath("/admin/dashboard/stores");
-  revalidatePath("/admin/dashboard");
+  refreshStores();
   redirect("/admin/dashboard/stores");
 }
 
@@ -485,8 +460,7 @@ export async function toggleStoreProductVariant(
     return { ok: false, message: "Could not update. Try again." };
   }
 
-  revalidatePath("/admin/dashboard/stores");
-  revalidatePath("/admin/dashboard");
+  refreshStores();
   redirect("/admin/dashboard/stores");
 }
 
@@ -541,8 +515,7 @@ export async function updateStoreProductVariant(
     return { ok: false, message: "Could not save. Try again." };
   }
 
-  revalidatePath("/admin/dashboard/stores");
-  revalidatePath("/admin/dashboard");
+  refreshStores();
   redirect("/admin/dashboard/stores");
 }
 
@@ -565,8 +538,7 @@ export async function deleteStoreProductVariant(
     return { ok: false, message: "Could not delete. Try again." };
   }
 
-  revalidatePath("/admin/dashboard/stores");
-  revalidatePath("/admin/dashboard");
+  refreshStores();
   redirect("/admin/dashboard/stores");
 }
 
@@ -629,8 +601,7 @@ export async function updateStoreProductPricing(
     return { ok: false, message: "Could not save. Try again." };
   }
 
-  revalidatePath("/admin/dashboard/stores");
-  revalidatePath("/admin/dashboard");
+  refreshStores();
   redirect("/admin/dashboard/stores");
 }
 
@@ -718,7 +689,6 @@ export async function updateStoreInventory(
     }
   }
 
-  revalidatePath("/admin/dashboard/stores");
-  revalidatePath("/admin/dashboard");
+  refreshStores();
   redirect("/admin/dashboard/stores");
 }

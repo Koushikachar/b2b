@@ -17,6 +17,7 @@ import { RecommendedProductsSection } from "@/components/storefront/home-recomme
 import {
   CatalogueSkeleton,
   FrequentlyBoughtSkeleton,
+  HomeHeroSkeleton,
   RecentRailSkeleton,
   RecommendedProductsSkeleton,
   SearchHeroSkeleton,
@@ -90,8 +91,9 @@ export default async function HomePage({
         <SearchMegaMenuSection />
       </Suspense>
 
-      {/* Admin hero banners; reserves no space until one exists. */}
-      <Suspense fallback={null}>
+      {/* Admin hero banners. The placeholder holds the banner's space so the
+          page doesn't jump when it streams in; it collapses if none exists. */}
+      <Suspense fallback={<HomeHeroSkeleton />}>
         <HomeHeroSection />
       </Suspense>
 

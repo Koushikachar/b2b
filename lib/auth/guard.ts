@@ -3,6 +3,7 @@ import { cache } from "react";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { LOGIN_PATH } from "@/lib/auth/paths";
+import { requireAdminMfa } from "@/lib/auth/admin-mfa";
 
 export type AuthContext = {
   supabase: Awaited<ReturnType<typeof createClient>>;
@@ -33,6 +34,10 @@ export async function requireAdmin(): Promise<AuthContext> {
   if (profile?.user_type !== "admin") {
     redirect("/");
   }
+
+  // Admin actions need an authenticator code from the last 12 hours. The
+  // database enforces MFA too (internal.is_admin() requires aal2).
+  await requireAdminMfa(ctx.supabase);
 
   return ctx;
 }

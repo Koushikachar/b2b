@@ -26,11 +26,15 @@ const pairLink = (pair: AdminPair) => pair.desktop?.link_url || pair.mobile?.lin
  * Admin uploads covering the box edge to edge: the phone image below md, the
  * desktop image from md up; one upload serves both (trimmed where its shape
  * differs from the box).
+ *
+ * Above the fold, so it loads eagerly at high priority, but is not preloaded:
+ * a preload would fetch both the phone and the desktop image, while <picture>
+ * downloads only the one that matches the screen (Next 16 image docs).
  */
 function AdminArt({ pair, alt, sizes }: { pair: AdminPair; alt: string; sizes: string }) {
   const desktop = (pair.desktop ?? pair.mobile)!
   const mobile = (pair.mobile ?? pair.desktop)!
-  const common = { alt, sizes, fill: true, priority: true }
+  const common = { alt, sizes, fill: true, loading: "eager", fetchPriority: "high" } as const
   const {
     props: { srcSet: desktopSet },
   } = getImageProps({ ...common, src: publicImageUrl("banners", desktop.image_path) })

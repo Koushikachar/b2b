@@ -8,6 +8,7 @@ import { getAuthUser } from "@/lib/auth/session";
 import { LOGIN_PATH } from "@/lib/auth/paths";
 import { getSupplierContext } from "@/lib/auth/guard";
 import { getDashboardStore } from "@/lib/supplier/dashboard-store";
+import { getCachedActiveCategories } from "@/lib/storefront-cache";
 import type { ImportCategory } from "@/lib/supplier/product-import-sheet";
 import { ProductImport } from "./product-import";
 import { ProductImportForm } from "./product-import-form";
@@ -32,16 +33,10 @@ export default async function ImportProductsPage({
   if (!ctx) redirect("/supplier/onboarding");
   if (!ctx.verified) redirect("/supplier/dashboard");
 
-  const [{ data: categories }, { store }] = await Promise.all([
-    supabase.from("categories").select("id, name, slug").eq("is_active", true).order("sort_order"),
-    getDashboardStore(),
-  ]);
+  const [categories, { store }] = await Promise.all([getCachedActiveCategories(), getDashboardStore()]);
 
-  const categoryOptions: ImportCategory[] = (categories ?? []).map((c) => ({
-    id: c.id as string,
-    name: c.name as string,
-    slug: c.slug as string,
-  }));
+  // Cached active categories already carry id, name and slug (ImportCategory).
+  const categoryOptions: ImportCategory[] = categories;
 
   return (
     <div className="flex w-full flex-col gap-4">
@@ -81,12 +76,9 @@ export default async function ImportProductsPage({
       </div>
 
       {mode === "links" ? (
-        <ProductImport categories={categoryOptions} />
+        <ProductImport categories={categoryOptions.map(({ id, name }) => ({ id, name }))} />
       ) : (
-        <ProductImportForm
-          categories={categoryOptions}
-          storeId={store?.id}
-        />
+        <ProductImportForm categories={categoryOptions} storeId={store?.id} />
       )}
     </div>
   );

@@ -6,6 +6,15 @@ import { Card } from "@/components/ui/card"
 // avoiding layout shift. All ephemeral, non-interactive placeholder markup —
 // never focusable, not announced by screen readers.
 
+/** Home hero carousel: same frame as HomeHeroSection's first slide. */
+export function HomeHeroSkeleton() {
+  return (
+    <div aria-hidden className="mx-auto w-full max-w-7xl px-4 pt-4">
+      <Skeleton className="aspect-[12/5] w-full rounded-lg" />
+    </div>
+  )
+}
+
 export function ProductCardSkeleton() {
   return (
     <Card className="flex h-full !gap-0 flex-col overflow-hidden border-border !py-0">

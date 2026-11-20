@@ -79,9 +79,9 @@ async function readTable(file: File): Promise<string[][]> {
  * limit), into the user's own folder where the storage policy allows it.
  */
 async function uploadLocal(supabase: Supabase, userId: string, prefix: string, files: File[]): Promise<string[]> {
-  const paths: string[] = [];
-  try {
-    for (const [i, original] of files.entries()) {
+  // All of a product's photos (≤ 8) upload together, in order; all-or-nothing.
+  const results = await Promise.allSettled(
+    files.map(async (original, i) => {
       const file = await shrinkImageFile(original);
       const ext = file.type === "image/png" ? "png" : file.type === "image/webp" ? "webp" : "jpg";
       const path = `${userId}/${prefix}_${Date.now()}_${i}.${ext}`;
@@ -89,13 +89,16 @@ async function uploadLocal(supabase: Supabase, userId: string, prefix: string, f
         .from("product_images")
         .upload(path, file, { contentType: file.type || "image/jpeg", upsert: false });
       if (error) throw new Error(error.message);
-      paths.push(path);
-    }
-    return paths;
-  } catch (err) {
+      return path;
+    }),
+  );
+  const paths = results.flatMap((r) => (r.status === "fulfilled" ? [r.value] : []));
+  const failed = results.find((r): r is PromiseRejectedResult => r.status === "rejected");
+  if (failed) {
     if (paths.length) await supabase.storage.from("product_images").remove(paths);
-    throw err;
+    throw failed.reason;
   }
+  return paths;
 }
 
 const rowsLabel = (lines: number[]) =>

@@ -78,7 +78,7 @@ export function StoreTabs() {
       <ul className="mx-auto grid w-full max-w-7xl grid-cols-4 gap-2 px-4 py-2.5 sm:gap-3 sm:py-3">
         {STORE_TABS.map((tab, i) => {
           const active = isActiveTab(tab, pathname)
-          // Rise-in stagger, and (touch screens) the idle sweep crossing cards in turn.
+          // Rise-in stagger, and the idle light sweep crossing cards in turn (all screens).
           const style = {
             animationDelay: RISE_DELAY[i],
             "--store-tab-sweep-delay": `${1.2 + i * 0.35}s`,
