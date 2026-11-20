@@ -97,6 +97,12 @@ secret, server-only variables and a webhook secret.
 
 Rotate: issue a new key in the OpenWA dashboard, update Vercel, redeploy, and revoke the old key.
 
+### Local tools
+
+| Name | Secret? | Used in | Required | If missing |
+|---|---|---|---|---|
+| `REALESRGAN_PATH` | no (a file path on your PC) | `scripts/ai-upscale-product-images.ts` (`pnpm images:ai-upscale --apply`) | only to AI-upscale photos; never on Vercel | the script stops with instructions. A dry run without `--apply` works without it |
+
 ### Set by the platform
 
 | Name | Notes |
