@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { ArrowLeft01Icon } from "@hugeicons/core-free-icons";
+import { Button } from "@/components/ui/button";
 import { createClient } from "@/lib/supabase/server";
 import { getAuthUser } from "@/lib/auth/session";
 import { LOGIN_PATH } from "@/lib/auth/paths";
@@ -9,8 +10,20 @@ import { getSupplierContext } from "@/lib/auth/guard";
 import { getDashboardStore } from "@/lib/supplier/dashboard-store";
 import { getCachedActiveCategories } from "@/lib/storefront-cache";
 import { ProductImport } from "./product-import";
+import { ProductImportForm } from "./product-import-form";
 
-export default async function ImportProductsPage() {
+const BASE = "/supplier/dashboard/products/import";
+
+export default async function ImportProductsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ mode?: string }>;
+}) {
+  const params = await searchParams;
+  // "folders" = Excel template + one photo folder per SKU (default).
+  // "links" = spreadsheet with image links or file names.
+  const mode = params.mode === "links" ? "links" : "folders";
+
   const supabase = await createClient();
   const user = await getAuthUser(supabase);
   if (!user) redirect(LOGIN_PATH);
@@ -20,6 +33,12 @@ export default async function ImportProductsPage() {
   if (!ctx.verified) redirect("/supplier/dashboard");
 
   const [categories, { store }] = await Promise.all([getCachedActiveCategories(), getDashboardStore()]);
+
+  const categoryOptions: ImportCategory[] = (categories ?? []).map((c) => ({
+    id: c.id as string,
+    name: c.name as string,
+    slug: c.slug as string,
+  }));
 
   return (
     <div className="flex w-full flex-col gap-4">
@@ -33,8 +52,9 @@ export default async function ImportProductsPage() {
         </Link>
         <h1 className="text-xl font-bold tracking-tight">Import products</h1>
         <p className="mt-0.5 text-sm text-muted-foreground">
-          Add many products at once from a spreadsheet. They are saved as drafts in{" "}
-          {store?.name ?? "your store"} for you to review and submit.
+          {mode === "links"
+            ? `Upload a spreadsheet where image cells hold links or file names. Products are saved as drafts in ${store?.name ?? "your store"} for you to review and submit.`
+            : `Fill the Excel template, put each product's photos in a folder named after its SKU, then upload both. Products are saved as drafts in ${store?.name ?? "your store"} for you to review and submit.`}
         </p>
       </div>
       <ProductImport
