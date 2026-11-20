@@ -9,6 +9,7 @@ import { LOGIN_PATH } from "@/lib/auth/paths";
 import { getSupplierContext } from "@/lib/auth/guard";
 import { getDashboardStore } from "@/lib/supplier/dashboard-store";
 import { getCachedActiveCategories } from "@/lib/storefront-cache";
+import type { ImportCategory } from "@/lib/supplier/product-import-sheet";
 import { ProductImport } from "./product-import";
 import { ProductImportForm } from "./product-import-form";
 
@@ -34,11 +35,8 @@ export default async function ImportProductsPage({
 
   const [categories, { store }] = await Promise.all([getCachedActiveCategories(), getDashboardStore()]);
 
-  const categoryOptions: ImportCategory[] = (categories ?? []).map((c) => ({
-    id: c.id as string,
-    name: c.name as string,
-    slug: c.slug as string,
-  }));
+  // Cached active categories already carry id, name and slug (ImportCategory).
+  const categoryOptions: ImportCategory[] = categories;
 
   return (
     <div className="flex w-full flex-col gap-4">
@@ -57,9 +55,31 @@ export default async function ImportProductsPage({
             : `Fill the Excel template, put each product's photos in a folder named after its SKU, then upload both. Products are saved as drafts in ${store?.name ?? "your store"} for you to review and submit.`}
         </p>
       </div>
-      <ProductImport
-        categories={categories.map(({ id, name }) => ({ id, name }))}
-      />
+
+      <div className="flex flex-wrap items-center gap-2">
+        <Button
+          render={<Link href={`${BASE}?mode=folders`} />}
+          nativeButton={false}
+          variant={mode === "folders" ? "default" : "outline"}
+          size="sm"
+        >
+          Excel + SKU photo folders
+        </Button>
+        <Button
+          render={<Link href={`${BASE}?mode=links`} />}
+          nativeButton={false}
+          variant={mode === "links" ? "default" : "outline"}
+          size="sm"
+        >
+          Spreadsheet + image links
+        </Button>
+      </div>
+
+      {mode === "links" ? (
+        <ProductImport categories={categoryOptions.map(({ id, name }) => ({ id, name }))} />
+      ) : (
+        <ProductImportForm categories={categoryOptions} storeId={store?.id} />
+      )}
     </div>
   );
 }
