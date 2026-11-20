@@ -3,13 +3,11 @@ import type { Metadata } from "next"
 import { getCachedDealsStoreId } from "@/lib/storefront-cache"
 import { SelectPromotionalCollections } from "@/components/storefront/select-promotional-collections"
 import { TopCategoriesSection } from "@/components/storefront/home-categories"
-import { RecentlyViewedSection } from "@/components/storefront/home-recently-viewed"
 import { FrequentlyBoughtSection } from "@/components/storefront/frequently-bought"
 import { RecommendedProductsSection } from "@/components/storefront/home-recommended"
 import {
   FrequentlyBoughtSkeleton,
   PromotionalCollectionsSkeleton,
-  RecentRailSkeleton,
   RecommendedProductsSkeleton,
   TopCategoriesSkeleton,
 } from "@/components/storefront/skeletons"
@@ -35,10 +33,6 @@ export default async function SelectPage() {
 
       <Suspense fallback={<TopCategoriesSkeleton />}>
         <TopCategoriesSection />
-      </Suspense>
-
-      <Suspense fallback={<RecentRailSkeleton />}>
-        <RecentlyViewedSection />
       </Suspense>
 
       <Suspense fallback={<FrequentlyBoughtSkeleton />}>

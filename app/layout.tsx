@@ -7,6 +7,7 @@ import "./globals.css"
 import { Toaster } from "@/components/ui/toast"
 import { cn } from "@/lib/utils"
 import { SITE_NAME, SITE_URL, SUPPORT_EMAIL, SUPPORT_PHONE } from "@/lib/site"
+import { serializeJsonLd } from "@/lib/json-ld"
 import { AnalyticsConsent } from "@/components/layout/analytics-consent"
 
 // Organization schema (search engines' knowledge panel / sitelinks).
@@ -114,7 +115,7 @@ export default function RootLayout({
       <body suppressHydrationWarning>
         <script
           type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(ORGANIZATION_JSON_LD) }}
+          dangerouslySetInnerHTML={{ __html: serializeJsonLd(ORGANIZATION_JSON_LD) }}
         />
         {/* Motion honours prefers-reduced-motion app-wide (apple-design §14). */}
         <MotionConfig reducedMotion="user">

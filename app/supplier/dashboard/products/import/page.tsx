@@ -7,6 +7,7 @@ import { getAuthUser } from "@/lib/auth/session";
 import { LOGIN_PATH } from "@/lib/auth/paths";
 import { getSupplierContext } from "@/lib/auth/guard";
 import { getDashboardStore } from "@/lib/supplier/dashboard-store";
+import { getCachedActiveCategories } from "@/lib/storefront-cache";
 import { ProductImport } from "./product-import";
 
 export default async function ImportProductsPage() {
@@ -18,10 +19,7 @@ export default async function ImportProductsPage() {
   if (!ctx) redirect("/supplier/onboarding");
   if (!ctx.verified) redirect("/supplier/dashboard");
 
-  const [{ data: categories }, { store }] = await Promise.all([
-    supabase.from("categories").select("id, name").eq("is_active", true).order("sort_order"),
-    getDashboardStore(),
-  ]);
+  const [categories, { store }] = await Promise.all([getCachedActiveCategories(), getDashboardStore()]);
 
   return (
     <div className="flex w-full flex-col gap-4">
@@ -40,7 +38,7 @@ export default async function ImportProductsPage() {
         </p>
       </div>
       <ProductImport
-        categories={(categories ?? []).map((c) => ({ id: c.id as string, name: c.name as string }))}
+        categories={categories.map(({ id, name }) => ({ id, name }))}
       />
     </div>
   );

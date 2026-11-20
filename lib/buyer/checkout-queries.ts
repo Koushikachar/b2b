@@ -39,9 +39,6 @@ export type CheckoutPreview = {
   unavailableCount: number;
 };
 
-const COUPON_RULE_COLUMNS =
-  "id, code, type, is_active, percent_value, max_discount, flat_value, min_order_value, buy_quantity, get_quantity, free_product_id, loyalty_points, usage_limit, used_count, expires_at";
-
 /**
  * The checkout review data: priced cart lines grouped by supplier, with every
  * saved coupon re-validated server-side against that supplier's group subtotal
@@ -68,15 +65,12 @@ export async function getCheckoutPreview(
   });
   const couponByKey = new Map<string, CouponRule>();
   if (savedEntries.length > 0) {
-    const { data: couponData } = await supabase
-      .from("coupons")
-      .select(`supplier_id, ${COUPON_RULE_COLUMNS}`)
-      .in(
-        "supplier_id",
-        [...new Set(savedEntries.map((entry) => entry.supplierId))],
-      )
-      .in("code", [...new Set(savedEntries.map((entry) => entry.code))])
-      .eq("is_active", true);
+    // Exact (store, code) pairs through an RPC: buyers can't list coupons
+    // (RLS-POLICIES.md R-2).
+    const { data: couponData } = await supabase.rpc("lookup_active_coupons", {
+      p_supplier_ids: savedEntries.map((entry) => entry.supplierId),
+      p_codes: savedEntries.map((entry) => entry.code),
+    });
     for (const row of (couponData ?? []) as unknown as (CouponRule & {
       supplier_id: string;
     })[]) {

@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { requireAdmin } from "@/lib/auth/guard";
 import { isSupportedImageType, sniffImageType } from "@/lib/storage";
+import { uniqueSlug } from "@/lib/admin/unique-slug";
 
 export type CategoryActionState = {
   ok: boolean;
@@ -18,15 +19,6 @@ const baseSchema = z.object({
   is_active: z.string().optional(),
 });
 
-function slugify(name: string): string {
-  const base =
-    name
-      .toLowerCase()
-      .trim()
-      .replace(/[^a-z0-9]+/g, "-")
-      .replace(/^-+|-+$/g, "") || "category";
-  return base;
-}
 
 async function validateImage(file: File | null, required: boolean): Promise<string | null> {
   if (!file || file.size === 0) {
@@ -40,29 +32,6 @@ async function validateImage(file: File | null, required: boolean): Promise<stri
     return "Only JPG, PNG or WEBP images are allowed.";
   }
   return null;
-}
-
-async function uniqueSlug(
-  supabase: Awaited<ReturnType<typeof requireAdmin>>["supabase"],
-  name: string,
-  ignoreId?: string,
-): Promise<string> {
-  const base = slugify(name);
-  for (let attempt = 0; attempt < 10; attempt += 1) {
-    const slug = attempt === 0 ? base : `${base}-${attempt + 1}`;
-    let query = supabase
-      .from("categories")
-      .select("id", { head: true })
-      .eq("slug", slug);
-    if (ignoreId) {
-      query = query.neq("id", ignoreId);
-    }
-    const { count } = await query;
-    if (!count) {
-      return slug;
-    }
-  }
-  return `${base}-${Date.now()}`;
 }
 
 async function uploadImage(
@@ -104,7 +73,7 @@ export async function createCategory(
     return { ok: false, message: fileError ?? "An image is required." };
   }
 
-  const slug = await uniqueSlug(supabase, parsed.data.name);
+  const slug = await uniqueSlug(supabase, "categories", parsed.data.name, "category");
 
   const { data: row, error: insertError } = await supabase
     .from("categories")
@@ -256,7 +225,7 @@ export async function updateCategory(
     return { ok: false, message: "Category not found." };
   }
 
-  const slug = await uniqueSlug(supabase, parsed.data.name, row.id);
+  const slug = await uniqueSlug(supabase, "categories", parsed.data.name, "category", row.id);
 
   let imagePath = row.image_path;
   if (file) {

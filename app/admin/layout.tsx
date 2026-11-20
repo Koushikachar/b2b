@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import type { Metadata } from "next";
 import { createClient } from "@/lib/supabase/server";
 import { LOGIN_PATH } from "@/lib/auth/paths";
+import { requireAdminMfa } from "@/lib/auth/admin-mfa";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { Header } from "@/components/layout/header";
 import { Main } from "@/components/layout/main";
@@ -38,6 +39,9 @@ export default async function AdminLayout({
   if (profile?.user_type !== "admin") {
     redirect("/");
   }
+
+  // Authenticator code required, re-checked every 12 hours (AUTH.md A-3/A-4).
+  await requireAdminMfa(supabase);
 
   return (
     <SidebarProvider>

@@ -15,12 +15,16 @@ export type OptimizedImage = {
 };
 
 const DEFAULT_MAX_DIMENSION = 1600;
-const DEFAULT_TARGET_BYTES = 100 * 1024;
+// Stored originals are a master copy: shoppers get next/image's resized,
+// re-encoded variants per screen, so a bigger original costs no page speed.
+// The old 100 KB target forced ~800px / q50 files that looked blurry on the
+// product page (shown up to 720px wide, 1440px on 2x screens).
+const DEFAULT_TARGET_BYTES = 400 * 1024;
 
 /**
  * Compress an uploaded image to (at most) `targetBytes` while keeping it
- * readable. Tries a few dimension/quality combinations and returns the first
- * result that fits; otherwise returns the smallest one produced.
+ * sharp. Tries high quality first and never goes below 85% of the size or
+ * quality 76; returns the first result that fits, otherwise the smallest.
  *
  * Server-only: imports `sharp`, so this module must never be imported by
  * client code.
@@ -35,12 +39,8 @@ export async function optimizeImageUpload(
 
   const input = Buffer.from(await file.arrayBuffer());
 
-  const dimensionSteps = [
-    maxDimension,
-    Math.round(maxDimension * 0.75),
-    Math.round(maxDimension * 0.5),
-  ];
-  const qualitySteps = [70, 60, 50];
+  const dimensionSteps = [maxDimension, Math.round(maxDimension * 0.85)];
+  const qualitySteps = [88, 82, 76];
 
   let best: { buffer: Buffer; width: number; height: number } | null = null;
 

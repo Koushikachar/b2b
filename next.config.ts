@@ -29,6 +29,9 @@ const nextConfig: NextConfig = {
     // Next.js Image Optimization API. Remote images from Supabase storage are
     // proxied and resized on demand.
     formats: ["image/avif", "image/webp"],
+    // 75 = default; 90 = product photos (ProductImage / gallery), where a
+    // second lossy pass at 75 visibly softened detail. Next 16 requires the list.
+    qualities: [75, 90],
     // Some IPv6-only networks (NAT64/DNS64) resolve *.supabase.co to
     // 64:ff9b::/96, which Next's SSRF guard treats as private, so every product
     // image 400s locally ("url" parameter is not allowed). Dev only: the

@@ -45,6 +45,8 @@ export function ProductImage({
       src={src}
       alt={alt}
       fill
+      // Product photos: high quality (allowed in next.config `images.qualities`).
+      quality={90}
       unoptimized={unoptimized}
       loading={priority ? "eager" : undefined}
       sizes={sizes}

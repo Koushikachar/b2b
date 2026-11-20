@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getAuthUser } from "@/lib/auth/session";
 import { getVerifiedSupplierId } from "@/lib/auth/guard";
 import { buildProductImportWorkbook } from "@/lib/supplier/product-import-xlsx";
+import { getCachedActiveCategories } from "@/lib/storefront-cache";
 
 /** Excel parsing/writing needs the Node runtime, not Edge. */
 export const runtime = "nodejs";
@@ -25,20 +26,8 @@ export async function GET() {
     });
   }
 
-  const { data: categories } = await supabase
-    .from("categories")
-    .select("id, name, slug")
-    .eq("is_active", true)
-    .order("sort_order");
-
   try {
-    const buffer = await buildProductImportWorkbook(
-      (categories ?? []).map((category) => ({
-        id: category.id as string,
-        name: category.name as string,
-        slug: category.slug as string,
-      })),
-    );
+    const buffer = await buildProductImportWorkbook(await getCachedActiveCategories());
 
     return new NextResponse(new Uint8Array(buffer), {
       headers: {

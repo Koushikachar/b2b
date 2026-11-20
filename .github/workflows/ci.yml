@@ -1,0 +1,49 @@
+# Checks every push and pull request (SECURITY.md S-6, THREAT-MODEL.md T22/T27).
+# Database tests (tests/*-db.test.ts) skip here: they need a local Supabase
+# stack (`supabase start`), which this workflow doesn't run.
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 12.21.0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Test
+        run: pnpm test
+
+      # Fails on high or critical advisories. The one remaining low advisory
+      # (dev-only elliptic, no fix published) is accepted in SECURITY.md (S-6).
+      - name: Dependency audit
+        run: pnpm audit --audit-level high

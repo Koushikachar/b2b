@@ -8,6 +8,7 @@ import {
   resolveProductMetaTitle,
 } from "@/lib/product-meta"
 import { SITE_NAME, SITE_URL } from "@/lib/site"
+import { serializeJsonLd } from "@/lib/json-ld"
 import { ProductDetail, RelatedProductsSection } from "./product-detail"
 import {
   ProductDetailSkeleton,
@@ -122,7 +123,7 @@ export default async function ProductPage({
     <>
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        dangerouslySetInnerHTML={{ __html: serializeJsonLd(jsonLd) }}
       />
       <Suspense
         fallback={
