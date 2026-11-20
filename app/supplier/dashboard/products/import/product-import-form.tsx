@@ -5,7 +5,6 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { HugeiconsIcon } from "@hugeicons/react";
 import {
-  ArrowLeft01Icon,
   Download01Icon,
   Upload01Icon,
 } from "@hugeicons/core-free-icons";
@@ -119,11 +118,9 @@ function formatBytes(bytes: number): string {
 export function ProductImportForm({
   categories,
   storeId,
-  storeName,
 }: {
   categories: ImportCategory[];
   storeId?: string;
-  storeName?: string;
 }) {
   const router = useRouter();
   const excelInputRef = useRef<HTMLInputElement>(null);
@@ -441,24 +438,7 @@ export function ProductImportForm({
   }
 
   return (
-    <div className="mx-auto flex w-full max-w-6xl flex-col gap-4">
-      <div>
-        <Link
-          href={PRODUCTS_PATH}
-          className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
-        >
-          <HugeiconsIcon icon={ArrowLeft01Icon} strokeWidth={2} />
-          All products
-        </Link>
-        <h1 className="mt-1 text-xl font-bold tracking-tight">Import products</h1>
-        <p className="text-sm text-muted-foreground">
-          Fill the Excel file, put each product&apos;s photos in a folder named
-          after its SKU, then upload both. New products are created as drafts
-          {storeName ? ` in ${storeName}` : ""}; photos are compressed
-          automatically.
-        </p>
-      </div>
-
+    <div className="flex w-full flex-col gap-4">
       {error ? (
         <Alert variant="destructive">
           <AlertTitle>Check the file</AlertTitle>
