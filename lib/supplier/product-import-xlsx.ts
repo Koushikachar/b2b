@@ -8,7 +8,7 @@ import {
   productImportSampleRow,
   type ImportCategory,
   type ParseProductImportResult,
-} from "@/lib/supplier/product-import";
+} from "@/lib/supplier/product-import-sheet";
 import { PRODUCT_GST_RATES, PRODUCT_UNITS } from "@/lib/supplier/products";
 
 const PRODUCTS_SHEET = "Products";

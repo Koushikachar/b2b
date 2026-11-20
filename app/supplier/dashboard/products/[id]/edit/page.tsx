@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getAuthUser } from "@/lib/auth/session";
 import { LOGIN_PATH } from "@/lib/auth/paths";
 import { getSupplierContext } from "@/lib/auth/guard";
+import { getCachedActiveCategories } from "@/lib/storefront-cache";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { ProductForm, type ExistingProduct } from "../../product-form";
@@ -24,11 +25,7 @@ export default async function EditSupplierProductPage({
   const companyId = ctx.companyId;
 
   // Categories do not depend on the product row, so start them alongside it.
-  const categoriesPromise = supabase
-    .from("categories")
-    .select("id, name")
-    .eq("is_active", true)
-    .order("sort_order");
+  const categoriesPromise = getCachedActiveCategories();
 
   const { data: product } = await supabase
     .from("products")
@@ -60,7 +57,7 @@ export default async function EditSupplierProductPage({
   }
 
   // Images, variants, base prices and categories are independent reads.
-  const [{ data: images }, { data: variants }, { data: basePrices, error: basePricesError }, { data: categories }, mrpResult] =
+  const [{ data: images }, { data: variants }, { data: basePrices, error: basePricesError }, categories, mrpResult] =
     await Promise.all([
       supabase.from("product_images").select("id, path").eq("product_id", id).order("sort"),
       supabase
@@ -148,10 +145,7 @@ export default async function EditSupplierProductPage({
       key={String(product.updated_at ?? "")}
       mode="edit"
       product={existing}
-      categories={(categories ?? []).map((c) => ({
-        id: c.id as string,
-        name: c.name as string,
-      }))}
+      categories={categories.map(({ id, name }) => ({ id, name }))}
       title="Edit product"
       description={
         product.status === "approved"

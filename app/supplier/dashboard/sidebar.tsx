@@ -4,6 +4,7 @@ import { usePathname } from "next/navigation"
 import { HugeiconsIcon, type IconSvgElement } from "@hugeicons/react"
 import {
   Add01Icon,
+  Upload01Icon,
   Building02Icon,
   ChartAverageIcon,
   ChevronRightIcon,
@@ -85,11 +86,12 @@ export function SupplierSidebar({
   const audienceActive = pathname.startsWith("/supplier/dashboard/audience")
   const productsListActive = pathname === "/supplier/dashboard/products"
   const addProductActive = pathname === "/supplier/dashboard/products/new"
+  const importActive = pathname === "/supplier/dashboard/products/import"
   const marginActive = pathname === "/supplier/dashboard/products/margin"
   const productEditActive =
     pathname.startsWith("/supplier/dashboard/products/") && isEdit(pathname)
   const productsActive =
-    productsListActive || addProductActive || productEditActive || marginActive
+    productsListActive || addProductActive || importActive || productEditActive || marginActive
   const businessActive = pathname.startsWith("/supplier/dashboard/business")
   const teamActive = pathname.startsWith("/supplier/dashboard/team")
   const settingsActive = businessActive || teamActive
@@ -294,6 +296,16 @@ export function SupplierSidebar({
                     >
                       <HugeiconsIcon icon={Add01Icon} strokeWidth={2} />
                       <span>Add product</span>
+                    </SidebarMenuSubButton>
+                  </SidebarMenuSubItem>
+                  <SidebarMenuSubItem>
+                    <SidebarMenuSubButton
+                      render={<Link href="/supplier/dashboard/products/import" />}
+                      isActive={importActive}
+                      onClick={closeMobile}
+                    >
+                      <HugeiconsIcon icon={Upload01Icon} strokeWidth={2} />
+                      <span>Import products</span>
                     </SidebarMenuSubButton>
                   </SidebarMenuSubItem>
                   {isStaff ? null : (

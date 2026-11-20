@@ -3,7 +3,8 @@ import { HomeBannerCarousel, type HomeBanner } from "@/components/storefront/hom
 
 /**
  * Hero carousel from Dashboard → Banners ("Hero carousel" slot). Renders
- * nothing until an active hero banner exists.
+ * nothing until an active hero banner exists. While loading, the page shows
+ * HomeHeroSkeleton in the same frame, so keep the two in step.
  */
 export async function HomeHeroSection() {
   const banners = ((await getCachedHomeBanners()) as (HomeBanner & { slot: string })[]).filter(

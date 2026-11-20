@@ -297,9 +297,12 @@ export function ProductForm({
     return () => window.clearTimeout(timer)
   }, [draftKey])
 
-  // Persist text fields to sessionStorage (debounced).
+  // Persist text fields to sessionStorage (debounced). Stops for good once the
+  // product is saved, so a late timer can't write it back as the next draft.
   const draftSaveTimerRef = useRef<number | null>(null)
+  const savedRef = useRef(false)
   useEffect(() => {
+    if (savedRef.current) return
     if (draftSaveTimerRef.current)
       window.clearTimeout(draftSaveTimerRef.current)
     draftSaveTimerRef.current = window.setTimeout(() => {
@@ -350,8 +353,13 @@ export function ProductForm({
   // After a save: a new product goes to the products list; an edit stays on
   // this page and refreshes, so the supplier can keep editing (the edit page
   // remounts this form from the saved data, see its `key`).
+  // A new product that came back with an id exists even when ok is false
+  // ("Saved, but could not submit for approval"): leave the form too, or the
+  // next "Add product" restores it and a second save duplicates it.
   useEffect(() => {
-    if (state.ok && state.productId) {
+    const created = mode === "create" && Boolean(state.productId)
+    if ((state.ok && state.productId) || created) {
+      savedRef.current = true
       // Cancel any pending draft save so it doesn't re-save after clear.
       if (draftSaveTimerRef.current) {
         window.clearTimeout(draftSaveTimerRef.current)
@@ -371,6 +379,9 @@ export function ProductForm({
         })
         router.refresh()
       } else {
+        if (!state.ok) {
+          toast.add({ type: "error", title: "Product saved as draft", description: state.message })
+        }
         router.push("/supplier/dashboard/products")
       }
     }

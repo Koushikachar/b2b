@@ -4,8 +4,7 @@ import type { Metadata } from "next"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { ArrowRight01Icon } from "@hugeicons/core-free-icons"
 import { STORE_PROGRAMMES } from "@/lib/stores"
-import { getCachedProducts } from "@/lib/storefront-cache"
-import { createClient } from "@/lib/supabase/server"
+import { getCachedProducts, getCachedStoreId } from "@/lib/storefront-cache"
 import { StoreCard } from "@/components/stores/store-card"
 
 export const metadata: Metadata = {
@@ -17,16 +16,11 @@ export const metadata: Metadata = {
 export default async function StoresPage() {
   // One cached count query (perPage 1) for the D2H Core catalogue size;
   // products are scoped per store, same lookup as the homepage.
-  const supabase = await createClient()
-  const { data: coreStore } = await supabase
-    .from("stores")
-    .select("id")
-    .eq("slug", "d2h-core")
-    .maybeSingle()
+  const coreStoreId = await getCachedStoreId("d2h-core")
   const catalogue = await getCachedProducts({
     perPage: 1,
     sort: "newest",
-    storeId: (coreStore?.id as string | null) ?? undefined,
+    storeId: coreStoreId ?? undefined,
   })
 
   return (

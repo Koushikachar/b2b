@@ -55,14 +55,14 @@ import {
   type ProductImportPreview,
   type ProductImportPreviewRow,
   type ProductImportRawRow,
-} from "@/lib/supplier/product-import";
+} from "@/lib/supplier/product-import-sheet";
 import { MIN_PRODUCT_IMAGES } from "@/lib/supplier/products";
 import {
   finishProductImport,
   importProductBatch,
   importProductImages,
   previewProductImportFile,
-} from "@/lib/supplier/product-import-actions";
+} from "@/lib/supplier/product-import-sheet-actions";
 
 const PRODUCTS_PATH = "/supplier/dashboard/products";
 const TEMPLATE_ROUTE = "/api/supplier/products/import/template";

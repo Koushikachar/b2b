@@ -4,7 +4,7 @@ import {
   PRODUCT_IMPORT_COLUMNS,
   createCategoryLookup,
   validateProductImportRow,
-} from "../lib/supplier/product-import";
+} from "../lib/supplier/product-import-sheet";
 import {
   buildProductImportWorkbook,
   parseProductImportWorkbook,

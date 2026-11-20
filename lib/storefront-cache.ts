@@ -78,6 +78,30 @@ export const getCachedNavigationCategories = cache(
   ),
 );
 
+export type ActiveCategory = { id: string; name: string; slug: string };
+
+/**
+ * Active categories in display order, for category pickers and the bulk
+ * importers (which ran this query per page / per 10-product batch). Shared
+ * across users; refreshed when an admin edits a category (lib/admin/
+ * categories.ts revalidates "categories"), else hourly.
+ */
+export const getCachedActiveCategories = cache(
+  unstable_cache(
+    async (): Promise<ActiveCategory[]> => {
+      const { data, error } = await makePublicClient()
+        .from("categories")
+        .select("id, name, slug")
+        .eq("is_active", true)
+        .order("sort_order");
+      if (error) throw new Error(`Active categories query failed: ${error.message}`);
+      return (data ?? []) as ActiveCategory[];
+    },
+    ["active-categories"],
+    { revalidate: 3600, tags: ["categories"] },
+  ),
+);
+
 export const getCachedHomeCategories = unstable_cache(
   async () => getHomeCategories(makePublicClient() as unknown as AnyClient),
   ["home-categories"],

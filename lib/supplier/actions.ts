@@ -311,11 +311,16 @@ export async function deleteAccount(): Promise<AccountActionState> {
 
   // Service role is required: auth.admin.deleteUser is not exposed to the
   // caller's regular (RLS-bound) token.
-  const admin = createAdminClient();
-  const { error } = await admin.auth.admin.deleteUser(user.id);
-  if (error) {
-    console.error("deleteAccount failed:", error);
-    return { ok: false, message: "Could not delete account. Try again." };
+  try {
+    const { error } = await createAdminClient().auth.admin.deleteUser(user.id);
+    if (error) {
+      console.error("deleteAccount failed:", error);
+      return { ok: false, message: "Could not delete account. Try again." };
+    }
+  } catch (err) {
+    // e.g. SUPABASE_SERVICE_ROLE_KEY missing on the server: a message, not a 500.
+    console.error("deleteAccount failed:", err);
+    return { ok: false, message: "Could not delete account right now. Please contact support." };
   }
 
   // Clear the session now that the auth user no longer exists.

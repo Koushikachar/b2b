@@ -29,6 +29,9 @@ const nextConfig: NextConfig = {
     // Next.js Image Optimization API. Remote images from Supabase storage are
     // proxied and resized on demand.
     formats: ["image/avif", "image/webp"],
+    // 75 = default; 90 = product photos (ProductImage / gallery), where a
+    // second lossy pass at 75 visibly softened detail. Next 16 requires the list.
+    qualities: [75, 90],
     // Some IPv6-only networks (NAT64/DNS64) resolve *.supabase.co to
     // 64:ff9b::/96, which Next's SSRF guard treats as private, so every product
     // image 400s locally ("url" parameter is not allowed). Dev only: the
@@ -49,9 +52,11 @@ const nextConfig: NextConfig = {
   },
   experimental: {
     serverActions: {
-      // KYB uploads: 3 documents × 10 MB max. Per-file type/size rules are
-      // enforced in lib/supplier/kyb.ts after parsing.
-      bodySizeLimit: "32mb",
+      // Match Vercel's hard 4.5 MB request cap (it returns 413 above it, and
+      // this setting cannot raise it), so local dev fails the same way prod
+      // would. Image uploads are shrunk in the browser to stay under it
+      // (lib/shrink-image.ts); per-file rules are enforced in each action.
+      bodySizeLimit: "4.5mb",
     },
     // Dev-memory fix (8 GB RAM machines were swapping): several dependencies
     // ship a single barrel that re-exports thousands of modules — notably

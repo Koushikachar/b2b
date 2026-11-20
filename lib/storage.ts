@@ -5,13 +5,22 @@ export function publicImageUrl(bucket: string, path: string): string {
 }
 
 /**
- * Sized variant via Supabase Image Transformation (`/render/image`). Use for
- * heavy storefront slots (cards, tiles) while `next/image` stays unoptimized.
- * Keep original `publicImageUrl` for AI/SEO/backfill callers.
+ * Image URL for a sized storefront slot (cards, tiles, avatars).
+ *
+ * Returns the plain public object: this project's Supabase plan has Image
+ * Transformations off, so `/render/image` answers 403 for every request.
+ * Uploads are already compressed (~100 KB, ≤1600px) and `next/image` resizes
+ * where it is used, so callers keep working. `opts` is kept so callers don't
+ * change; the frame's CSS (object-cover / object-contain) does the fitting.
+ *
+ * shortcut: no Supabase-side resizing; on a plan with Image Transformations,
+ * return `${SUPABASE_URL}/storage/v1/render/image/public/${bucket}/${path}?width=…`
+ * again (width/height/quality/resize from opts).
  */
 export function publicTransformedImageUrl(
   bucket: string,
   path: string,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- kept for callers; see shortcut above
   _opts: {
     width: number
     height?: number
@@ -19,12 +28,6 @@ export function publicTransformedImageUrl(
     fit?: "cover" | "contain"
   },
 ): string {
-  void _opts;
-  // Supabase Image Transformations are not enabled on this project's tenant
-  // ("feature not enabled for this tenant" / HTTP 403), so the
-  // /render/image/... endpoint always fails. Fall back to the original object
-  // URL and let Next.js' own image optimizer (remotePatterns covers
-  // /storage/v1/object/public/**) handle resizing.
   return publicImageUrl(bucket, path);
 }
 

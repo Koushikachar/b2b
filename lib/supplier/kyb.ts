@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { sniffSupportedDoc, isSupportedImageType, sniffImageType } from "@/lib/storage";
+import { isSupportedImageType, sniffImageType } from "@/lib/storage";
 import { MAX_MARGIN_PCT } from "@/lib/pricing";
 
 const upper = (v: string) => v.trim().toUpperCase();
@@ -125,8 +125,6 @@ export const businessProfileSchema = kybSchema.pick({
   contact_person: true,
 });
 
-export const MAX_DOC_BYTES = 10 * 1024 * 1024;
-
 export const MAX_LOGO_BYTES = 2 * 1024 * 1024;
 
 export async function validateLogoFile(file: File | null): Promise<string | null> {
@@ -139,20 +137,6 @@ export async function validateLogoFile(file: File | null): Promise<string | null
   const detected = await sniffImageType(file);
   if (!isSupportedImageType(detected)) {
     return "Only JPG, PNG or WEBP images are allowed.";
-  }
-  return null;
-}
-
-export async function validateDocFile(file: File | null): Promise<string | null> {
-  if (!file || file.size === 0) {
-    return null;
-  }
-  if (file.size > MAX_DOC_BYTES) {
-    return "File must be under 10 MB.";
-  }
-  const detected = await sniffSupportedDoc(file, ["image", "pdf"]);
-  if (!detected) {
-    return "Only PDF, JPG or PNG files are allowed.";
   }
   return null;
 }

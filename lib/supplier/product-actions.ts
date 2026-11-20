@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { after } from "next/server";
 import { requireUser, getVerifiedSupplierId } from "@/lib/auth/guard";
 import {
   MAX_PRODUCT_IMAGES,
@@ -51,14 +52,16 @@ async function uploadImages(
   productId: string,
   files: File[],
 ): Promise<string[]> {
-  const uploaded: string[] = [];
-  try {
-    for (const file of files) {
-      uploaded.push(await uploadProductImage(supabase, userId, productId, file));
-    }
-  } catch (err) {
+  // In parallel (order preserved): one-by-one made an 8-image save wait for 8
+  // optimize+upload round trips back to back.
+  const results = await Promise.allSettled(
+    files.map((file) => uploadProductImage(supabase, userId, productId, file)),
+  );
+  const uploaded = results.flatMap((r) => (r.status === "fulfilled" ? [r.value] : []));
+  const failed = results.find((r): r is PromiseRejectedResult => r.status === "rejected");
+  if (failed) {
     await removeStoredPaths(supabase, uploaded);
-    throw err;
+    throw failed.reason;
   }
   return uploaded;
 }
@@ -424,7 +427,10 @@ export async function createProduct(
     }
   }
 
-  await indexImagesForSearch(product.id);
+  // After the response: CLIP indexing (model load + embed) used to hold the
+  // save for seconds, and only search-by-image needs it.
+  const createdId = product.id;
+  after(() => indexImagesForSearch(createdId));
 
   refreshCatalogue();
   if (boolOf(formData.get("auto_submit"))) {
@@ -617,7 +623,7 @@ const removedPaths = parseRemovedPaths(String(formData.get("removed_image_paths"
     return { ok: false, message: rpcMessage(variantsError, "Product saved but variant sync failed. Edit to retry."), productId };
   }
 
-  await indexImagesForSearch(productId);
+  after(() => indexImagesForSearch(productId));
 
   refreshCatalogue();
   revalidatePath("/products");
@@ -780,16 +786,17 @@ export async function deleteProduct(productId: string): Promise<ProductActionSta
 
   // order_items.product_id is ON DELETE CASCADE: deleting an ordered product
   // would silently strip those lines from buyers' and the supplier's order
-  // history. Ordered products are hidden instead.
-  const { count: orderedCount, error: orderedError } = await supabase
-    .from("order_items")
-    .select("id", { count: "exact", head: true })
-    .eq("product_id", productId);
+  // history. Ordered products are hidden instead. Asked through an RPC: team
+  // members without an orders role can't read order_items (RLS), and a plain
+  // query would then wrongly say "never ordered".
+  const { data: ordered, error: orderedError } = await supabase.rpc("ordered_product_ids", {
+    p_product_ids: [productId],
+  });
   if (orderedError) {
     console.error("deleteProduct order check failed:", orderedError);
     return { ok: false, message: "Could not delete. Try again." };
   }
-  if ((orderedCount ?? 0) > 0) {
+  if (((ordered ?? []) as string[]).length > 0) {
     return {
       ok: false,
       message: "This product has orders, so it can't be deleted. Use Hide listing to take it off the store instead.",
@@ -833,22 +840,26 @@ export async function deleteProduct(productId: string): Promise<ProductActionSta
     }
     return { ok: false, message: "You don't have permission to delete this product." };
   }
-  if (images && images.length > 0) {
+  // Product photos plus the search image (kept on the product row).
+  const storedPaths = [
+    ...(images ?? []).map((i) => i.path as string),
+    ...(seoRow?.seo_image_path ? [seoRow.seo_image_path as string] : []),
+  ];
+  if (storedPaths.length > 0) {
     // Storage only lets a user delete files in their own folder, so photos a
     // teammate uploaded would be orphaned. The product row is already gone
     // (authorised above via RLS) and these paths were read under the user's
-    // own permissions, so remove them with the service role.
-    const storagePaths = Array.from(
-      new Set([
-        ...images.map((i) => i.path as string),
-        // The SEO/search image lives on the product row, not product_images.
-        ...(seoRow?.seo_image_path ? [seoRow.seo_image_path] : []),
-      ]),
-    );
-    const { error: storageError } = await createAdminClient()
-      .storage.from("product_images")
-      .remove(storagePaths);
-    if (storageError) console.error("deleteProduct storage cleanup failed:", storageError);
+    // own permissions, so remove them with the service role. Best-effort: the
+    // delete already succeeded, so a cleanup failure (e.g. no service-role key
+    // on the server) is logged, never shown to the supplier as a crash.
+    try {
+      const { error: storageError } = await createAdminClient()
+        .storage.from("product_images")
+        .remove(storedPaths);
+      if (storageError) console.error("deleteProduct storage cleanup failed:", storageError);
+    } catch (err) {
+      console.error("deleteProduct storage cleanup failed:", err);
+    }
   }
   refreshCatalogue();
   // A live product disappears from the storefront too.
@@ -908,20 +919,15 @@ export async function deleteProducts(productIds: string[]): Promise<BulkDeleteSt
   const ownedIds = ownedProducts.map((product) => product.id);
 
   // order_items.product_id is ON DELETE CASCADE, so ordered products are kept
-  // and hidden instead (same reason as deleteProduct).
-  const { data: ordered, error: orderedError } = await supabase
-    .from("order_items")
-    .select("product_id")
-    .in("product_id", ownedIds);
+  // and hidden instead (same reason and same RPC as deleteProduct).
+  const { data: ordered, error: orderedError } = await supabase.rpc("ordered_product_ids", {
+    p_product_ids: ownedIds,
+  });
   if (orderedError) {
     console.error("deleteProducts order check failed:", orderedError);
     return { ok: false, message: "Could not delete. Try again.", deletedIds: [] };
   }
-  const orderedIds = new Set(
-    (ordered ?? [])
-      .map((row) => row.product_id as string | null)
-      .filter((id): id is string => Boolean(id)),
-  );
+  const orderedIds = new Set((ordered ?? []) as string[]);
 
   const deletableIds = ownedProducts
     .filter((product) => product.status !== "pending" && !orderedIds.has(product.id))

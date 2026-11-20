@@ -1,10 +1,10 @@
 import { Suspense } from "react"
-import Image from "next/image"
+import { getImageProps } from "next/image"
 import Link from "next/link"
 import { getCachedHomeBanners, getCachedPromoEvents } from "@/lib/storefront-cache"
 import { publicImageUrl } from "@/lib/storage"
-import { UNDER_TILE_PRICES, underSlot, type UnderTilePrice } from "@/lib/admin/banner-slots"
-import { PROMO_EVENT_THEMES, WINNING_COLLECTION, isPromoEventLive } from "@/lib/promotions"
+import { UNDER_TILE_PRICES, underMobileSlot, underSlot, type UnderTilePrice } from "@/lib/admin/banner-slots"
+import { PROMO_EVENT_THEMES, isPromoEventLive } from "@/lib/promotions"
 import { SoftLink } from "@/components/storefront/soft-link"
 
 type BannerRow = { slot: string; title: string | null; link_url: string | null; image_path: string }
@@ -15,38 +15,57 @@ const FRAME =
 const FILL_LINK =
   "press absolute inset-0 block focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none focus-visible:ring-inset"
 
+/** A slot's desktop and phone uploads (Dashboard → Banners); either may be missing, not both. */
+type AdminPair = { desktop?: BannerRow; mobile?: BannerRow }
+
+const hasUpload = (pair: AdminPair) => Boolean(pair.desktop || pair.mobile)
+const pairTitle = (pair: AdminPair) => pair.desktop?.title || pair.mobile?.title || null
+const pairLink = (pair: AdminPair) => pair.desktop?.link_url || pair.mobile?.link_url || null
+
 /**
- * Admin upload (Dashboard → Banners): one image for every device, covering its
- * box edge to edge. The deal card is wide on every device, so a wide banner
- * fills it fully; a shape that differs is trimmed at the edges.
+ * Admin uploads covering the box edge to edge: the phone image below md, the
+ * desktop image from md up; one upload serves both (trimmed where its shape
+ * differs from the box).
+ *
+ * Above the fold, so it loads eagerly at high priority, but is not preloaded:
+ * a preload would fetch both the phone and the desktop image, while <picture>
+ * downloads only the one that matches the screen (Next 16 image docs).
  */
-function Artwork({ src, alt, sizes, priority = false }: { src: string; alt: string; sizes: string; priority?: boolean }) {
+function AdminArt({ pair, alt, sizes }: { pair: AdminPair; alt: string; sizes: string }) {
+  const desktop = (pair.desktop ?? pair.mobile)!
+  const mobile = (pair.mobile ?? pair.desktop)!
+  const common = { alt, sizes, fill: true, loading: "eager", fetchPriority: "high" } as const
+  const {
+    props: { srcSet: desktopSet },
+  } = getImageProps({ ...common, src: publicImageUrl("banners", desktop.image_path) })
+  const {
+    props: { srcSet: mobileSet, ...img },
+  } = getImageProps({ ...common, src: publicImageUrl("banners", mobile.image_path) })
   return (
-    <Image
-      src={src}
-      alt={alt}
-      fill
-      priority={priority}
-      sizes={sizes}
-      className="object-cover transition-transform duration-500 group-hover:scale-[1.02]"
-    />
+    <picture>
+      <source media="(min-width: 768px)" srcSet={desktopSet} sizes={sizes} />
+      <img
+        {...img}
+        srcSet={mobileSet}
+        alt={alt}
+        className="object-cover transition-transform duration-500 group-hover:scale-[1.02]"
+      />
+    </picture>
   )
 }
 
-/**
- * Pre-resized built-in art on disk (`/promos/<name>-<variant>-<w>.webp`). The
- * deal card is wide on phones too, so it uses the wide (desktop) art there.
- */
+/** Pre-resized built-in art on disk (`/promos/<name>-<variant>-<w>.webp`). */
 const ART = {
   tile: {
     mobile: { variant: "mobile", widths: [128, 256, 480] },
     desktop: { variant: "desktop", widths: [400, 780] },
-    sizes: "(min-width: 768px) 28vw, 48vw",
+    sizes: "(min-width: 768px) 28vw, 28vw",
   },
   card: {
-    mobile: { variant: "desktop", widths: [600, 1160] },
+    // Tall card on phones, wide card from md up.
+    mobile: { variant: "mobile", widths: [192, 384, 690] },
     desktop: { variant: "desktop", widths: [600, 1160] },
-    sizes: "(min-width: 768px) 42vw, 100vw",
+    sizes: "(min-width: 768px) 42vw, 38vw",
   },
 }
 
@@ -78,23 +97,20 @@ function ResponsiveArt({ name, kind, alt }: { name: string; kind: keyof typeof A
 const DEAL_SIZES = ART.card.sizes
 const TILE_SIZES = ART.tile.sizes
 const TILE_ASPECT = "aspect-square md:aspect-16/5"
-// Wide on phones (full width above the tiles); on desktop it stretches to the tiles' height.
-const DEAL_FRAME = "aspect-12/5 md:aspect-auto"
+// The card has no shape of its own: it stretches to the tiles' height (tall
+// beside square tiles on phones, wide beside wide tiles on desktop).
+const DEAL_FRAME = ""
 
 /**
- * Deal card, in priority order: the admin's "Home deal card" banner
- * (Dashboard → Banners), the live festival event, then the Select deals art.
+ * Deal card, in priority order: the admin's "Home deal card" images
+ * (Dashboard → Banners; desktop + mobile), the live festival event, then the
+ * built-in Diya art.
  */
-async function DealCard({ banner }: { banner: BannerRow | undefined }) {
-  if (banner) {
+async function DealCard({ pair }: { pair: AdminPair }) {
+  if (hasUpload(pair)) {
     return (
-      <Link href={banner.link_url || "/select"} className={FILL_LINK}>
-        <Artwork
-          src={publicImageUrl("banners", banner.image_path)}
-          alt={banner.title ?? "Today's deal"}
-          sizes={DEAL_SIZES}
-          priority
-        />
+      <Link href={pairLink(pair) || "/select"} className={FILL_LINK}>
+        <AdminArt pair={pair} alt={pairTitle(pair) ?? "Today's deal"} sizes={DEAL_SIZES} />
       </Link>
     )
   }
@@ -113,21 +129,11 @@ async function DealCard({ banner }: { banner: BannerRow | undefined }) {
     )
   }
 
+  // No banner and no live event: the Diya art stays as the default card (owner's
+  // choice), linking to the Select deals since the event itself has ended.
   return (
-    <Link
-      href="/select"
-      className={`${FILL_LINK} flex flex-col items-center justify-center gap-3 bg-linear-to-br from-brand-50 to-brand-100 p-4 text-center`}
-    >
-      <Image
-        src={WINNING_COLLECTION.banner}
-        alt=""
-        width={WINNING_COLLECTION.bannerWidth}
-        height={WINNING_COLLECTION.bannerHeight}
-        priority
-        sizes={DEAL_SIZES}
-        className="h-auto w-full max-w-xs rounded-lg"
-      />
-      <span className="text-sm font-extrabold">D2H Select deals</span>
+    <Link href="/select" className={FILL_LINK}>
+      <ResponsiveArt name={PROMO_EVENT_THEMES["light-a-diya"].homeArt} kind="card" alt="D2H Select deals" />
     </Link>
   )
 }
@@ -137,16 +143,17 @@ async function DealCard({ banner }: { banner: BannerRow | undefined }) {
  * price in the art. Filters this page's D2H Core catalogue in place (an
  * admin-set link goes wherever it points).
  */
-function UnderTile({ price, banner }: { price: UnderTilePrice; banner: BannerRow | undefined }) {
-  const label = banner?.title ?? `Under ₹${price}`
-  const content = banner ? (
-    <Artwork src={publicImageUrl("banners", banner.image_path)} alt={label} sizes={TILE_SIZES} />
+function UnderTile({ price, pair }: { price: UnderTilePrice; pair: AdminPair }) {
+  const label = pairTitle(pair) ?? `Under ₹${price}`
+  const link = pairLink(pair)
+  const content = hasUpload(pair) ? (
+    <AdminArt pair={pair} alt={label} sizes={TILE_SIZES} />
   ) : (
     <ResponsiveArt name={`tile-under-${price}`} kind="tile" alt={label} />
   )
 
-  return banner?.link_url ? (
-    <Link href={banner.link_url} aria-label={label} className={FILL_LINK}>
+  return link ? (
+    <Link href={link} aria-label={label} className={FILL_LINK}>
       {content}
     </Link>
   ) : (
@@ -163,12 +170,15 @@ async function DealsRow() {
   return (
     <>
       <div className={`${FRAME} ${DEAL_FRAME}`}>
-        <DealCard banner={bySlot("deal")} />
+        <DealCard pair={{ desktop: bySlot("deal"), mobile: bySlot("deal_mobile") }} />
       </div>
       <ul className="grid grid-cols-2 gap-2.5 sm:gap-3">
         {UNDER_TILE_PRICES.map((price) => (
           <li key={price} className={`${FRAME} ${TILE_ASPECT}`}>
-            <UnderTile price={price} banner={bySlot(underSlot(price))} />
+            <UnderTile
+              price={price}
+              pair={{ desktop: bySlot(underSlot(price)), mobile: bySlot(underMobileSlot(price)) }}
+            />
           </li>
         ))}
       </ul>
@@ -190,16 +200,15 @@ function DealsRowSkeleton() {
 }
 
 /**
- * Homepage deal card + 2×2 "Under ₹X" tiles. Phones: wide 12:5 card full
- * width, square tiles below. Desktop: wide card beside wide 16:5 tiles (3:4);
- * the tiles set the row height and the card stretches to match. The card is
- * wide everywhere so one wide banner covers it on every device.
+ * Homepage deal card + 2×2 "Under ₹X" tiles, side by side on every device.
+ * Phones: tall card beside square tiles (2:3). Desktop: wide card beside wide
+ * 16:5 tiles (3:4). The tiles set the row height; the card stretches to match.
  * Editable in Dashboard → Banners.
  */
 export function HomeBannerActions() {
   return (
     <section aria-label="Deals" className="mx-auto w-full max-w-7xl px-4 py-5">
-      <div className="grid gap-2.5 sm:gap-3 md:grid-cols-[minmax(0,3fr)_minmax(0,4fr)] md:gap-4">
+      <div className="grid grid-cols-[minmax(0,2fr)_minmax(0,3fr)] gap-2.5 sm:gap-3 md:grid-cols-[minmax(0,3fr)_minmax(0,4fr)] md:gap-4">
         <Suspense fallback={<DealsRowSkeleton />}>
           <DealsRow />
         </Suspense>

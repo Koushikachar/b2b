@@ -4,6 +4,7 @@ import { getAuthUser } from "@/lib/auth/session";
 import { LOGIN_PATH } from "@/lib/auth/paths";
 import { getSupplierContext } from "@/lib/auth/guard";
 import { getDashboardStore } from "@/lib/supplier/dashboard-store";
+import { getCachedActiveCategories } from "@/lib/storefront-cache";
 import { ProductForm } from "../product-form";
 
 export default async function NewSupplierProductPage() {
@@ -15,19 +16,9 @@ export default async function NewSupplierProductPage() {
   if (!ctx) redirect("/supplier/onboarding");
   if (!ctx.verified) redirect("/supplier/dashboard");
 
-  const { data: categories } = await supabase
-    .from("categories")
-    .select("id, name")
-    .eq("is_active", true)
-    .order("sort_order");
-
-  // New products belong to the store the dashboard is switched to.
-  const { store } = await getDashboardStore();
-
-  const options = (categories ?? []).map((c) => ({
-    id: c.id as string,
-    name: c.name as string,
-  }));
+  // Cached category list; new products belong to the store the dashboard is switched to.
+  const [categories, { store }] = await Promise.all([getCachedActiveCategories(), getDashboardStore()]);
+  const options = categories.map(({ id, name }) => ({ id, name }));
 
   return (
     <ProductForm

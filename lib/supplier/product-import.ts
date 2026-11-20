@@ -1,956 +1,474 @@
 /**
- * Product bulk import: spreadsheet shape, row mapping and validation.
+ * Bulk product import (CSV / Excel): template, column mapping, parsing and
+ * validation — the same fields as the Add-product form.
  *
- * Pure and dependency-light so the import page (client), the preview/import
- * server actions and unit tests all share one implementation. It uses the same
- * `productSchema` as the single-product form, so a spreadsheet row is accepted
- * or rejected on exactly the same rules as a hand-filled form.
+ * Shared by the browser (preview before anything is saved) and the server
+ * action (which validates every product again — never trust the client).
+ * Rows are checked with the same productSchema as the Add-product form.
+ *
+ * Variants: rows sharing a `variant_group` become ONE product (its SKU is the
+ * group) with one variant per row (size / color / sku / price / stock).
+ *
+ * Images: `images` / `search_image` cells hold web links (https://…) or local
+ * files (C:\photos\a.jpg, photos/a.jpg or a.jpg). Browsers can't read a path
+ * from a spreadsheet, so the supplier selects the folder once and local
+ * references are matched to those files by file name.
  */
-import { z } from "zod";
-import { parseCsv } from "@/lib/csv";
+import { parseCustomerCsv } from "@/lib/supplier/customers";
 import {
-  MAX_PRODUCT_IMAGE_BYTES,
   MAX_PRODUCT_IMAGES,
-  MIN_PRODUCT_IMAGES,
-  PRODUCT_UNITS,
+  MAX_VARIANTS,
+  generateSku,
   productSchema,
+  productVariantSchema,
   type ProductValues,
 } from "@/lib/supplier/products";
 
-export const PRODUCT_IMPORT_MAX_ROWS = 500;
-/** CSV stays small; an .xlsx holds the same rows with formatting. */
-export const PRODUCT_IMPORT_MAX_BYTES = 2 * 1024 * 1024;
-export const PRODUCT_IMPORT_XLSX_MAX_BYTES = 5 * 1024 * 1024;
-/** Rows written per server action; photos are uploaded per product after. */
-export const PRODUCT_IMPORT_WRITE_BATCH_SIZE = 5;
-/** Photos accepted in one product's folder, matching the product form. */
-export const PRODUCT_IMPORT_MAX_PHOTOS = MAX_PRODUCT_IMAGES;
-/** Same per-photo cap as the single-product form. */
-export const PRODUCT_IMPORT_IMAGE_MAX_BYTES = MAX_PRODUCT_IMAGE_BYTES;
-
-export const PRODUCT_IMPORT_FIELDS = [
+/** Template columns, in the Add-product form's order. */
+export const IMPORT_COLUMNS = [
   "title",
   "category",
-  "seller_sku",
-  "description",
+  "sku",
   "hsn_code",
   "gst_rate",
-  "unit",
-  "price_per_unit",
-  "mrp",
-  "moq",
-  "stock_qty",
   "carton_units",
-  "carton_dimensions",
   "carton_weight_kg",
+  "carton_dimensions",
+  "description",
+  "mrp",
+  "price",
+  "unit",
+  "negotiable",
+  "images",
+  "youtube_url",
   "packaging_details",
   "warranty_return",
-  "youtube_url",
+  "variant_group",
+  "size",
+  "color",
+  "stock",
+  "winning_product",
+  "hot_selling",
   "seo_title",
   "seo_description",
-  "negotiable",
+  "search_image",
+  "publish",
 ] as const;
+export type ImportColumn = (typeof IMPORT_COLUMNS)[number];
+export type ImportRow = Record<ImportColumn, string>;
+export const REQUIRED_COLUMNS = ["title", "category", "description", "price"] as const;
 
-export type ProductImportField = (typeof PRODUCT_IMPORT_FIELDS)[number];
-
-export type ProductImportColumn = {
-  field: ProductImportField;
-  header: string;
-  required: boolean;
+/** Labels as the Add-product form names them (column-mapping screen). */
+export const COLUMN_LABELS: Record<ImportColumn, string> = {
+  title: "Product title",
+  category: "Category",
+  sku: "SKU",
+  hsn_code: "HSN code",
+  gst_rate: "GST rate",
+  carton_units: "Units per carton",
+  carton_weight_kg: "Carton weight (kg)",
+  carton_dimensions: "Carton dimensions",
+  description: "Description",
+  mrp: "MRP",
+  price: "Selling price",
+  unit: "Selling unit",
+  negotiable: "Price negotiable",
+  images: "Product images",
+  youtube_url: "YouTube video",
+  packaging_details: "Packaging details",
+  warranty_return: "Warranty / return",
+  variant_group: "Variant group",
+  size: "Variant size",
+  color: "Variant color",
+  stock: "Stock",
+  winning_product: "Winning product",
+  hot_selling: "Hot selling product",
+  seo_title: "SEO title",
+  seo_description: "SEO description",
+  search_image: "Social preview image",
+  publish: "Publish (yes = Save & publish)",
 };
 
-/** Template columns, in the order they are written to the CSV. */
-export const PRODUCT_IMPORT_COLUMNS: ProductImportColumn[] = [
-  { field: "title", header: "Product title", required: true },
-  { field: "category", header: "Category", required: true },
-  { field: "seller_sku", header: "Seller SKU", required: false },
-  { field: "description", header: "Description", required: true },
-  { field: "hsn_code", header: "HSN code", required: false },
-  { field: "gst_rate", header: "GST rate", required: false },
-  { field: "unit", header: "Unit", required: false },
-  { field: "price_per_unit", header: "Price per unit", required: true },
-  { field: "mrp", header: "MRP", required: false },
-  { field: "moq", header: "MOQ", required: false },
-  { field: "stock_qty", header: "Stock qty", required: false },
-  { field: "carton_units", header: "Units per carton", required: false },
-  { field: "carton_dimensions", header: "Carton dimensions", required: false },
-  { field: "carton_weight_kg", header: "Carton weight kg", required: false },
-  { field: "packaging_details", header: "Packaging details", required: false },
-  { field: "warranty_return", header: "Warranty or return", required: false },
-  { field: "youtube_url", header: "YouTube URL", required: false },
-  { field: "seo_title", header: "SEO title", required: false },
-  { field: "seo_description", header: "SEO description", required: false },
-  { field: "negotiable", header: "Negotiable price", required: false },
+/** Rows per file, and products per server request (each may fetch up to 8 images). */
+export const MAX_IMPORT_ROWS = 5000;
+export const IMPORT_CHUNK_SIZE = 10;
+
+// Common spreadsheet header spellings → our column.
+const HEADER_ALIASES: Record<string, ImportColumn> = {
+  title: "title", name: "title", "product name": "title", "product title": "title", "item name": "title",
+  category: "category", "category name": "category",
+  sku: "sku", "seller sku": "sku", "product code": "sku", "item code": "sku",
+  hsn: "hsn_code", "hsn code": "hsn_code", hsn_code: "hsn_code",
+  gst: "gst_rate", "gst rate": "gst_rate", gst_rate: "gst_rate", "gst %": "gst_rate", "tax rate": "gst_rate",
+  "carton units": "carton_units", carton_units: "carton_units", "units per carton": "carton_units",
+  "carton weight": "carton_weight_kg", carton_weight_kg: "carton_weight_kg", "carton weight (kg)": "carton_weight_kg", "carton weight kg": "carton_weight_kg",
+  "carton dimensions": "carton_dimensions", carton_dimensions: "carton_dimensions", "carton size": "carton_dimensions",
+  description: "description", details: "description", "product description": "description",
+  mrp: "mrp", "mrp (₹)": "mrp", "mrp (rs)": "mrp", "mrp rs": "mrp",
+  price: "price", "selling price": "price", "price per unit": "price", "sale price": "price", rate: "price",
+  unit: "unit", "selling unit": "unit", uom: "unit",
+  negotiable: "negotiable", "price negotiable": "negotiable",
+  images: "images", image: "images", image_urls: "images", "image urls": "images", "image url": "images",
+  "product images": "images", photos: "images", "image path": "images", "image paths": "images",
+  youtube: "youtube_url", youtube_url: "youtube_url", "youtube url": "youtube_url", "youtube video": "youtube_url", video: "youtube_url",
+  packaging: "packaging_details", packaging_details: "packaging_details", "packaging details": "packaging_details",
+  warranty: "warranty_return", warranty_return: "warranty_return", "warranty / return": "warranty_return", "warranty/return": "warranty_return",
+  variant_group: "variant_group", "variant group": "variant_group", "parent sku": "variant_group", group: "variant_group",
+  size: "size", "variant size": "size", color: "color", colour: "color", "variant color": "color",
+  stock: "stock", qty: "stock", quantity: "stock", inventory: "stock", "stock qty": "stock",
+  winning: "winning_product", winning_product: "winning_product", "winning product": "winning_product",
+  hot_selling: "hot_selling", "hot selling": "hot_selling", "hot selling product": "hot_selling",
+  seo_title: "seo_title", "seo title": "seo_title", "meta title": "seo_title",
+  seo_description: "seo_description", "seo description": "seo_description", "meta description": "seo_description",
+  search_image: "search_image", "search image": "search_image", "seo image": "search_image", "social preview image": "search_image",
+  publish: "publish", "save & publish": "publish", status: "publish",
+};
+
+const EXAMPLE_ROWS: Partial<ImportRow>[] = [
+  {
+    title: "Self Adhesive Cable Organizer Clip (Pack of 6)",
+    category: "Electronics & Accessories",
+    sku: "CABLE-ORG-01",
+    hsn_code: "3926",
+    gst_rate: "18",
+    carton_units: "200",
+    carton_weight_kg: "6.5",
+    carton_dimensions: "40 x 30 x 25 cm",
+    description:
+      "Keeps charging cables tidy on desks and walls. Strong adhesive, no drilling, fits cables up to 6 mm.",
+    mrp: "19",
+    price: "7.85",
+    unit: "pcs",
+    negotiable: "no",
+    // Web links and files from your computer can be mixed; separate with |
+    images: "https://example.com/clip-1.jpg | C:\\Photos\\clip-2.jpg | clip-3.jpg",
+    packaging_details: "Poly bag, 6 clips per pack",
+    warranty_return: "7-day return for damaged items",
+    stock: "500",
+    winning_product: "no",
+    hot_selling: "yes",
+    publish: "no",
+  },
+  // Two rows, one product: same variant_group, different size.
+  {
+    title: "Cotton Round Neck T-Shirt",
+    category: "Fashion & Accessories",
+    sku: "TSHIRT-01-M",
+    description: "Soft 180 GSM combed cotton t-shirt with a regular fit. Pre-shrunk, colour-fast print.",
+    mrp: "299",
+    price: "149",
+    images: "tshirt-front.jpg | tshirt-back.jpg | tshirt-detail.jpg",
+    variant_group: "TSHIRT-01",
+    size: "M",
+    color: "Black",
+    stock: "120",
+    publish: "yes",
+  },
+  {
+    title: "Cotton Round Neck T-Shirt",
+    category: "Fashion & Accessories",
+    sku: "TSHIRT-01-L",
+    description: "Soft 180 GSM combed cotton t-shirt with a regular fit. Pre-shrunk, colour-fast print.",
+    mrp: "299",
+    price: "159",
+    variant_group: "TSHIRT-01",
+    size: "L",
+    color: "Black",
+    stock: "80",
+  },
 ];
 
-const HEADER_ALIASES: Record<string, ProductImportField> = {
-  title: "title",
-  "product title": "title",
-  "product name": "title",
-  name: "title",
-  category: "category",
-  "category name": "category",
-  "category slug": "category",
-  sku: "seller_sku",
-  "seller sku": "seller_sku",
-  "seller sku code": "seller_sku",
-  "product sku": "seller_sku",
-  description: "description",
-  "product description": "description",
-  hsn: "hsn_code",
-  "hsn code": "hsn_code",
-  gst: "gst_rate",
-  "gst rate": "gst_rate",
-  "gst percent": "gst_rate",
-  unit: "unit",
-  uom: "unit",
-  "selling unit": "unit",
-  price: "price_per_unit",
-  "price per unit": "price_per_unit",
-  "selling price": "price_per_unit",
-  "unit price": "price_per_unit",
-  mrp: "mrp",
-  "maximum retail price": "mrp",
-  moq: "moq",
-  "min order qty": "moq",
-  "minimum order quantity": "moq",
-  stock: "stock_qty",
-  "stock qty": "stock_qty",
-  "stock quantity": "stock_qty",
-  quantity: "stock_qty",
-  "carton units": "carton_units",
-  "units per carton": "carton_units",
-  "carton dimensions": "carton_dimensions",
-  "carton size": "carton_dimensions",
-  "carton weight": "carton_weight_kg",
-  "carton weight kg": "carton_weight_kg",
-  packaging: "packaging_details",
-  "packaging details": "packaging_details",
-  warranty: "warranty_return",
-  "warranty return": "warranty_return",
-  "warranty or return": "warranty_return",
-  youtube: "youtube_url",
-  "youtube url": "youtube_url",
-  "youtube link": "youtube_url",
-  "video url": "youtube_url",
-  "video link": "youtube_url",
-  "seo title": "seo_title",
-  "meta title": "seo_title",
-  "seo description": "seo_description",
-  "meta description": "seo_description",
-  negotiable: "negotiable",
-  "negotiable price": "negotiable",
-  "price negotiable": "negotiable",
-};
+const csvCell = (v: string) => (/[",\n\r]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v);
 
-/** Header text normalized for alias matching: case, punctuation and spacing. */
-function normalizeHeader(value: string): string {
-  return value
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, " ")
-    .trim();
+/** Rows of cells → CSV text (Excel-friendly). */
+export function toCsv(rows: string[][]): string {
+  return rows.map((r) => r.map(csvCell).join(",")).join("\r\n");
 }
 
-export type ProductImportRawRow = {
-  /**
-   * 1-based row position among non-empty rows, counting the header as row 1.
-   * Fully blank CSV rows are skipped, so this can be smaller than the physical
-   * spreadsheet line when blank rows sit inside the data.
-   */
-  line: number;
-  cells: Partial<Record<ProductImportField, string>>;
-};
-
-export type ParseProductImportResult =
-  | { ok: true; rows: ProductImportRawRow[] }
-  | { ok: false; message: string };
-
-/** Parse a product CSV into rows keyed by known field names. */
-export function parseProductImportCsv(text: string): ParseProductImportResult {
-  const clean = text.replace(/^\uFEFF/, "");
-  let table: string[][];
-  try {
-    table = parseCsv(clean);
-  } catch {
-    return { ok: false, message: "Could not read that file as CSV." };
-  }
-  return mapProductImportTable(table);
+/** The downloadable template: header row + example rows. */
+export function templateCsv(): string {
+  return toCsv([[...IMPORT_COLUMNS], ...EXAMPLE_ROWS.map((r) => IMPORT_COLUMNS.map((c) => r[c] ?? ""))]);
 }
 
-/**
- * Map an already-parsed table (CSV or Excel) into import rows. CSV and XLSX
- * share this so both formats accept exactly the same headers and limits.
- */
-export function mapProductImportTable(table: string[][]): ParseProductImportResult {
-  if (table.length === 0) {
-    return { ok: false, message: "The file is empty." };
-  }
+/** CSV text → table of cells (strips the BOM Excel adds). */
+export function csvToTable(text: string): string[][] {
+  return parseCustomerCsv(text.replace(/^\uFEFF/, ""));
+}
 
-  const [headerRow, ...dataRows] = table;
-  const fieldIndex = new Map<ProductImportField, number>();
-  headerRow.forEach((cell, index) => {
-    const field = HEADER_ALIASES[normalizeHeader(cell)];
-    if (field && !fieldIndex.has(field)) fieldIndex.set(field, index);
+/** Excel cell → text the validators understand. */
+export function cellToText(v: unknown): string {
+  if (v == null) return "";
+  if (v instanceof Date) return v.toISOString().slice(0, 10);
+  if (typeof v === "boolean") return v ? "yes" : "no";
+  return String(v).trim();
+}
+
+/** Best-guess column for each header ("" = ignore). The supplier can change it. */
+export function suggestMapping(headers: string[]): (ImportColumn | "")[] {
+  const used = new Set<ImportColumn>();
+  return headers.map((h) => {
+    const col = HEADER_ALIASES[h.trim().toLowerCase()];
+    if (!col || used.has(col)) return "";
+    used.add(col);
+    return col;
   });
+}
 
-  if (fieldIndex.size === 0) {
-    return {
-      ok: false,
-      message:
-        "No recognizable columns found. Download the template and keep its header row.",
-    };
-  }
+export function missingRequired(mapping: (ImportColumn | "")[]): ImportColumn[] {
+  return REQUIRED_COLUMNS.filter((c) => !mapping.includes(c));
+}
 
-  const missing = PRODUCT_IMPORT_COLUMNS.filter(
-    (column) => column.required && !fieldIndex.has(column.field),
-  );
-  if (missing.length > 0) {
-    return {
-      ok: false,
-      message: `Missing required column${missing.length === 1 ? "" : "s"}: ${missing
-        .map((column) => column.header)
-        .join(", ")}. Download the template to get the exact headers.`,
-    };
-  }
-
-  const rows: ProductImportRawRow[] = [];
-  dataRows.forEach((cells, index) => {
-    const row: Partial<Record<ProductImportField, string>> = {};
-    for (const [field, column] of fieldIndex) {
-      row[field] = (cells[column] ?? "").trim();
-    }
-    if (Object.values(row).every((value) => !value)) return;
-    rows.push({ line: index + 2, cells: row });
+/** Table (header + rows) + mapping → rows keyed by our columns. */
+export function rowsFromTable(table: string[][], mapping: (ImportColumn | "")[]): ImportRow[] {
+  return table.slice(1).map((cells) => {
+    const row = Object.fromEntries(IMPORT_COLUMNS.map((c) => [c, ""])) as ImportRow;
+    mapping.forEach((col, i) => {
+      if (col) row[col] = (cells[i] ?? "").trim();
+    });
+    return row;
   });
-
-  if (rows.length === 0) {
-    return { ok: false, message: "The file has a header row but no products." };
-  }
-  if (rows.length > PRODUCT_IMPORT_MAX_ROWS) {
-    return {
-      ok: false,
-      message: `This file has ${rows.length} rows. Import up to ${PRODUCT_IMPORT_MAX_ROWS} at a time and split the rest into another file.`,
-    };
-  }
-  return { ok: true, rows };
 }
 
-export type ImportCategory = { id: string; name: string; slug: string };
-
-export type CategoryLookup = {
-  idFor(raw: string): string | null;
-  nameFor(id: string): string | null;
-};
-
-export function createCategoryLookup(
-  categories: ImportCategory[],
-): CategoryLookup {
-  const byKey = new Map<string, string>();
-  const names = new Map<string, string>();
-  for (const category of categories) {
-    names.set(category.id, category.name);
-    byKey.set(category.id.toLowerCase(), category.id);
-    if (category.name) byKey.set(category.name.trim().toLowerCase(), category.id);
-    if (category.slug) byKey.set(category.slug.trim().toLowerCase(), category.id);
+/** CSV text → rows using the automatic mapping (template files). */
+export function parseImportCsv(text: string): { rows: ImportRow[]; error?: string } {
+  const table = csvToTable(text);
+  if (table.length < 2) return { rows: [], error: "The file has no product rows under the header." };
+  const mapping = suggestMapping(table[0]);
+  const missing = missingRequired(mapping);
+  if (missing.length) {
+    return { rows: [], error: `Missing column${missing.length > 1 ? "s" : ""}: ${missing.join(", ")}. Download the template to see the headers.` };
   }
-  return {
-    idFor: (raw) => byKey.get(raw.trim().toLowerCase()) ?? null,
-    nameFor: (id) => names.get(id) ?? null,
-  };
+  if (table.length - 1 > MAX_IMPORT_ROWS) {
+    return { rows: [], error: `Up to ${MAX_IMPORT_ROWS} rows per file. Split it into smaller files.` };
+  }
+  return { rows: rowsFromTable(table, mapping) };
 }
 
-export type ProductImportValues = {
-  title: string;
-  category_id: string;
-  category_name: string;
+export type Category = { id: string; name: string };
+
+/** One product to import: a single row, or every row of a variant group. */
+export type ImportUnit = { lines: number[]; rows: ImportRow[] };
+
+export type VariantPayload = {
+  label: string;
+  attrs: Record<string, string>;
   seller_sku: string;
-  description: string;
-  hsn_code: string | null;
-  gst_rate: ProductValues["gst_rate"];
-  unit: ProductValues["unit"];
-  price_per_unit: number;
-  mrp: number | null;
-  moq: number;
+  price: number;
+  moq: number | null;
   stock_qty: number;
-  carton_units: number | null;
-  carton_dimensions: string | null;
-  carton_weight_kg: number | null;
-  packaging_details: string | null;
-  warranty_return: string | null;
-  youtube_url: string;
-  seo_title: string;
-  seo_description: string;
-  negotiable: boolean;
 };
 
-export type ProductImportRowResult =
+/** A web link the server downloads, or a local file the browser uploads. */
+export type ImageRef = { kind: "url"; url: string } | { kind: "file"; name: string };
+
+export type ValidatedUnit =
   | {
       ok: true;
-      line: number;
-      title: string;
-      sku: string;
-      values: ProductImportValues;
-      warnings: string[];
+      values: ProductValues;
+      images: ImageRef[];
+      searchImage: ImageRef | null;
+      stock: number;
+      variants: VariantPayload[];
+      publish: boolean;
     }
-  | {
-      ok: false;
-      line: number;
-      title: string;
-      sku: string;
-      errors: string[];
-    };
+  | { ok: false; line: number; message: string };
 
-export type ProductImportReadyRow = Extract<ProductImportRowResult, { ok: true }>;
+const norm = (s: string) => s.trim().toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+const money = (s: string) => s.replace(/[₹,\s]/g, "");
 
-export type ProductImportFailedRow = {
-  line: number;
-  title: string;
-  message: string;
-  kind: "error" | "duplicate";
-};
-
-const integerField = (
-  raw: string | undefined,
-  fallback: number,
-  min: number,
-  label: string,
-): { ok: true; value: number } | { ok: false; message: string } => {
-  const value = (raw ?? "").trim();
-  if (value === "") return { ok: true, value: fallback };
-  const parsed = Number(value);
-  if (!Number.isInteger(parsed) || parsed < min) {
-    return { ok: false, message: `${label} must be a whole number of at least ${min}.` };
-  }
-  return { ok: true, value: parsed };
-};
-
-/**
- * Yes/No column. Parsed here instead of through `z.coerce.boolean()` because
- * that turns the string "No"/"false" into true.
- */
-const booleanField = (
-  raw: string | undefined,
-): { ok: true; value: boolean } | { ok: false; message: string } => {
-  const value = (raw ?? "").trim().toLowerCase();
-  if (value === "" || value === "no" || value === "false" || value === "0" || value === "n") {
-    return { ok: true, value: false };
-  }
-  if (value === "yes" || value === "true" || value === "1" || value === "y") {
-    return { ok: true, value: true };
-  }
-  return {
-    ok: false,
-    message: 'Negotiable price must be "Yes" or "No".',
-  };
-};
-
-function firstIssues(error: z.ZodError): string[] {
-  const messages: string[] = [];
-  for (const issue of error.issues) {
-    const field = issue.path[0];
-    const label =
-      typeof field === "string"
-        ? PRODUCT_IMPORT_COLUMNS.find((column) => column.field === field)?.header ??
-          field
-        : "";
-    const message = label ? `${label}: ${issue.message}` : issue.message;
-    if (!messages.includes(message)) messages.push(message);
-    if (messages.length >= 4) break;
-  }
-  return messages;
+/** yes/no cell → boolean (blank = no). Anything else is an error. */
+export function parseYesNo(raw: string): boolean | null {
+  const v = raw.trim().toLowerCase();
+  if (["", "no", "n", "false", "0", "draft"].includes(v)) return false;
+  if (["yes", "y", "true", "1", "publish", "published"].includes(v)) return true;
+  return null;
 }
 
-/** Validate one parsed row against the same schema the product form uses. */
-export function validateProductImportRow(
-  row: ProductImportRawRow,
-  categories: CategoryLookup,
-): ProductImportRowResult {
-  const cells = row.cells;
-  const title = (cells.title ?? "").trim();
-  const rawCategory = (cells.category ?? "").trim();
-  const categoryId = rawCategory ? categories.idFor(rawCategory) : null;
-  const sku = (cells.seller_sku ?? "").trim().toUpperCase();
-  const errors: string[] = [];
+/** "C:\Photos\a.JPG" / "photos/a.jpg" / "a.jpg" → "a.jpg" (lower-case, for matching selected files). */
+export function localFileKey(pathOrName: string): string {
+  return pathOrName.trim().replace(/^file:\/+/i, "").split(/[\\/]/).pop()!.toLowerCase();
+}
 
-  if (!rawCategory) {
-    errors.push("Category is required.");
-  } else if (!categoryId) {
-    errors.push(
-      `Category "${rawCategory}" was not found. Use a name from the template's category list.`,
-    );
+/** One image cell → links / local files, or the first bad entry. */
+function imageRefs(raw: string): { refs: ImageRef[]; bad?: string } {
+  const refs: ImageRef[] = [];
+  for (const entry of raw.split(/[|\n]+/).map((u) => u.trim()).filter(Boolean)) {
+    if (/^https?:\/\//i.test(entry)) {
+      try {
+        new URL(entry);
+        refs.push({ kind: "url", url: entry });
+      } catch {
+        return { refs, bad: entry };
+      }
+    } else if (/^[a-z][a-z0-9+.-]+:\/\//i.test(entry) && !/^file:\/\//i.test(entry)) {
+      // ftp://, data://… — only web links and local files are supported.
+      return { refs, bad: entry };
+    } else if (/\.(jpe?g|png|webp)$/i.test(entry)) {
+      refs.push({ kind: "file", name: localFileKey(entry) });
+    } else {
+      return { refs, bad: entry };
+    }
+  }
+  return { refs };
+}
+
+const refKey = (r: ImageRef) => (r.kind === "url" ? r.url : `file:${r.name}`);
+
+/** Rows → products: rows with the same variant_group merge, keeping file order. */
+export function groupIntoUnits(rows: { line: number; row: ImportRow }[]): ImportUnit[] {
+  const units: ImportUnit[] = [];
+  const byGroup = new Map<string, ImportUnit>();
+  for (const { line, row } of rows) {
+    const key = row.variant_group.trim().toUpperCase();
+    const existing = key ? byGroup.get(key) : undefined;
+    if (existing) {
+      existing.lines.push(line);
+      existing.rows.push(row);
+      continue;
+    }
+    const unit = { lines: [line], rows: [row] };
+    units.push(unit);
+    if (key) byGroup.set(key, unit);
+  }
+  return units;
+}
+
+/** One product (row or variant group) → the values the Add-product form would submit, or the first problem. */
+export function validateImportUnit(unit: ImportUnit, categories: Category[]): ValidatedUnit {
+  const first = unit.rows[0];
+  const fail = (i: number, message: string) => ({ ok: false as const, line: unit.lines[i], message });
+
+  const category = categories.find((c) => norm(c.name) === norm(first.category));
+  if (!category) {
+    return fail(0, first.category ? `Category "${first.category}" not found.` : "Category is required.");
   }
 
-  const moq = integerField(cells.moq, 1, 1, "MOQ");
-  if (!moq.ok) errors.push(moq.message);
-  const stock = integerField(cells.stock_qty, 0, 0, "Stock qty");
-  if (!stock.ok) errors.push(stock.message);
-  const negotiable = booleanField(cells.negotiable);
-  if (!negotiable.ok) errors.push(negotiable.message);
+  const flags: Record<"negotiable" | "winning_product" | "hot_selling" | "publish", boolean> = {
+    negotiable: false, winning_product: false, hot_selling: false, publish: false,
+  };
+  for (const key of Object.keys(flags) as (keyof typeof flags)[]) {
+    const value = parseYesNo(first[key]);
+    if (value === null) return fail(0, `${key.replace("_", " ")} must be yes or no.`);
+    flags[key] = value;
+  }
+
+  // Product images: every row of a group may add some (duplicates dropped).
+  const images: ImageRef[] = [];
+  for (const [i, row] of unit.rows.entries()) {
+    const { refs, bad } = imageRefs(row.images);
+    if (bad) return fail(i, `Image "${bad}" isn't a web link (https://…) or a .jpg/.png/.webp file.`);
+    for (const r of refs) if (!images.some((x) => refKey(x) === refKey(r))) images.push(r);
+  }
+  if (images.length > MAX_PRODUCT_IMAGES) return fail(0, `Up to ${MAX_PRODUCT_IMAGES} images per product.`);
+
+  const search = imageRefs(first.search_image);
+  if (search.bad) return fail(0, `Social preview image "${search.bad}" isn't a web link or an image file.`);
+  if (search.refs.length > 1) return fail(0, "Social preview image takes one image.");
+
+  const group = first.variant_group.trim();
+  const isGroup = group !== "";
+
+  // Variants: one per row of a group.
+  const variants: VariantPayload[] = [];
+  if (isGroup) {
+    if (unit.rows.length > MAX_VARIANTS) return fail(0, `Up to ${MAX_VARIANTS} variants per product.`);
+    const labels = new Set<string>();
+    for (const [i, row] of unit.rows.entries()) {
+      const attrs: Record<string, string> = {};
+      if (row.size) attrs.Size = row.size;
+      if (row.color) attrs.Color = row.color;
+      const label = [row.size, row.color].filter(Boolean).join(" / ") || row.sku;
+      const parsed = productVariantSchema.safeParse({
+        label,
+        attrs,
+        seller_sku: row.sku,
+        price: money(row.price),
+        stock_qty: row.stock || 0,
+      });
+      if (!parsed.success) {
+        const msg = parsed.error.issues[0]?.message ?? "Check this variant.";
+        return fail(i, msg === "Variant label is required." ? "Add a size or color for each variant." : msg);
+      }
+      if (labels.has(parsed.data.label.toLowerCase())) return fail(i, `Duplicate variant "${parsed.data.label}".`);
+      labels.add(parsed.data.label.toLowerCase());
+      variants.push({
+        label: parsed.data.label,
+        attrs: parsed.data.attrs ?? {},
+        // The column is required; generated like the Add-product form does when blank.
+        seller_sku: parsed.data.seller_sku ? parsed.data.seller_sku.toUpperCase() : generateSku("V"),
+        price: parsed.data.price,
+        moq: null,
+        stock_qty: parsed.data.stock_qty,
+      });
+    }
+  }
 
   const parsed = productSchema.safeParse({
-    title,
-    category_id: categoryId ?? "",
-    seller_sku: sku,
-    hsn_code: cells.hsn_code ?? "",
-    gst_rate: cells.gst_rate ?? "",
-    carton_units: cells.carton_units ?? "",
-    carton_dimensions: cells.carton_dimensions ?? "",
-    carton_weight_kg: cells.carton_weight_kg ?? "",
-    description: cells.description ?? "",
-    unit: cells.unit ?? "",
-    price_per_unit: cells.price_per_unit ?? "",
-    mrp: cells.mrp ?? "",
-    negotiable: negotiable.ok ? negotiable.value : false,
-    is_winning: false,
-    is_hot_selling: false,
-    packaging_details: cells.packaging_details ?? "",
-    warranty_return: cells.warranty_return ?? "",
-    youtube_url: cells.youtube_url ?? "",
-    seo_title: cells.seo_title ?? "",
-    seo_description: cells.seo_description ?? "",
+    title: first.title,
+    category_id: category.id,
+    // A variant group's SKU is the group; each row's sku belongs to its variant.
+    seller_sku: isGroup ? group : first.sku,
+    hsn_code: first.hsn_code,
+    gst_rate: first.gst_rate.replace(/%$/, ""),
+    carton_units: first.carton_units,
+    carton_weight_kg: first.carton_weight_kg.replace(/\s*kg$/i, ""),
+    carton_dimensions: first.carton_dimensions,
+    description: first.description,
+    unit: first.unit.toLowerCase(),
+    // From-price for a group: its cheapest variant.
+    price_per_unit: isGroup ? Math.min(...variants.map((v) => v.price)) : money(first.price),
+    mrp: money(first.mrp),
+    negotiable: flags.negotiable,
+    is_winning: flags.winning_product,
+    is_hot_selling: flags.hot_selling,
+    packaging_details: first.packaging_details,
+    warranty_return: first.warranty_return,
+    youtube_url: first.youtube_url,
+    seo_title: first.seo_title,
+    seo_description: first.seo_description,
   });
+  if (!parsed.success) return fail(0, parsed.error.issues[0]?.message ?? "Check this row.");
 
-  if (!parsed.success) {
-    errors.push(...firstIssues(parsed.error));
-  }
-
-  const displayTitle = title || "(untitled row)";
-  if (
-    errors.length > 0 ||
-    !parsed.success ||
-    !categoryId ||
-    !moq.ok ||
-    !stock.ok ||
-    !negotiable.ok
-  ) {
-    return {
-      ok: false,
-      line: row.line,
-      title: displayTitle,
-      sku,
-      errors: Array.from(new Set(errors)),
-    };
-  }
-
-  const data = parsed.data;
-  // Image warnings depend on the photos folder, so the preview adds them once
-  // it knows how many photos each SKU folder holds.
-  const warnings: string[] = [];
+  const stock = isGroup
+    ? variants.reduce((sum, v) => sum + v.stock_qty, 0)
+    : Number.parseInt(first.stock || "0", 10);
+  if (!Number.isFinite(stock) || stock < 0) return fail(0, "Stock must be a whole number, 0 or more.");
 
   return {
     ok: true,
-    line: row.line,
-    title: displayTitle,
-    sku,
-    warnings,
-    values: {
-      title: data.title,
-      category_id: categoryId,
-      category_name: categories.nameFor(categoryId) ?? rawCategory,
-      seller_sku: data.seller_sku ? data.seller_sku.toUpperCase() : "",
-      description: data.description,
-      hsn_code: data.hsn_code ? data.hsn_code : null,
-      gst_rate: data.gst_rate,
-      unit: data.unit,
-      price_per_unit: data.price_per_unit,
-      mrp: data.mrp,
-      moq: moq.value,
-      stock_qty: stock.value,
-      carton_units: data.carton_units,
-      carton_dimensions: data.carton_dimensions?.trim() ? data.carton_dimensions.trim() : null,
-      carton_weight_kg: data.carton_weight_kg,
-      packaging_details: data.packaging_details?.trim() ? data.packaging_details.trim() : null,
-      warranty_return: data.warranty_return?.trim() ? data.warranty_return.trim() : null,
-      youtube_url: data.youtube_url.trim(),
-      seo_title: data.seo_title.trim(),
-      seo_description: data.seo_description.trim(),
-      negotiable: data.negotiable,
-    },
+    values: parsed.data,
+    images,
+    searchImage: search.refs[0] ?? null,
+    stock,
+    variants,
+    publish: flags.publish,
   };
 }
 
-/**
- * Validate every parsed row and mark SKUs that already exist or repeat in the
- * file. Shared by the preview and the import so both agree on what is ready.
- */
-export function validateProductImportRows(
-  rows: ProductImportRawRow[],
-  categories: CategoryLookup,
-  existing: Set<string>,
-): { ready: ProductImportReadyRow[]; failed: ProductImportFailedRow[] } {
-  const ready: ProductImportReadyRow[] = [];
-  const failed: ProductImportFailedRow[] = [];
-  const usedSkus = new Set(existing);
+/** Local file names a validated product needs from the selected folder. */
+export function localFilesOf(v: Extract<ValidatedUnit, { ok: true }>): string[] {
+  return [...v.images, ...(v.searchImage ? [v.searchImage] : [])].flatMap((r) => (r.kind === "file" ? [r.name] : []));
+}
 
-  for (const row of rows) {
-    const validated = validateProductImportRow(row, categories);
-    if (!validated.ok) {
-      failed.push({
-        line: validated.line,
-        title: validated.title,
-        message: validated.errors.join(" "),
-        kind: "error",
-      });
+/** Image file name → SKU it belongs to: "SKU123_1.jpg", "SKU123-2.png", "SKU123.webp". */
+export function skuFromImageName(fileName: string): string | null {
+  const base = fileName.replace(/^.*[\\/]/, "").replace(/\.(jpe?g|png|webp)$/i, "");
+  if (base === fileName.replace(/^.*[\\/]/, "")) return null; // not an image extension
+  const sku = base.replace(/[_-]\d{1,2}$/, "").trim().toUpperCase();
+  return /^[A-Z0-9-_]{3,30}$/.test(sku) ? sku : null;
+}
+
+/** Image files → { SKU → files in name order }; unmatched names listed separately. */
+export function groupImagesBySku(files: File[]): { bySku: Map<string, File[]>; unmatched: string[] } {
+  const bySku = new Map<string, File[]>();
+  const unmatched: string[] = [];
+  for (const f of [...files].sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }))) {
+    const sku = skuFromImageName(f.name);
+    if (!sku) {
+      unmatched.push(f.name);
       continue;
     }
-    const sku = validated.sku;
-    if (sku && usedSkus.has(sku)) {
-      failed.push({
-        line: validated.line,
-        title: validated.title,
-        message: existing.has(sku)
-          ? `SKU ${sku} already exists in your catalogue.`
-          : `SKU ${sku} appears more than once in this file.`,
-        kind: "duplicate",
-      });
-      continue;
-    }
-    if (sku) usedSkus.add(sku);
-    ready.push(validated);
+    bySku.set(sku, [...(bySku.get(sku) ?? []), f]);
   }
-
-  return { ready, failed };
+  return { bySku, unmatched };
 }
-
-/** Quote one CSV cell when it contains a comma, quote or line break. */
-export function csvCell(value: string): string {
-  return /[",\n\r]/.test(value) ? `"${value.replace(/"/g, '""')}"` : value;
-}
-
-/** One clearly-labelled example row shared by the CSV and Excel templates. */
-export function productImportSampleRow(
-  categories: ImportCategory[],
-): Record<ProductImportField, string> {
-  return {
-    title: "SAMPLE — delete this row — Steel water bottle 1 L",
-    category: categories[0]?.name ?? "Drinkware",
-    seller_sku: "SKU-001",
-    description:
-      "Single-wall stainless steel water bottle with a leak-proof cap. Delete this sample row before importing.",
-    hsn_code: "73239390",
-    gst_rate: "18",
-    unit: "pcs",
-    price_per_unit: "245",
-    mrp: "399",
-    moq: "12",
-    stock_qty: "100",
-    carton_units: "24",
-    carton_dimensions: "50 x 40 x 30 cm",
-    carton_weight_kg: "12.5",
-    packaging_details: "Each bottle in a poly bag; 24 per carton.",
-    warranty_return: "7-day replacement for manufacturing defects.",
-    youtube_url: "",
-    seo_title: "",
-    seo_description: "",
-    negotiable: "No",
-  };
-}
-
-/** Template CSV: exact headers plus one clearly-labelled sample row. */
-export function buildProductImportTemplate(categories: ImportCategory[]): string {
-  const sample = productImportSampleRow(categories);
-  const header = PRODUCT_IMPORT_COLUMNS.map((column) =>
-    csvCell(column.header),
-  ).join(",");
-  const row = PRODUCT_IMPORT_COLUMNS.map((column) =>
-    csvCell(sample[column.field]),
-  ).join(",");
-  return `${header}\r\n${row}\r\n`;
-}
-
-/** Units accepted in the Unit column, for the import help text. */
-export const PRODUCT_IMPORT_UNITS_LABEL = PRODUCT_UNITS.join(", ");
-
-/* ------------------------------------------------------------------ */
-/* Photos folder                                                       */
-/* ------------------------------------------------------------------ */
-
-/** One photo selected from the supplier's `images` folder. */
-export type ProductImportImageEntry = {
-  /** Path inside the chosen folder, e.g. `SKU-001/1.jpg`. */
-  relativePath: string;
-  /** Bytes, as reported by the browser. Final upload re-checks the file. */
-  size: number;
-  /** Browser-reported MIME type (untrusted; upload sniffs the bytes). */
-  type?: string;
-};
-
-export type ImportImageGroup<T> = { sku: string; files: T[] };
-
-export type GroupImportImagesResult<T> = {
-  /** Photos grouped by uppercase SKU folder name. */
-  folders: ImportImageGroup<T>[];
-  /** Photos that sit outside every SKU folder. */
-  loose: string[];
-  /** Non-photo files that will be skipped. */
-  ignored: string[];
-};
-
-const IMAGE_EXTENSION_RE = /\.(jpe?g|png|webp)$/i;
-const IGNORED_BASENAMES = new Set(["thumbs.db", "desktop.ini", ".ds_store"]);
-
-function fileNameOf(path: string): string {
-  const parts = path.split("/");
-  return parts[parts.length - 1] ?? "";
-}
-
-/** True when a path is a photo the importer can compress and upload. */
-export function isImportableImagePath(path: string): boolean {
-  const name = fileNameOf(path).trim();
-  if (!name || name.startsWith(".") || IGNORED_BASENAMES.has(name.toLowerCase())) {
-    return false;
-  }
-  return IMAGE_EXTENSION_RE.test(name);
-}
-
-/**
- * The SKU folder a photo belongs to: the immediate parent folder name.
- * `images/SKU-001/1.jpg` and `SKU-001/1.jpg` both give `SKU-001`; a photo at
- * the top of the chosen folder gives null.
- */
-export function importImageFolderName(path: string): string | null {
-  const parts = path.replace(/\\/g, "/").split("/").filter(Boolean);
-  if (parts.length < 2) return null;
-  const folder = (parts[parts.length - 2] ?? "").trim();
-  return folder ? folder : null;
-}
-
-/**
- * Drop the main `images` folder from the path before looking for the SKU
- * folder, so `images/1.jpg` is treated as a loose photo rather than a folder
- * named "images". Selecting a SKU folder directly still works.
- */
-function withoutRootFolder(path: string): string {
-  const parts = path.split("/").filter(Boolean);
-  if (parts.length > 1 && parts[0].toLowerCase() === "images") {
-    return parts.slice(1).join("/");
-  }
-  return path;
-}
-
-/** `1.jpg`, `2.jpg`, `10.jpg` order; names without numbers sort by name. */
-export function compareImportImagePaths(a: string, b: string): number {
-  const numberIn = (path: string): number => {
-    const stem = fileNameOf(path).replace(/\.[^.]+$/, "");
-    const match = stem.match(/\d+/);
-    return match ? Number(match[0]) : Number.POSITIVE_INFINITY;
-  };
-  const left = numberIn(a);
-  const right = numberIn(b);
-  if (left !== right) return left < right ? -1 : 1;
-  return a.localeCompare(b, undefined, { numeric: true, sensitivity: "base" });
-}
-
-/**
- * Group selected files by their SKU folder. Shared by the browser (to send a
- * manifest and later upload the matching files) and the server (to validate
- * folder names, counts and sizes before anything is written).
- */
-export function groupImportImages<T extends { relativePath: string }>(
-  entries: T[],
-): GroupImportImagesResult<T> {
-  const seen = new Set<string>();
-  const folders = new Map<string, T[]>();
-  const loose: string[] = [];
-  const ignored: string[] = [];
-
-  for (const entry of entries) {
-    const path = (entry.relativePath ?? "")
-      .replace(/\\/g, "/")
-      .replace(/^(\.\/)+/, "")
-      .trim();
-    if (!path || seen.has(path)) continue;
-    seen.add(path);
-
-    if (!isImportableImagePath(path)) {
-      ignored.push(path);
-      continue;
-    }
-
-    const folder = importImageFolderName(withoutRootFolder(path));
-    if (!folder) {
-      loose.push(path);
-      continue;
-    }
-
-    const sku = folder.toUpperCase();
-    const list = folders.get(sku) ?? [];
-    list.push(entry);
-    folders.set(sku, list);
-  }
-
-  return {
-    folders: [...folders.entries()]
-      .map(([sku, files]) => ({
-        sku,
-        files: [...files].sort((a, b) =>
-          compareImportImagePaths(a.relativePath, b.relativePath),
-        ),
-      }))
-      .sort((a, b) => a.sku.localeCompare(b.sku)),
-    loose: loose.sort(compareImportImagePaths),
-    ignored: ignored.sort(),
-  };
-}
-
-export type ImportImageCheck = {
-  folders: ImportImageGroup<ProductImportImageEntry>[];
-  /** Blocking problems, keyed by uppercase SKU. */
-  errorsBySku: Map<string, string[]>;
-  /** Advisory notes about skipped files or folders that match no row. */
-  notes: string[];
-};
-
-const MAX_LISTED = 4;
-
-function listPaths(paths: string[]): string {
-  if (paths.length <= MAX_LISTED) return paths.join(", ");
-  return `${paths.slice(0, MAX_LISTED).join(", ")} and ${paths.length - MAX_LISTED} more`;
-}
-
-function megabytes(bytes: number): string {
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-}
-
-/**
- * Check the selected photos against the SKUs declared in the sheet. Anything
- * that would silently lose a photo is reported here so the supplier can fix it
- * before the import is allowed.
- */
-export function checkImportImages(
-  entries: ProductImportImageEntry[],
-  declaredSkus: Set<string>,
-): ImportImageCheck {
-  const grouped = groupImportImages(
-    entries.filter(
-      (entry) =>
-        typeof entry?.relativePath === "string" &&
-        Number.isFinite(entry.size) &&
-        entry.size >= 0,
-    ),
-  );
-  const notes: string[] = [];
-  const errorsBySku = new Map<string, string[]>();
-
-  if (grouped.ignored.length > 0) {
-    notes.push(
-      `Skipped ${grouped.ignored.length} file${grouped.ignored.length === 1 ? "" : "s"} that ${
-        grouped.ignored.length === 1 ? "is" : "are"
-      } not JPG, PNG or WEBP photos: ${listPaths(grouped.ignored)}.`,
-    );
-  }
-
-  if (grouped.loose.length > 0) {
-    notes.push(
-      `${grouped.loose.length} photo${grouped.loose.length === 1 ? "" : "s"} sit outside a SKU folder: ${listPaths(grouped.loose)}. Move each one into a folder named after its SKU, like SKU-001/1.jpg.`,
-    );
-  }
-
-  for (const folder of grouped.folders) {
-    if (!declaredSkus.has(folder.sku)) {
-      notes.push(
-        `Folder "${folder.sku}" matches no Seller SKU in the sheet, so its ${folder.files.length} photo${folder.files.length === 1 ? "" : "s"} will be skipped. Rename it to a SKU from the Excel file or remove it.`,
-      );
-      continue;
-    }
-
-    const errors: string[] = [];
-    const oversized = folder.files.filter(
-      (file) => file.size > PRODUCT_IMPORT_IMAGE_MAX_BYTES,
-    );
-    if (oversized.length > 0) {
-      errors.push(
-        ...oversized.map(
-          (file) =>
-            `${file.relativePath} is ${megabytes(file.size)}. Each photo must be under 2 MB — resize or re-save it, then select the folder again.`,
-        ),
-      );
-    }
-
-    if (folder.files.length > PRODUCT_IMPORT_MAX_PHOTOS) {
-      const extras = folder.files
-        .slice(PRODUCT_IMPORT_MAX_PHOTOS)
-        .map((file) => file.relativePath);
-      errors.push(
-        `Folder "${folder.sku}" has ${folder.files.length} photos, but a product can have ${PRODUCT_IMPORT_MAX_PHOTOS}. Remove ${listPaths(extras)}.`,
-      );
-    }
-
-    if (errors.length > 0) errorsBySku.set(folder.sku, errors);
-  }
-
-  return { folders: grouped.folders, errorsBySku, notes };
-}
-
-/**
- * Image warnings for a final image count. The product form needs three images
- * before publishing, so the preview and importer say so once they know how many
- * photos a row actually has.
- */
-export function imageWarnings(count: number): string[] {
-  if (count <= 0) {
-    return ["No photos yet — imports as a draft you can finish later."];
-  }
-  if (count < MIN_PRODUCT_IMAGES) {
-    const missing = MIN_PRODUCT_IMAGES - count;
-    return [
-      `Needs ${missing} more photo${missing === 1 ? "" : "s"} before it can be published.`,
-    ];
-  }
-  return [];
-}
-
-export type ProductImportPreviewRow = {
-  line: number;
-  title: string;
-  sku: string;
-  status: "ready" | "error" | "duplicate";
-  message: string;
-  warnings: string[];
-  /** Photos that will be attached from the SKU folder. */
-  images: number;
-};
-
-export type ProductImportPreview =
-  | {
-      ok: true;
-      rows: ProductImportPreviewRow[];
-      summary: {
-        ready: number;
-        errors: number;
-        duplicates: number;
-        images: number;
-      };
-      /** Advisory notes about skipped files or folders that matched no row. */
-      imageNotes: string[];
-    }
-  | { ok: false; message: string };
-
-/**
- * Build the review table: validate rows, match photos by SKU, and attach
- * blocking photo problems to the row they affect. Skipped files and unmatched
- * folders become non-blocking notes.
- */
-export function buildProductImportPreview({
-  rows,
-  categories,
-  existing,
-  images,
-}: {
-  rows: ProductImportRawRow[];
-  categories: ImportCategory[];
-  existing: Set<string>;
-  images: ProductImportImageEntry[];
-}): Extract<ProductImportPreview, { ok: true }> {
-  const declaredSkus = new Set(
-    rows
-      .map((row) => (row.cells.seller_sku ?? "").trim().toUpperCase())
-      .filter(Boolean),
-  );
-  const imageCheck = checkImportImages(images, declaredSkus);
-  const folderBySku = new Map(imageCheck.folders.map((folder) => [folder.sku, folder]));
-
-  const { ready, failed } = validateProductImportRows(
-    rows,
-    createCategoryLookup(categories),
-    existing,
-  );
-  const readyByLine = new Map(ready.map((row) => [row.line, row]));
-  const failedByLine = new Map(failed.map((row) => [row.line, row]));
-
-  const previewRows: ProductImportPreviewRow[] = rows.map((row) => {
-    const ok = readyByLine.get(row.line);
-    if (ok) {
-      const folderErrors = ok.sku ? imageCheck.errorsBySku.get(ok.sku) : undefined;
-      if (folderErrors && folderErrors.length > 0) {
-        return {
-          line: row.line,
-          title: ok.title,
-          sku: ok.sku,
-          status: "error" as const,
-          message: folderErrors.join("\n"),
-          warnings: ok.warnings,
-          images: 0,
-        };
-      }
-
-      const images = ok.sku ? (folderBySku.get(ok.sku)?.files.length ?? 0) : 0;
-      return {
-        line: row.line,
-        title: ok.title,
-        sku: ok.sku,
-        status: "ready" as const,
-        message: "",
-        warnings: [
-          ...ok.warnings,
-          ...(ok.sku
-            ? []
-            : [
-                "Add a Seller SKU so photos in the images folder can be matched to this row.",
-              ]),
-          ...imageWarnings(images),
-        ],
-        images,
-      };
-    }
-    const bad = failedByLine.get(row.line);
-    return {
-      line: row.line,
-      title: bad?.title ?? "(untitled row)",
-      sku: (row.cells.seller_sku ?? "").trim().toUpperCase(),
-      status: bad?.kind ?? ("error" as const),
-      message: bad?.message ?? "This row could not be checked.",
-      warnings: [],
-      images: 0,
-    };
-  });
-
-  return {
-    ok: true,
-    rows: previewRows,
-    summary: {
-      ready: previewRows.filter((row) => row.status === "ready").length,
-      errors: previewRows.filter((row) => row.status === "error").length,
-      duplicates: previewRows.filter((row) => row.status === "duplicate").length,
-      images: previewRows
-        .filter((row) => row.status === "ready")
-        .reduce((total, row) => total + row.images, 0),
-    },
-    imageNotes: imageCheck.notes,
-  };
-}
-
-/** Result of reading an uploaded .xlsx/.csv on the server. */
-export type ProductImportFilePreview =
-  | {
-      ok: true;
-      rows: ProductImportRawRow[];
-      preview: Extract<ProductImportPreview, { ok: true }>;
-    }
-  | { ok: false; message: string };
-
-export type ProductImportBatchResult =
-  | {
-      ok: true;
-      created: {
-        line: number;
-        title: string;
-        sku: string;
-        productId: string;
-        warnings: string[];
-      }[];
-      failed: { line: number; title: string; message: string }[];
-    }
-  | { ok: false; message: string };
-
-/** Result of attaching one product's photos after its row was created. */
-export type ProductImportImagesResult =
-  | {
-      ok: true;
-      productId: string;
-      attached: number;
-      published: boolean;
-      warnings: string[];
-    }
-  | { ok: false; message: string };

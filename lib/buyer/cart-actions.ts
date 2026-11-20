@@ -481,9 +481,6 @@ export type CouponQuote =
   | { ok: true; code: string; discount: number; description: string }
   | { ok: false; message: string };
 
-const COUPON_RULE_COLUMNS =
-  "id, code, type, is_active, percent_value, max_discount, flat_value, min_order_value, buy_quantity, get_quantity, free_product_id, loyalty_points, usage_limit, used_count, expires_at";
-
 /**
  * Validate a coupon code against one supplier's lines in the buyer's cart.
  * The group subtotal is recomputed server-side — never trusted from the
@@ -510,19 +507,17 @@ export async function quoteCoupon(supplierId: string, rawCode: string): Promise<
     return { ok: false, message: "No items from this store in your cart." };
   }
 
-  // Authenticated buyers may read active coupons (coupons_select_active).
-  // The code match stays exact so inactive/unknown codes are indistinguishable.
-  const { data } = await supabase
-    .from("coupons")
-    .select(COUPON_RULE_COLUMNS)
-    .eq("supplier_id", supplierId)
-    .eq("code", code)
-    .eq("is_active", true)
-    .maybeSingle();
-  if (!data) {
+  // Exact (store, code) lookup through an RPC: buyers can't list coupons
+  // (RLS-POLICIES.md R-2). Inactive and unknown codes look the same.
+  const { data } = await supabase.rpc("lookup_active_coupons", {
+    p_supplier_ids: [supplierId],
+    p_codes: [code],
+  });
+  const match = ((data ?? []) as CouponRule[])[0];
+  if (!match) {
     return { ok: false, message: "This code is not valid for this store." };
   }
-  const coupon = data as unknown as CouponRule;
+  const coupon = match;
 
   const result = validateCouponForOrder(coupon, groupSubtotal);
   if (!result.ok) {
