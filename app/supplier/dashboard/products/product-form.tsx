@@ -290,19 +290,30 @@ export function ProductForm({
   // first client render match. Loading in the useState initializer caused a
   // hydration mismatch whenever a draft existed. Deferred so the restore does
   // not cascade a synchronous render inside the effect.
+  // Add product always starts empty (owner's choice): no draft is restored,
+  // and any leftover one from an older version is dropped.
+  const keepsDraft = mode === "edit"
   useEffect(() => {
+    if (!keepsDraft) {
+      try {
+        window.sessionStorage.removeItem(draftKey)
+      } catch {
+        // storage unavailable — nothing to drop
+      }
+      return
+    }
     const draft = loadDraft(draftKey)
     if (!draft) return
     const timer = window.setTimeout(() => setFormValues(draft), 0)
     return () => window.clearTimeout(timer)
-  }, [draftKey])
+  }, [draftKey, keepsDraft])
 
-  // Persist text fields to sessionStorage (debounced). Stops for good once the
-  // product is saved, so a late timer can't write it back as the next draft.
+  // Persist text fields to sessionStorage (debounced, edit page only). Stops for
+  // good once the product is saved, so a late timer can't write it back.
   const draftSaveTimerRef = useRef<number | null>(null)
   const savedRef = useRef(false)
   useEffect(() => {
-    if (savedRef.current) return
+    if (!keepsDraft || savedRef.current) return
     if (draftSaveTimerRef.current)
       window.clearTimeout(draftSaveTimerRef.current)
     draftSaveTimerRef.current = window.setTimeout(() => {
@@ -319,7 +330,7 @@ export function ProductForm({
       if (draftSaveTimerRef.current)
         window.clearTimeout(draftSaveTimerRef.current)
     }
-  }, [formValues, draftKey])
+  }, [formValues, draftKey, keepsDraft])
 
   // Clear the draft once a save succeeds.
   useEffect(() => {
