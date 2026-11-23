@@ -38,15 +38,10 @@ export const metadata: Metadata = {
 
 type BannerRow = { slot: string; title: string | null; link_url: string | null; image_path: string }
 
-const DEFAULT_POPUP = {
-  desktop: { src: "/promos/new-seller-offer.webp", width: 1200, height: 600 },
-  mobile: { src: "/promos/new-seller-offer-mobile.webp", width: 900, height: 1599 },
-}
-
 /**
  * Offer popup for every visitor, signed in or not. Images come from
  * Dashboard → Banners (popup_desktop / popup_mobile); one upload covers every
- * device. Without either, the built-in art shows.
+ * device. With neither uploaded there is no popup at all.
  */
 async function OfferPopup() {
   const banners = (await getCachedHomeBanners()) as BannerRow[]
@@ -59,13 +54,14 @@ async function OfferPopup() {
   }
   const desktop = desktopRow ?? mobileRow
   const mobile = mobileRow ?? desktopRow
+  if (!desktop || !mobile) return null
 
   return (
     <NewSellerOfferPopup
-      desktop={desktop ? asImage(desktop) : DEFAULT_POPUP.desktop}
-      mobile={mobile ? asImage(mobile) : DEFAULT_POPUP.mobile}
-      href={desktop?.link_url || mobile?.link_url || "/products"}
-      alt={desktop?.title || mobile?.title || "Direct2Hub offer"}
+      desktop={asImage(desktop)}
+      mobile={asImage(mobile)}
+      href={desktop.link_url || mobile.link_url || "/products"}
+      alt={desktop.title || mobile.title || "Direct2Hub offer"}
     />
   )
 }
