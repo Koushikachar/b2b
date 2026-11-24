@@ -163,7 +163,7 @@ export async function getCheckoutOrders(
   const { data: orders } = await supabase
     .from("orders")
     .select(
-      "id, reference, status, subtotal, discount, gst_amount, item_count, created_at, supplier_id",
+      "id, reference, status, subtotal, discount, gst_amount, wallet_amount, item_count, created_at, supplier_id",
     )
     .eq("buyer_id", buyerId)
     .in("id", orderIds);
@@ -171,25 +171,12 @@ export async function getCheckoutOrders(
   const rows = (orders ?? []) as unknown as OrderResultRow[];
   if (rows.length === 0) return [];
 
-  const supplierIds = [...new Set(rows.map((r) => r.supplier_id))];
-  const [{ data: suppliers }, { data: items }] = await Promise.all([
-    supabase
-      .from("storefront_suppliers")
-      .select("id, business_name")
-      .in("id", supplierIds),
-    supabase
-      .from("order_items")
-      .select("id, order_id, title, variant_label, unit, quantity, unit_price")
-      .in("order_id", orderIds)
-      .order("created_at", { ascending: true }),
-  ]);
+  const { data: items } = await supabase
+    .from("order_items")
+    .select("id, order_id, title, variant_label, unit, quantity, unit_price")
+    .in("order_id", orderIds)
+    .order("created_at", { ascending: true });
 
-  const supplierNames = new Map(
-    ((suppliers ?? []) as { id: string; business_name: string }[]).map((s) => [
-      s.id,
-      s.business_name,
-    ]),
-  );
   const itemsByOrder = new Map<string, OrderResultItem[]>();
   for (const item of (items ?? []) as unknown as OrderResultItem[]) {
     const list = itemsByOrder.get(item.order_id) ?? [];
@@ -204,14 +191,12 @@ export async function getCheckoutOrders(
     .filter((order): order is OrderResultRow => Boolean(order))
     .map((order) => ({
       order,
-      supplierName: supplierNames.get(order.supplier_id) ?? "Supplier",
       items: itemsByOrder.get(order.id) ?? [],
     }));
 }
 
 export type CheckoutOrderResult = {
   order: OrderResultRow;
-  supplierName: string;
   items: OrderResultItem[];
 };
 
@@ -222,6 +207,7 @@ export type OrderResultRow = {
   subtotal: number;
   discount: number;
   gst_amount: number;
+  wallet_amount: number;
   item_count: number;
   created_at: string;
   supplier_id: string;

@@ -13,7 +13,7 @@ export async function HomeHeroSection() {
   if (banners.length === 0) return null
 
   return (
-    <section aria-label="Featured" className="mx-auto w-full max-w-7xl px-4 pt-4">
+    <section aria-label="Featured" className="mx-auto w-full max-w-7xl px-4 pt-2">
       <HomeBannerCarousel banners={banners} />
     </section>
   )

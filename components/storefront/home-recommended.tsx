@@ -29,13 +29,15 @@ export async function RecommendedProductsSection({ storeId = null }: { storeId?:
     moq: product.moq,
     negotiable: product.negotiable,
     images: product.images,
+    mrp: product.mrp,
+    is_out_of_stock: product.is_out_of_stock,
     pricing: product.pricing
       ? { customer_price: product.pricing.customer_price }
       : null,
   }))
 
   return (
-    <section className="mx-auto w-full max-w-7xl px-4 py-5">
+    <section className="mx-auto w-full max-w-7xl px-4 py-2">
       <SectionHeader
         title="Recommended products"
         subtitle={

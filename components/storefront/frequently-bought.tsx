@@ -8,9 +8,9 @@ import { SectionHeader } from "@/components/storefront/section-header"
 import { ProductCarousel } from "@/components/storefront/product-carousel"
 
 /**
- * "Buy again": products this buyer ordered before, newest first (like a
- * grocery app's reorder rail). Guests and accounts with no orders see nothing,
- * so the section never shows invented picks.
+ * "Frequently bought": products this buyer orders most, with MRP and discount
+ * like every product card. Guests and accounts with no orders see nothing, so
+ * the section never shows invented picks.
  */
 export async function FrequentlyBoughtSection() {
   const supabase = await createClient()
@@ -25,10 +25,10 @@ export async function FrequentlyBoughtSection() {
   if (cards.length === 0) return null
 
   return (
-    <section className="mx-auto w-full max-w-7xl px-4 py-5">
+    <section className="mx-auto w-full max-w-7xl px-4 py-2">
       <SectionHeader
-        title="Buy again"
-        subtitle="Products you ordered before"
+        title="Frequently bought"
+        subtitle="Products you order most"
         icon={
           <HugeiconsIcon
             icon={ShoppingCart01Icon}

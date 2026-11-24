@@ -49,27 +49,17 @@ secret, and what happens when it's missing. **This file never holds values.** Re
 
 | Name | Secret? | Used in | Required | If missing |
 |---|---|---|---|---|
-| `NEXT_PUBLIC_APP_URL` | public | `lib/site.ts`: canonical URLs, JSON-LD, sitemap, product offer URLs | **yes in production**; must include `https://` | falls back to `http://localhost:3000`, so canonical and SEO URLs point at localhost. A value without a scheme caused an "Invalid URL" error before |
+| `NEXT_PUBLIC_APP_URL` | public | `lib/site.ts`: canonical URLs, JSON-LD, sitemap, robots, llms.txt, product offer URLs | **yes in production**: `https://direct2hub.in` (the main domain, also on the backup domain's deployment) | in production a missing or localhost value falls back to `https://direct2hub.in` (`resolveSiteUrl`); in development, `http://localhost:3000` |
 
 Auth email and OAuth links (`lib/auth/origin.ts`) don't use this variable. They're built from
-the request's `x-forwarded-proto`/`x-forwarded-host` (set by Vercel) or the `Host` header, and
-Supabase only accepts them if they match **Supabase → Authentication → URL Configuration →
-Redirect URLs**. Keep that allowlist limited to the production domain (and localhost for dev).
+the request's `x-forwarded-proto`/`x-forwarded-host` (set by Vercel) or the `Host` header, so a
+visitor on either domain stays on that domain. Supabase only accepts them if they match
+**Supabase → Authentication → URL Configuration → Redirect URLs**. List exactly the live domains
+(`https://direct2hub.in/**` and `https://direct2hub.com/**`) and localhost for dev; nothing else.
 | `NEXT_PUBLIC_SUPPORT_EMAIL` | public | `lib/site.ts` → Contact page, account-deletion email link, Organization JSON-LD | optional | channel hidden; deletion link goes to `/account/contact` |
 | `NEXT_PUBLIC_SUPPORT_PHONE` | public | `lib/site.ts` | optional | channel hidden |
 | `NEXT_PUBLIC_SUPPORT_WHATSAPP` | public | `lib/site.ts` | optional | channel hidden |
 | `NEXT_PUBLIC_GA_ID` | public | `components/layout/analytics-consent.tsx` (loads only after the visitor consents) | optional | no analytics and no consent banner |
-
-### Payments (test mode only)
-
-| Name | Secret? | Used in | Required | If missing |
-|---|---|---|---|---|
-| `NEXT_PUBLIC_TEST_UPI_ID` | public | `lib/orders/test-payment.ts` (UPI QR on the pay page) | optional | falls back to the deliberately fake `testmode@upi`, and the page warns |
-| `NEXT_PUBLIC_TEST_UPI_NAME` | public | same | optional | "B2B Test Payments" |
-
-These only power a test flow. **Never set a real UPI id here**: there's no payment provider,
-signature check or reconciliation (SECURITY.md rule 6). A real payment integration needs its own
-secret, server-only variables and a webhook secret.
 
 ### Image search (CLIP inference service)
 
@@ -87,20 +77,8 @@ secret, server-only variables and a webhook secret.
 - The local value is short (10 characters; only its length was checked). Confirm the
   production value is long and random (finding E-2).
 
-### WhatsApp notifications (OpenWA)
-
-| Name | Secret? | Used in | Required | If missing |
-|---|---|---|---|---|
-| `OPENWA_API_URL` | not secret, server-only | `lib/notifications/whatsapp.ts` (`server-only`) | for WhatsApp messages | `whatsappConfigured()` is false and no messages are sent; orders still work |
-| `OPENWA_API_KEY` | **SECRET** | same | same | same |
-| `OPENWA_SESSION_ID` | treat as secret (identifies the linked WhatsApp session) | same | same | same |
-
-Rotate: issue a new key in the OpenWA dashboard, update Vercel, redeploy, and revoke the old key.
-
-| Name | Secret? | Used in | Required | If missing |
-|---|---|---|---|---|
-| `ORDER_ALERT_WHATSAPP` | not secret, but server-only (a team phone number) | `lib/notifications/team-order-alert.ts`: WhatsApp to the D2B team for every new order (reference, store, total incl. GST, buyer name and phone; never the address) | to get order alerts; also needs the `OPENWA_*` settings above | no team alert is sent; orders still work |
-| `NEXT_PUBLIC_SUPPORT_WHATSAPP` (see "Site and support") | public | also the "Chat with us on WhatsApp" button in the order-placed popup | for that button | the popup shows only "OK" |
+The old `NEXT_PUBLIC_TEST_UPI_*`, `OPENWA_*` and `ORDER_ALERT_WHATSAPP` settings are no longer
+read by any code (the test pay page and WhatsApp alerts were removed). Don't set them on Vercel.
 
 ### Local tools
 
@@ -113,6 +91,28 @@ Rotate: issue a new key in the OpenWA dashboard, update Vercel, redeploy, and re
 | Name | Notes |
 |---|---|
 | `NODE_ENV` | set by Next.js. `next.config.ts` allows the image optimizer to reach local IPs **only** in development |
+
+## Deploy on Vercel (direct2hub.in main, direct2hub.com backup)
+
+1. **Region:** `vercel.json` pins functions to `sin1` (Singapore), next to the Supabase
+   database (`ap-southeast-1`). Every page queries the database, so this is the main speed setting.
+2. **Environment variables** (Production): `NEXT_PUBLIC_SUPABASE_URL`,
+   `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SERVICE_ROLE_KEY` (secret),
+   `NEXT_PUBLIC_APP_URL=https://direct2hub.in`, plus the optional support/analytics and
+   image-search values above. **Never** add `SUPABASE_ACCESS_TOKEN`.
+3. **Domains** (Project → Settings → Domains): add `direct2hub.in` (primary) and
+   `direct2hub.com`, both serving the same production deployment; add `www.direct2hub.in` and
+   `www.direct2hub.com` as 308 redirects to their bare domains. Google treats `.in` as the
+   original because every page's canonical link uses `NEXT_PUBLIC_APP_URL`.
+4. **Supabase → Authentication → URL Configuration:** Site URL `https://direct2hub.in`; Redirect
+   URLs `https://direct2hub.in/**`, `https://direct2hub.com/**`, `http://localhost:3000/**`.
+5. **Image search:** not hosted. Leave `IMAGE_SEARCH_SERVICE_URL` unset on Vercel; photo search
+   then shows "not configured" and everything else works.
+6. **After deploy:** open `/`, a product, `/robots.txt`, `/sitemap.xml`, `/llms.txt` on both
+   domains, sign in on each, then submit `https://direct2hub.in/sitemap.xml` in Google Search Console.
+
+What the backup domain covers: a problem with the `.in` domain or its DNS. Both domains run on
+the same Vercel project, so a Vercel or Supabase outage affects both.
 
 ## Local state on 2026-11-20
 

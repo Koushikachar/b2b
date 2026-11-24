@@ -204,7 +204,7 @@ describe.skipIf(!available)("checkout order creation (DB)", () => {
         .select("id, reference, status, payment_status, subtotal, item_count, delivery, buyer_note, region")
         .eq("id", created.order_id)
         .single();
-      expect(order?.reference).toMatch(/^B2B-\d+$/);
+      expect(order?.reference).toMatch(/^D2H-\d+$/);
       expect(order?.status).toBe("new");
       expect(order?.payment_status).toBe("not_requested");
       expect(order?.buyer_note).toBe("Please deliver soon");
@@ -221,7 +221,7 @@ describe.skipIf(!available)("checkout order creation (DB)", () => {
       expect(order?.item_count).toBe(items?.[0]?.quantity);
     }
 
-    // Group A total is 1100 (below ₹2,500 on its own but allowed because the
+    // Group A total is 1100 (below ₹3,000 on its own but allowed because the
     // cart-wide minimum is met) and group B is 2200.
     const totals = payload.orders
       .map((o) => o.supplier_id)
@@ -282,7 +282,7 @@ describe.skipIf(!available)("checkout order creation (DB)", () => {
 
   it("rejects carts below the minimum order value", async () => {
     await clearCart();
-    await addToCart(buyerUserId, productA, 1); // 110 < 2500
+    await addToCart(buyerUserId, productA, 1); // 110 < 3000
     const { error } = await buyerClient.rpc("create_orders_from_cart", {
       p_delivery: DELIVERY,
       p_idempotency_key: randomUUID(),

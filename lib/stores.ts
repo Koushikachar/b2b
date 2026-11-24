@@ -33,14 +33,16 @@ export type StoreProgramme = {
 
 export const D2H_CORE: StoreProgramme = {
   slug: "d2h-core",
-  name: "D2H Core",
-  logo: "/stores/d2h-core-logo.webp",
+  // Shown as "Core" (same as the store tabs); the slug stays for existing links.
+  name: "Core",
+  // Same Core mark as the store tabs (public/stores/store-core.webp).
+  logo: "/stores/store-core.webp",
   badge: "Fulfilled by Direct2Hub",
   location: "Surat, Gujarat",
   warehouse: "Surat, Gujarat",
   summary:
     "A Direct2Hub-managed store offering a wide range of products with reliable fulfilment, low minimum order value, and buyer protection.",
-  heroTitle: "D2H Core",
+  heroTitle: "Core",
   heroSubtitle: "Direct2Hub's own store for ready-to-ship products",
   about:
     "D2H Core is the official store of Direct2Hub, built to make sourcing simple, reliable, and hassle-free. We offer a curated range of quality products, managed and fulfilled directly by Direct2Hub from our warehouse in Surat, Gujarat.",

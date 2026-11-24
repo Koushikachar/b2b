@@ -5,7 +5,6 @@ import { createClient } from "@/lib/supabase/server";
 import { getSessionUser } from "@/lib/auth/session";
 import { getCartCoupons, getCartSummary } from "@/lib/buyer/cart-actions";
 import { groupCartLinesBySupplier } from "@/lib/buyer/cart";
-import { displayName, getBuyerProfile } from "@/lib/buyer/account-queries";
 import { Breadcrumbs } from "@/components/layout/breadcrumbs";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -14,7 +13,7 @@ import { CartGroups } from "./cart-groups";
 
 export const metadata: Metadata = {
   title: "My Cart",
-  description: "Review your cart. Checkout unlocks at a ₹2,500 subtotal.",
+  description: "Review your cart. Checkout unlocks at a ₹3,000 subtotal.",
   robots: { index: false, follow: false },
 };
 
@@ -27,7 +26,7 @@ export default async function CartPage() {
   }
 
   // Summary and saved coupons are independent reads.
-  const [summary, savedCoupons, profile] = await Promise.all([
+  const [summary, savedCoupons] = await Promise.all([
     getCartSummary(supabase, user.id),
     // Table may not exist until the cart_coupons migration is applied; a
     // missing table degrades to no saved codes rather than a broken cart.
@@ -35,7 +34,6 @@ export default async function CartPage() {
       console.error("Cart coupons lookup failed:", error);
       return {} as Record<string, string>;
     }),
-    getBuyerProfile(supabase, user.id, user.email),
   ]);
   const groups = groupCartLinesBySupplier(summary.lines);
 
@@ -69,7 +67,6 @@ export default async function CartPage() {
           meetsMinimum={summary.meetsMinimum}
           shortfall={summary.shortfall}
           unavailableCount={summary.unavailableCount}
-          buyerName={displayName(profile)}
         />
       )}
     </div>

@@ -10,7 +10,7 @@ export async function AllProductsSection({
 }) {
   return (
     <section id="all-products" className="scroll-mt-20 border-y border-border bg-white">
-      <div className="mx-auto w-full max-w-[1440px] px-4 py-5 sm:py-7">
+      <div className="mx-auto w-full max-w-[1440px] px-4 py-4 sm:py-5">
         <CatalogueSection
           searchParams={searchParams}
           basePath="/"

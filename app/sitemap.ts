@@ -13,7 +13,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const [{ data: products }, { data: categories }, { data: suppliers }] = await Promise.all([
     supabase
       .from("products")
-      .select("id")
+      .select("id, updated_at")
       .eq("status", "approved")
       .eq("is_hidden", false)
       .limit(PAGE_SIZE),
@@ -25,13 +25,14 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: absolute("/"), lastModified: now, changeFrequency: "daily", priority: 1 },
     { url: absolute("/products"), lastModified: now, changeFrequency: "daily", priority: 0.9 },
     { url: absolute("/categories"), lastModified: now, changeFrequency: "weekly", priority: 0.7 },
+    { url: absolute("/faq"), changeFrequency: "monthly" as const, priority: 0.6 },
     ...["/stores", "/stores/d2h-core", "/select", "/suppliers", "/services"].map((path) => ({
       url: absolute(path),
       lastModified: now,
       changeFrequency: "weekly" as const,
       priority: 0.7,
     })),
-    ...["/privacy", "/terms"].map((path) => ({
+    ...["/about", "/contact", "/privacy", "/terms"].map((path) => ({
       url: absolute(path),
       changeFrequency: "yearly" as const,
       priority: 0.2,
@@ -42,9 +43,10 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       changeFrequency: "daily" as const,
       priority: 0.8,
     })),
-    ...((products ?? []) as { id: string }[]).map((product) => ({
+    ...((products ?? []) as { id: string; updated_at: string | null }[]).map((product) => ({
       url: absolute(`/products/${product.id}`),
-      lastModified: now,
+      // Real edit date, so crawlers re-fetch only products that changed.
+      lastModified: product.updated_at ? new Date(product.updated_at) : now,
       changeFrequency: "weekly" as const,
       priority: 0.6,
     })),

@@ -1,15 +1,13 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { after } from "next/server";
 import { z } from "zod";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
 import { getSessionUser } from "@/lib/auth/session";
 import { toDeliverySnapshot, type DeliverySnapshot } from "@/lib/orders/delivery";
-import { queueAndDeliver } from "@/lib/notifications/order-notifications";
-import { sendTeamOrderAlert } from "@/lib/notifications/team-order-alert";
-import { getCheckoutPreview } from "@/lib/buyer/checkout-queries";
 import { logStorefrontEvent } from "@/lib/storefront/events";
 
 // Checkout: converts the buyer's cart into one order per supplier by calling
@@ -25,11 +23,6 @@ export type CheckoutActionState = {
   orderIds: string[];
 };
 
-const okState = (orderIds: string[], message = "Order placed."): CheckoutActionState => ({
-  ok: true,
-  message,
-  orderIds,
-});
 const errState = (message: string): CheckoutActionState => ({
   ok: false,
   message,
@@ -40,6 +33,7 @@ const placeOrderSchema = z.object({
   addressId: z.string().uuid("Choose a delivery address."),
   requestId: z.string().uuid("Missing checkout request id."),
   buyerNote: z.string().trim().max(500, "Keep the note under 500 characters.").optional(),
+  useWallet: z.boolean(),
 });
 
 type AddressRow = {
@@ -92,6 +86,7 @@ export async function placeOrder(
     addressId: formData.get("addressId"),
     requestId: formData.get("requestId"),
     buyerNote: formData.get("buyerNote") || undefined,
+    useWallet: formData.get("useWallet") === "on",
   });
   if (!parsed.success) {
     return errState(
@@ -128,14 +123,12 @@ export async function placeOrder(
     }
   }
 
-  // GST-inclusive totals per store, as the buyer saw them, for the team alert.
-  // Read before the RPC clears the ordered cart lines.
-  const preview = await getCheckoutPreview(supabase, user.id).catch(() => null);
-
   const { data, error } = await supabase.rpc("create_orders_from_cart", {
     p_delivery: delivery,
     p_buyer_note: parsed.data.buyerNote ?? null,
     p_idempotency_key: parsed.data.requestId,
+    // The RPC re-reads the balance under a lock; the browser never sends an amount.
+    p_use_wallet: parsed.data.useWallet,
   });
 
   if (error) {
@@ -174,42 +167,17 @@ export async function placeOrder(
   revalidatePath("/cart");
   revalidatePath("/checkout");
 
-  // Notification-only side channel: one alert per newly created order for
-  // the supplier. Best-effort — the orders above are already committed and
-  // survive any notification failure. A duplicate (idempotent) replay does
-  // not re-alert anyone.
+  // No WhatsApp alerts: new orders appear on the supplier's dashboard. A
+  // duplicate (idempotent) replay logs nothing twice.
   if (!payload.duplicate) {
-    for (const orderId of orderIds) {
-      await queueAndDeliver(supabase, orderId, "new_order_supplier");
-    }
-
     // Conversion is per session, so one event per order is correct: several
     // supplier orders in one checkout still count as one ordering session.
     // Analytics is best-effort and runs after the response is committed.
     const { data: orderRows } = await supabase
       .from("orders")
-      .select("id, reference, supplier_id")
+      .select("id, supplier_id")
       .in("id", orderIds);
-    const suppliers = (orderRows ?? []) as { id: string; reference: string; supplier_id: string }[];
-
-    // WhatsApp the D2B team (ORDER_ALERT_WHATSAPP) so someone calls the buyer.
-    // Runs after the response; never delays or fails the checkout.
-    const groupBySupplier = new Map((preview?.groups ?? []).map((g) => [g.supplierId, g]));
-    const alertOrders = suppliers.map((order) => {
-      const group = groupBySupplier.get(order.supplier_id);
-      return {
-        reference: order.reference,
-        supplierName: group?.supplierName ?? "Supplier",
-        total: group?.grandTotal ?? 0,
-      };
-    });
-    after(() =>
-      sendTeamOrderAlert({
-        buyerName: delivery.fullName,
-        buyerPhone: delivery.phone,
-        orders: alertOrders,
-      }),
-    );
+    const suppliers = (orderRows ?? []) as { id: string; supplier_id: string }[];
 
     if (suppliers.length > 0) {
       after(() =>
@@ -226,10 +194,8 @@ export async function placeOrder(
     }
   }
 
-  return okState(
-    orderIds,
-    payload.skipped > 0
-      ? "Order placed. Some unavailable items were left in your cart."
-      : "Order placed.",
-  );
+  // Navigate from the server: the revalidated /checkout renders "Nothing to
+  // check out" (cart now empty) and would unmount the form before any
+  // client-side redirect could run, hiding the confirmation.
+  redirect(`/checkout/success?orders=${orderIds.join(",")}`);
 }

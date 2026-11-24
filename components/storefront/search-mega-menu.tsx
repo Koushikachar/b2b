@@ -101,10 +101,10 @@ export function SearchMegaMenu({
   const hasMore = categories.length > visible.length
 
   return (
-    <div className="mx-auto w-full max-w-7xl px-4 py-3 sm:py-6">
+    <div className="mx-auto w-full max-w-7xl px-4 pt-1 pb-1">
       {/* One big panel holding every feature (visual only) */}
       <div className="flex flex-col rounded-lg border border-border bg-card max-sm:rounded-none max-sm:border-0 max-sm:bg-transparent">
-        <div className="flex min-w-0 flex-col px-4 py-4 max-sm:px-0 max-sm:py-0 sm:px-5 sm:py-5 lg:pb-0">
+        <div className="flex min-w-0 flex-col px-4 py-3 max-sm:px-0 max-sm:py-0 sm:px-5 sm:py-3 lg:pb-0">
           {/* Large search bar */}
           <div
             className="relative flex items-center gap-2.5 min-w-0"

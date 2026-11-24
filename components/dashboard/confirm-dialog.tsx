@@ -2,7 +2,7 @@
 
 import { cloneElement, isValidElement, useState, type ReactElement } from "react";
 import { HugeiconsIcon } from "@hugeicons/react";
-import { Delete02Icon } from "@hugeicons/core-free-icons";
+import { CheckIcon, Delete02Icon } from "@hugeicons/core-free-icons";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -57,7 +57,10 @@ export function ConfirmDialog({
         <AlertDialogContent size="default">
           <AlertDialogHeader>
             <AlertDialogMedia>
-              <HugeiconsIcon icon={Delete02Icon} strokeWidth={2} />
+              <HugeiconsIcon
+                icon={variant === "destructive" ? Delete02Icon : CheckIcon}
+                strokeWidth={2}
+              />
             </AlertDialogMedia>
             <AlertDialogTitle>{title}</AlertDialogTitle>
             <AlertDialogDescription>{description}</AlertDialogDescription>

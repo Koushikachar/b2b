@@ -16,6 +16,15 @@ export function resolveProductMetaTitle(product: ProductMetaSource): string {
   return seo.length > 0 ? seo : product.title;
 }
 
+/**
+ * Title for the product page's metadata. Most SEO titles already end in
+ * "| Direct2Hub"; those skip the site's "%s | Direct2Hub" template so the
+ * brand is not shown twice.
+ */
+export function productPageTitle(title: string): string | { absolute: string } {
+  return /direct2hub/i.test(title) ? { absolute: title } : title;
+}
+
 export function resolveProductMetaDescription(product: ProductMetaSource): string {
   const seo = product.seo_description?.trim() ?? "";
   const body = stripHtml(product.description).trim();

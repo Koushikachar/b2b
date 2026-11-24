@@ -163,7 +163,7 @@ type RecentCardRow = {
   unit: string;
   moq: number;
   mrp: number | null;
-  stock_qty: number | null;
+  is_out_of_stock: boolean | null;
   images: { path: string; sort: number }[] | null;
 };
 
@@ -183,7 +183,7 @@ export async function getRecentlyViewedCards(productIds: string[]): Promise<Prod
   const [{ data: rows }, priceMap] = await Promise.all([
     supabase
       .from("products")
-      .select("id, title, unit, moq, mrp, stock_qty, images:product_images(path, sort)")
+      .select("id, title, unit, moq, mrp, is_out_of_stock, images:product_images(path, sort)")
       .in("id", ids)
       .eq("status", "approved")
       .eq("is_hidden", false),
@@ -208,7 +208,9 @@ export async function getRecentlyViewedCards(productIds: string[]): Promise<Prod
         mrp: row.mrp == null ? null : Number(row.mrp),
         images: row.images,
         pricing: pricing ? { customer_price: pricing.customer_price } : null,
-        is_out_of_stock: (row.stock_qty ?? 0) <= 0,
+        // The supplier's in-stock toggle, as everywhere else. stock_qty is often
+        // left at 0 by suppliers who don't count stock, so it can't mean "sold out".
+        is_out_of_stock: row.is_out_of_stock === true,
       };
     });
 }

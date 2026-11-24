@@ -189,13 +189,13 @@ describe.skipIf(!available)("order lifecycle (DB)", () => {
     }
   });
 
-  it("assigns a B2B- reference and defaults payment status", async () => {
+  it("assigns a D2H- reference and defaults payment status", async () => {
     const { data } = await service
       .from("orders")
       .select("reference, payment_status, status")
       .eq("id", orderId)
       .single();
-    expect(data?.reference).toMatch(/^B2B-\d{5,}$/);
+    expect(data?.reference).toMatch(/^D2H-\d{5,}$/);
     expect(data?.payment_status).toBe("not_requested");
     expect(data?.status).toBe("new");
   });

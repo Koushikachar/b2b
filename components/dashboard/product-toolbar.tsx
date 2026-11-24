@@ -1,5 +1,6 @@
 "use client";
 
+import Form from "next/form";
 import { SearchInput } from "@/components/dashboard/search-input";
 import {
   NativeSelect,
@@ -19,8 +20,12 @@ export function ProductToolbar({
   sort: SortKey;
 }) {
   return (
-    <form
+    // next/form: a client-side navigation, so changing the sort or searching
+    // updates the list without reloading the whole page.
+    <Form
       action={baseHref}
+      replace
+      scroll={false}
       className="flex w-full flex-col gap-3 lg:flex-row lg:items-center lg:justify-between"
     >
       <SearchInput
@@ -47,6 +52,6 @@ export function ProductToolbar({
           ))}
         </NativeSelect>
       </div>
-    </form>
+    </Form>
   );
 }

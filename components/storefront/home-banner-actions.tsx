@@ -102,11 +102,24 @@ const TILE_ASPECT = "aspect-square md:aspect-16/5"
 const DEAL_FRAME = ""
 
 /**
- * Deal card, in priority order: the admin's "Home deal card" images
- * (Dashboard → Banners; desktop + mobile), the live festival event, then the
- * built-in Diya art.
+ * Deal card: the "Sign up & get ₹100" art (owner request, in place of the
+ * festive deals banner). Signed-out visitors land on login/sign-up and come
+ * back to their wallet; signed-in buyers go straight to the wallet.
+ *
+ * The other branches (admin upload, live festival event, Diya art) are kept
+ * for when the signup campaign ends: set SIGNUP_CAMPAIGN to false.
  */
+const SIGNUP_CAMPAIGN = true
+
 async function DealCard({ pair }: { pair: AdminPair }) {
+  if (SIGNUP_CAMPAIGN) {
+    return (
+      <Link href="/account/wallet" className={FILL_LINK}>
+        <ResponsiveArt name="signup" kind="card" alt="Sign up and get ₹100 in your Direct2Hub wallet" />
+      </Link>
+    )
+  }
+
   if (hasUpload(pair)) {
     return (
       <Link href={pairLink(pair) || "/select"} className={FILL_LINK}>
@@ -130,10 +143,10 @@ async function DealCard({ pair }: { pair: AdminPair }) {
   }
 
   // No banner and no live event: the Diya art stays as the default card (owner's
-  // choice), linking to the Select deals since the event itself has ended.
+  // choice), linking to the D2H Core catalogue (D2H Select is not open yet).
   return (
-    <Link href="/select" className={FILL_LINK}>
-      <ResponsiveArt name={PROMO_EVENT_THEMES["light-a-diya"].homeArt} kind="card" alt="D2H Select deals" />
+    <Link href="/products" className={FILL_LINK}>
+      <ResponsiveArt name={PROMO_EVENT_THEMES["light-a-diya"].homeArt} kind="card" alt="Shop Direct2Hub deals" />
     </Link>
   )
 }
@@ -207,7 +220,7 @@ function DealsRowSkeleton() {
  */
 export function HomeBannerActions() {
   return (
-    <section aria-label="Deals" className="mx-auto w-full max-w-7xl px-4 py-5">
+    <section aria-label="Deals" className="mx-auto w-full max-w-7xl px-4 py-2">
       <div className="grid grid-cols-[minmax(0,2fr)_minmax(0,3fr)] gap-2.5 sm:gap-3 md:grid-cols-[minmax(0,3fr)_minmax(0,4fr)] md:gap-4">
         <Suspense fallback={<DealsRowSkeleton />}>
           <DealsRow />

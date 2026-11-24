@@ -80,10 +80,11 @@ describe("payment status machine", () => {
 });
 
 describe("available supplier actions", () => {
-  it("offers review, rejection and quotation while awaiting review", () => {
+  it("offers accept and reject while awaiting review, with no quotation step", () => {
     expect(availableSupplierActions("new")).toContain("accept");
     expect(availableSupplierActions("new")).toContain("reject");
-    expect(availableSupplierActions("new")).toContain("create_quotation");
+    expect(availableSupplierActions("new")).not.toContain("create_quotation");
+    // Older orders still in "quoted" can be accepted or rejected directly.
     expect(availableSupplierActions("quoted")).toContain("accept");
   });
 

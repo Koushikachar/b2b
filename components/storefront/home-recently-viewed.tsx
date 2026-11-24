@@ -31,6 +31,8 @@ export async function RecentlyViewedSection() {
     unit: product.unit,
     moq: product.moq,
     negotiable: product.negotiable,
+    mrp: product.mrp == null ? null : Number(product.mrp),
+    is_out_of_stock: product.is_out_of_stock === true,
     images: product.images,
     pricing: product.pricing
       ? { customer_price: product.pricing.customer_price }

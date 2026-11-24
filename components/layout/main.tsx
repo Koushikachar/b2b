@@ -9,7 +9,7 @@ export function Main({ fluid, className, children, ...props }: MainProps) {
   return (
     <main
       className={cn(
-        "px-4 py-6",
+        "px-4 py-4",
         !fluid && "@xl/content:mx-auto @xl/content:w-full @xl/content:max-w-7xl",
         className,
       )}

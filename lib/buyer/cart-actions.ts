@@ -278,7 +278,7 @@ export async function removeFromCart(
 }
 
 // ---------------------------------------------------------------------------
-// Summary (server-side priced; the ₹2,500 gate reads this, never the client)
+// Summary (server-side priced; the minimum-order gate reads this, never the client)
 // ---------------------------------------------------------------------------
 
 export type CartSummaryResult = CartSummary & {

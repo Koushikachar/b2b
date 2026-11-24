@@ -156,7 +156,7 @@ export default async function SuppliersPage({
         </div>
 
         {visible.length === 0 ? (
-          <div className="flex flex-col items-center rounded-xl border border-dashed border-border bg-card px-6 py-12 text-center">
+          <div className="flex flex-col items-center rounded-xl border border-dashed border-border bg-card px-6 py-8 text-center">
             <HugeiconsIcon icon={Store01Icon} strokeWidth={1.6} className="size-10 text-muted-foreground" />
             <p className="mt-3 font-semibold">
               {filtering ? "No suppliers match your search" : "No verified suppliers yet"}
@@ -195,7 +195,7 @@ export default async function SuppliersPage({
           </nav>
         ) : null}
 
-        <section className="mt-8 flex flex-col items-start gap-3 rounded-xl border border-brand-100 bg-brand-50 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5">
+        <section className="mt-5 flex flex-col items-start gap-3 rounded-xl border border-brand-100 bg-brand-50 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5">
           <div>
             <h2 className="font-bold tracking-tight">Are you a manufacturer or wholesaler?</h2>
             <p className="mt-0.5 text-sm text-muted-foreground">List your products and reach buyers across India.</p>

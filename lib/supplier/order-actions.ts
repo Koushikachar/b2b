@@ -5,12 +5,13 @@ import { z } from "zod";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
 import { getSupplierContext } from "@/lib/auth/guard";
-import { queueAndDeliver } from "@/lib/notifications/order-notifications";
+import { recordOrderNotification } from "@/lib/notifications/order-notifications";
 import {
   availableSupplierActions,
   parseOrderStatus,
   type SupplierOrderAction,
 } from "@/lib/orders/lifecycle";
+import { shipmentSchema } from "@/lib/orders/shipment";
 
 // Supplier order-management actions. Every action:
 //   1. resolves the caller's company via getSupplierContext (owner or staff),
@@ -55,6 +56,9 @@ async function loadOwnOrder(
 function refreshOrderPaths(orderId: string) {
   revalidatePath("/supplier/dashboard/orders");
   revalidatePath(`/supplier/dashboard/orders/${orderId}`);
+  // The buyer's copy of the order (and their list) must not show stale state.
+  revalidatePath(`/orders/${orderId}`);
+  revalidatePath("/orders");
 }
 
 const orderIdSchema = z.string().uuid("Invalid order.");
@@ -90,7 +94,7 @@ export async function acceptOrder(orderId: string): Promise<OrderActionResult> {
     console.error("acceptOrder failed:", error.code, error.message);
     return err("Could not confirm the order. Try again.");
   }
-  await queueAndDeliver(supabase, order.id, "order_confirmed_buyer");
+  await recordOrderNotification(supabase, order.id, "order_confirmed_buyer");
   refreshOrderPaths(order.id);
   return ok("Order confirmed.");
 }
@@ -142,7 +146,7 @@ export async function rejectOrder(
     console.error("rejectOrder failed:", error.code, error.message);
     return err("Could not reject the order. Try again.");
   }
-  await queueAndDeliver(supabase, order.id, "order_rejected_buyer");
+  await recordOrderNotification(supabase, order.id, "order_rejected_buyer");
   refreshOrderPaths(order.id);
   return ok("Order rejected. The buyer can see your reason.");
 }
@@ -199,9 +203,7 @@ export async function setOrderPaymentStatus(
     return err("Could not update payment status. Try again.");
   }
   if (parsed.data.paymentStatus === "paid") {
-    await queueAndDeliver(supabase, order.id, "payment_confirmed_buyer");
-  } else if (resolvingClaim) {
-    await queueAndDeliver(supabase, order.id, "payment_not_received_buyer");
+    await recordOrderNotification(supabase, order.id, "payment_confirmed_buyer");
   }
   refreshOrderPaths(order.id);
   return ok(
@@ -253,20 +255,13 @@ export async function advanceOrderStatus(
     return err("Could not update the order. Try again.");
   }
   if (parsed.data.to === "delivered") {
-    await queueAndDeliver(supabase, order.id, "order_delivered_buyer");
+    await recordOrderNotification(supabase, order.id, "order_delivered_buyer");
   }
   refreshOrderPaths(order.id);
   return ok(parsed.data.to === "delivered" ? "Marked as delivered." : "Order is processing.");
 }
 
-const shipmentSchema = z.object({
-  orderId: z.string().uuid("Invalid order."),
-  carrier: z.string().trim().max(120, "Keep the carrier name under 120 characters.").optional(),
-  trackingRef: z.string().trim().max(80, "Keep the tracking reference under 80 characters.").optional(),
-  shipmentNotes: z.string().trim().max(500, "Keep the notes under 500 characters.").optional(),
-});
-
-/** Ship: moves the order to shipped and records dispatch details. */
+/** Ship: moves the order to shipped and records carrier + tracking (both required). */
 export async function recordShipment(
   _prev: OrderActionResult,
   formData: FormData,
@@ -297,8 +292,8 @@ export async function recordShipment(
     .from("orders")
     .update({
       status: "shipped",
-      carrier: parsed.data.carrier || null,
-      tracking_ref: parsed.data.trackingRef || null,
+      carrier: parsed.data.carrier,
+      tracking_ref: parsed.data.trackingRef,
       shipment_notes: parsed.data.shipmentNotes || null,
     })
     .eq("id", order.id)
@@ -307,7 +302,45 @@ export async function recordShipment(
     console.error("recordShipment failed:", error.code, error.message);
     return err("Could not record the shipment. Try again.");
   }
-  await queueAndDeliver(supabase, order.id, "order_shipped_buyer");
+  await recordOrderNotification(supabase, order.id, "order_shipped_buyer");
   refreshOrderPaths(order.id);
   return ok("Shipment recorded. The buyer can see the tracking details.");
+}
+
+/**
+ * Undo the latest supplier change on an order, or redo the step just undone.
+ * The database function checks the caller, the history and the current
+ * state; a mistake can be reversed one step at a time.
+ */
+export async function changeOrderStep(
+  orderId: string,
+  direction: "undo" | "redo",
+): Promise<OrderActionResult> {
+  const parsedId = orderIdSchema.safeParse(orderId);
+  if (!parsedId.success || (direction !== "undo" && direction !== "redo")) {
+    return err("Invalid request.");
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return err("You must be signed in.");
+
+  const order = await loadOwnOrder(supabase, user.id, parsedId.data);
+  if (!order) return err("Order not found.");
+
+  const { error } = await supabase.rpc("order_step_history", {
+    p_order_id: order.id,
+    p_action: direction,
+  });
+  if (error) {
+    console.error("changeOrderStep failed:", error.code, error.message);
+    const known = ["Nothing to", "customer", "changed since", "wallet credit"].some((needle) =>
+      error.message.includes(needle),
+    );
+    return err(known ? error.message.replace(/^.*?:\s*/, "") : "Could not change the order. Try again.");
+  }
+  refreshOrderPaths(order.id);
+  return ok(direction === "undo" ? "Last change undone." : "Change redone.");
 }

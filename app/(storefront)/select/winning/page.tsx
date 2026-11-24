@@ -19,7 +19,7 @@ export default async function WinningProductsPage() {
     <div className="mx-auto w-full max-w-7xl px-4 py-5">
       <SectionHeader title="Winning products" />
       {products.length === 0 ? (
-        <p className="py-12 text-center text-sm text-muted-foreground">
+        <p className="py-8 text-center text-sm text-muted-foreground">
           No winning products available right now.
         </p>
       ) : (

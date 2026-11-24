@@ -93,29 +93,33 @@ export async function fetchCustomerPriceMap(
 // ---------------------------------------------------------------------------
 
 /**
- * Adds `mrp` and `is_out_of_stock` to listing rows with one read per column.
- * Each read is separate and tolerant, so a database that has not applied the
- * migration for a column just renders without it.
+ * Adds `mrp` and `is_out_of_stock` to listing rows (e.g. RPC results that do
+ * not carry them) with a single read. On error the rows render without MRP.
  */
 export async function attachListingExtras<T extends { id: string }>(
   supabase: SupabaseClient,
   products: T[],
 ): Promise<(T & { mrp: number | null; is_out_of_stock: boolean })[]> {
   const ids = [...new Set(products.map((p) => p.id))];
-  const read = async (column: "mrp" | "is_out_of_stock") => {
-    if (ids.length === 0) return new Map<string, unknown>();
-    const { data, error } = await supabase.from("products").select(`id, ${column}`).in("id", ids);
-    if (error) return new Map<string, unknown>();
-    return new Map(
-      ((data ?? []) as unknown as Record<string, unknown>[]).map((row) => [row.id as string, row[column]]),
-    );
-  };
-  const [mrp, stock] = await Promise.all([read("mrp"), read("is_out_of_stock")]);
-  return products.map((p) => ({
-    ...p,
-    mrp: mrp.get(p.id) != null ? Number(mrp.get(p.id)) : null,
-    is_out_of_stock: stock.get(p.id) === true,
-  }));
+  const extras = new Map<string, { mrp: number | null; is_out_of_stock: boolean | null }>();
+  if (ids.length > 0) {
+    const { data, error } = await supabase
+      .from("products")
+      .select("id, mrp, is_out_of_stock")
+      .in("id", ids);
+    if (error) console.error("attachListingExtras failed:", error.code);
+    for (const row of (data ?? []) as { id: string; mrp: number | null; is_out_of_stock: boolean | null }[]) {
+      extras.set(row.id, row);
+    }
+  }
+  return products.map((p) => {
+    const extra = extras.get(p.id);
+    return {
+      ...p,
+      mrp: extra?.mrp != null ? Number(extra.mrp) : null,
+      is_out_of_stock: extra?.is_out_of_stock === true,
+    };
+  });
 }
 
 export async function getNavigationCategories(supabase: SupabaseClient) {
@@ -158,7 +162,7 @@ export async function getHomeProducts(supabase: SupabaseClient, storeId?: string
   let qb = supabase
     .from("products")
     .select(
-      "id, title, unit, moq, negotiable, created_at, supplier_id, category:category_id(name, slug), images:product_images(path, sort)",
+      "id, title, unit, moq, mrp, is_out_of_stock, negotiable, created_at, supplier_id, category:category_id(name, slug), images:product_images(path, sort)",
     )
     .eq("status", "approved")
     .eq("is_hidden", false);
@@ -196,7 +200,7 @@ export async function getWinningProducts(
   let qb = supabase
     .from("products")
     .select(
-      "id, title, unit, moq, negotiable, created_at, supplier_id, category:category_id(name, slug), images:product_images(path, sort)",
+      "id, title, unit, moq, mrp, is_out_of_stock, negotiable, created_at, supplier_id, category:category_id(name, slug), images:product_images(path, sort)",
     )
     .eq("status", "approved")
     .eq("is_hidden", false)
@@ -235,7 +239,7 @@ export async function getHotSellingProducts(
   let qb = supabase
     .from("products")
     .select(
-      "id, title, unit, moq, negotiable, created_at, supplier_id, category:category_id(name, slug), images:product_images(path, sort)",
+      "id, title, unit, moq, mrp, is_out_of_stock, negotiable, created_at, supplier_id, category:category_id(name, slug), images:product_images(path, sort)",
     )
     .eq("status", "approved")
     .eq("is_hidden", false)
@@ -275,7 +279,7 @@ export async function getRecommendedProducts(
   storeId?: string | null,
 ) {
   const select =
-    "id, title, unit, moq, negotiable, created_at, supplier_id, images:product_images(path, sort)";
+    "id, title, unit, moq, mrp, is_out_of_stock, negotiable, created_at, supplier_id, images:product_images(path, sort)";
 
   const run = (ids: string[]) => {
     let query = supabase
@@ -307,6 +311,8 @@ export async function getRecommendedProducts(
 
   return products.map((p) => ({
     ...p,
+    mrp: p.mrp == null ? null : Number(p.mrp),
+    is_out_of_stock: p.is_out_of_stock === true,
     supplier: supplierMap.get(p.supplier_id as string) ?? null,
     pricing: priceMap.get(p.id as string) ?? null,
   }));
@@ -322,6 +328,8 @@ export type CatalogueProduct = {
   unit: string;
   moq: number;
   negotiable: boolean;
+  mrp?: number | null;
+  is_out_of_stock?: boolean;
   pricing: { customer_price: number } | null;
   images: { path: string; sort: number }[];
   supplier: {
@@ -386,7 +394,8 @@ export async function getCataloguePage(
       : null;
 
   return {
-    items: page.items ?? [],
+    // The RPC does not return MRP; one read adds it so cards show "% off".
+    items: await attachListingExtras(supabase, page.items ?? []),
     nextCursor,
     total: Number(page.total ?? 0),
   };
@@ -494,7 +503,7 @@ export async function getProducts(supabase: SupabaseClient, params: ProductListP
   let qb = supabase
     .from("products")
     .select(
-      "id, title, unit, moq, negotiable, supplier_id, category:category_id(name, slug), images:product_images(path, sort)",
+      "id, title, unit, moq, mrp, is_out_of_stock, negotiable, supplier_id, category:category_id(name, slug), images:product_images(path, sort)",
       { count: "exact" },
     )
     .eq("status", "approved")
@@ -628,7 +637,7 @@ export async function getProducts(supabase: SupabaseClient, params: ProductListP
     const { data: rows } = await supabase
       .from("products")
       .select(
-        "id, title, unit, moq, negotiable, supplier_id, category:category_id(name, slug), images:product_images(path, sort)",
+        "id, title, unit, moq, mrp, is_out_of_stock, negotiable, supplier_id, category:category_id(name, slug), images:product_images(path, sort)",
       )
       .eq("status", "approved")
       .eq("is_hidden", false)
@@ -978,7 +987,7 @@ export async function getRelatedProducts(
   const { data } = await supabase
     .from("products")
     .select(
-      "id, title, unit, moq, supplier_id, images:product_images(path, sort)",
+      "id, title, unit, moq, mrp, is_out_of_stock, supplier_id, images:product_images(path, sort)",
     )
     .eq("status", "approved")
     .eq("is_hidden", false)

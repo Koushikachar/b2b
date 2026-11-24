@@ -101,7 +101,7 @@ export default async function StoreProgrammePage({ params }: Props) {
         <div className="grid gap-5 p-4 sm:p-6 lg:grid-cols-[minmax(0,1fr)_380px] lg:items-center">
           <div>
             <div className="flex items-start gap-3 sm:gap-4">
-              <Image src={store.logo} alt="" width={112} height={112} priority className="size-16 shrink-0 rounded-2xl min-[380px]:size-20 border border-border bg-card object-cover shadow-sm sm:size-28" />
+              <Image src={store.logo} alt="" width={112} height={112} priority className="size-16 shrink-0 rounded-2xl min-[380px]:size-20 border border-border bg-card object-contain p-2.5 shadow-sm sm:size-28 sm:p-4" />
               <div className="min-w-0">
                 <h1 className="flex flex-wrap items-center gap-x-2 gap-y-1 text-2xl font-extrabold tracking-tight sm:text-3xl">
                   {store.name}
@@ -257,7 +257,7 @@ export default async function StoreProgrammePage({ params }: Props) {
                   WhatsApp
                 </a>
               ) : null}
-              <Link href="/account/contact" className={`press inline-flex h-10 items-center justify-center gap-1.5 rounded-lg bg-primary text-sm font-semibold text-primary-foreground hover:bg-brand-dark ${whatsapp ? "" : "col-span-2"}`}>
+              <Link href="/contact" className={`press inline-flex h-10 items-center justify-center gap-1.5 rounded-lg bg-primary text-sm font-semibold text-primary-foreground hover:bg-brand-dark ${whatsapp ? "" : "col-span-2"}`}>
                 <HugeiconsIcon icon={CustomerSupportIcon} strokeWidth={2} className="size-4" />
                 Contact Store
               </Link>
@@ -311,7 +311,8 @@ async function StoreCatalogue({ storeId }: { storeId?: string }) {
         <ul className="no-scrollbar -mx-4 flex gap-2.5 overflow-x-auto px-4 pb-1 sm:mx-0 sm:grid sm:grid-cols-4 sm:px-0 md:grid-cols-7">
           {tiles.map((category) => (
             <li key={category.id} className="w-[84px] shrink-0 sm:w-auto">
-              <Link href={`/category/${category.slug}`} className="press block rounded-lg border border-border p-1.5 text-center hover:border-brand-300">
+              {/* h-full + a two-line label box: every tile is the same height. */}
+              <Link href={`/category/${category.slug}`} className="press flex h-full flex-col rounded-lg border border-border p-1.5 text-center hover:border-brand-300">
                 <span className="relative block aspect-square overflow-hidden rounded-md bg-muted">
                   {category.image_path ? (
                     <ProductImage fit="cover" src={publicTransformedImageUrl("category_images", category.image_path, { width: 160 })} alt="" sizes="84px" />
@@ -321,7 +322,9 @@ async function StoreCatalogue({ storeId }: { storeId?: string }) {
                     </span>
                   )}
                 </span>
-                <span className="mt-1 line-clamp-2 block text-[11px] leading-snug font-semibold">{category.name}</span>
+                <span className="mt-1 flex min-h-[2lh] items-center justify-center text-micro leading-snug font-semibold">
+                  <span className="line-clamp-2">{category.name}</span>
+                </span>
               </Link>
             </li>
           ))}

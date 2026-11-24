@@ -19,7 +19,7 @@ export default async function HotSellingProductsPage() {
     <div className="mx-auto w-full max-w-7xl px-4 py-5">
       <SectionHeader title="Hot selling" />
       {products.length === 0 ? (
-        <p className="py-12 text-center text-sm text-muted-foreground">
+        <p className="py-8 text-center text-sm text-muted-foreground">
           No hot selling products available right now.
         </p>
       ) : (

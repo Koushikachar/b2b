@@ -1,56 +1,17 @@
 import { HugeiconsIcon } from "@hugeicons/react";
 import { CheckmarkCircle02Icon } from "@hugeicons/core-free-icons";
 import { cn } from "cn";
-import type { OrderStatus, PaymentStatus } from "@/lib/orders/lifecycle";
+import type { OrderStatus } from "@/lib/orders/lifecycle";
+import { orderSteps, type OrderStepState } from "@/lib/orders/order-steps";
 
-// Shared buyer/supplier order tracker. One visual language across both sides.
-// Steps are marked from the real status + payment-status model; nothing is
-// inferred beyond what the database actually recorded.
+// Order tracker: the same steps the buyer sees (lib/orders/order-steps.ts),
+// marked only from what the database recorded.
 
-const STEPS = [
-  { key: "placed", label: "Order placed" },
-  { key: "quoted", label: "Quotation sent" },
-  { key: "submitted", label: "Payment submitted" },
-  { key: "paid", label: "Payment confirmed" },
-  { key: "processing", label: "Processing" },
-  { key: "shipped", label: "Shipped" },
-  { key: "delivered", label: "Delivered" },
-] as const;
-
-type StepState = "done" | "current" | "future";
-
-function stepStates(
-  status: OrderStatus,
-  paymentStatus: PaymentStatus,
-  hasQuotation: boolean,
-  quotationAccepted: boolean,
-): StepState[] {
-  const quotedDone = quotationAccepted || (status !== "quoted" && (hasQuotation || status !== "new"));
-  const done = [
-    true,
-    quotedDone,
-    paymentStatus === "claimed" || paymentStatus === "paid",
-    paymentStatus === "paid",
-    status === "processing" || status === "shipped" || status === "delivered",
-    status === "shipped" || status === "delivered",
-    status === "delivered",
-  ];
-  const firstIncomplete = done.indexOf(false);
-  const current = firstIncomplete === -1 ? done.length - 1 : firstIncomplete;
-  return done.map((isDone, index) =>
-    isDone ? "done" : index === current ? "current" : "future",
-  );
-}
-
-function StepCircle({ state, index }: { state: StepState; index: number }) {
+function StepCircle({ state, index }: { state: OrderStepState; index: number }) {
   if (state === "done") {
     return (
       <span className="flex size-7 shrink-0 items-center justify-center rounded-full border-2 border-success bg-success text-white">
-        <HugeiconsIcon
-          icon={CheckmarkCircle02Icon}
-          strokeWidth={2}
-          className="size-4"
-        />
+        <HugeiconsIcon icon={CheckmarkCircle02Icon} strokeWidth={2} className="size-4" />
       </span>
     );
   }
@@ -58,121 +19,67 @@ function StepCircle({ state, index }: { state: StepState; index: number }) {
     <span
       className={cn(
         "flex size-7 shrink-0 items-center justify-center rounded-full border-2 text-xs font-semibold tabular-nums",
-        state === "current"
-          ? "border-primary bg-primary/10 text-primary"
-          : "border-border bg-card text-muted-foreground",
+        state === "current" && "border-primary bg-primary/10 text-primary",
+        state === "failed" && "border-destructive bg-destructive/10 text-destructive",
+        state === "upcoming" && "border-border bg-card text-muted-foreground",
       )}
     >
-      {index + 1}
+      {state === "failed" ? "✕" : index + 1}
     </span>
   );
 }
 
+const labelTone: Record<OrderStepState, string> = {
+  done: "text-foreground",
+  current: "font-semibold text-primary",
+  failed: "font-semibold text-destructive",
+  upcoming: "text-muted-foreground",
+};
+
 export function OrderProgress({
   status,
-  paymentStatus,
-  hasQuotation = false,
-  quotationAccepted = false,
+  paid,
   cancelledReason,
 }: {
   status: OrderStatus;
-  paymentStatus: PaymentStatus;
-  hasQuotation?: boolean;
-  quotationAccepted?: boolean;
+  paid: boolean;
   cancelledReason?: string | null;
 }) {
-  if (status === "cancelled") {
-    return (
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3">
-        <span className="flex size-7 shrink-0 items-center justify-center rounded-full border-2 border-destructive bg-destructive/10 text-xs font-bold text-destructive">
-          ✕
-        </span>
-        <div className="min-w-0">
-          <p className="text-sm font-semibold text-destructive">Order cancelled</p>
-          {cancelledReason ? (
-            <p className="text-xs text-muted-foreground">{cancelledReason}</p>
-          ) : null}
-        </div>
-      </div>
-    );
-  }
-
-  const states = stepStates(status, paymentStatus, hasQuotation, quotationAccepted);
+  const steps = orderSteps(status, paid);
 
   return (
     <div aria-label="Order progress">
-      {/* Desktop: horizontal */}
-      <ol className="hidden md:flex">
-        {STEPS.map((step, index) => (
-          <li key={step.key} className="flex min-w-0 flex-1 flex-col items-center">
-            <div className="flex w-full items-center">
-              <span
-                className={cn(
-                  "h-0.5 flex-1",
-                  index === 0
-                    ? "bg-transparent"
-                    : states[Math.max(0, index - 1)] === "done"
-                      ? "bg-success"
-                      : "bg-border",
-                )}
-              />
-              <StepCircle state={states[index]} index={index} />
-              <span
-                className={cn(
-                  "h-0.5 flex-1",
-                  index === STEPS.length - 1
-                    ? "bg-transparent"
-                    : states[index] === "done"
-                      ? "bg-success"
-                      : "bg-border",
-                )}
-              />
-            </div>
-            <span
-              className={cn(
-                "mt-2 px-1 text-center text-[11px] leading-tight",
-                states[index] === "current"
-                  ? "font-semibold text-primary"
-                  : states[index] === "done"
-                    ? "text-foreground"
-                    : "text-muted-foreground",
-              )}
-            >
-              {step.label}
-            </span>
-          </li>
-        ))}
-      </ol>
-
-      {/* Mobile: vertical */}
-      <ol className="flex flex-col md:hidden">
-        {STEPS.map((step, index) => {
-          const isLast = index === STEPS.length - 1;
+      <ol className="flex flex-col gap-0 md:flex-row">
+        {steps.map((step, index) => {
+          const isLast = index === steps.length - 1;
           return (
-            <li key={step.key} className="flex gap-3">
-              <div className="flex flex-col items-center">
-                <StepCircle state={states[index]} index={index} />
-                {!isLast ? (
-                  <span
-                    className={cn(
-                      "w-0.5 flex-1",
-                      states[index] === "done" ? "bg-success" : "bg-border",
-                    )}
-                  />
-                ) : null}
+            <li key={step.key} className="flex min-w-0 gap-3 md:flex-1 md:flex-col md:items-center md:gap-0">
+              <div className="flex flex-col items-center md:w-full md:flex-row">
+                <span
+                  className={cn(
+                    "hidden h-0.5 flex-1 md:block",
+                    index === 0 ? "bg-transparent" : steps[index - 1].state === "done" ? "bg-success" : "bg-border",
+                  )}
+                />
+                <StepCircle state={step.state} index={index} />
+                <span
+                  className={cn(
+                    "w-0.5 flex-1 md:h-0.5 md:w-auto",
+                    isLast ? "bg-transparent" : step.state === "done" ? "bg-success" : "bg-border",
+                  )}
+                />
               </div>
               <span
                 className={cn(
-                  "pt-0.5 text-sm",
-                  isLast ? "" : "pb-4",
-                  states[index] === "current"
-                    ? "font-semibold text-primary"
-                    : states[index] === "done"
-                      ? "text-foreground"
-                      : "text-muted-foreground",
+                  "pt-0.5 text-sm md:mt-2 md:px-1 md:pt-0 md:text-center md:text-[11px] md:leading-tight",
+                  !isLast && "pb-4 md:pb-0",
+                  labelTone[step.state],
                 )}
               >
                 {step.label}
+                {step.state === "failed" && cancelledReason ? (
+                  <span className="block text-xs font-normal text-muted-foreground">{cancelledReason}</span>
+                ) : null}
               </span>
             </li>
           );

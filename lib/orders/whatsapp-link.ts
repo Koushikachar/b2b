@@ -1,4 +1,6 @@
-// Buyer -> supplier WhatsApp contact link.
+import { SUPPORT_WHATSAPP } from "@/lib/site";
+
+// Buyer -> Direct2Hub WhatsApp contact link.
 //
 // This is a plain wa.me deep link that opens the buyer's own WhatsApp with a
 // pre-filled message — nothing is sent automatically, no credentials are
@@ -37,7 +39,22 @@ export function whatsappContactLink(
   return `https://wa.me/91${national}?text=${encodeURIComponent(message)}`;
 }
 
-/** The only content allowed in the pre-filled message: reference + name. */
-export function contactMessage(supplierName: string, reference: string): string {
-  return `Hello ${supplierName}, I would like to discuss my order ${reference}.`;
+/**
+ * Chat with D2H Core on its WhatsApp number (SUPPORT_WHATSAPP). The order
+ * number is included only once the buyer has actually placed that order.
+ */
+export function d2hWhatsappLink({
+  orderReference,
+  productTitle,
+}: {
+  orderReference?: string;
+  productTitle?: string;
+}): string {
+  const message = orderReference
+    ? `Hi Direct2Hub, I completed order ${orderReference}.`
+    : productTitle
+      ? `Hi Direct2Hub, I'm interested in ${productTitle}.`
+      : "Hi Direct2Hub, I have a question.";
+  // SUPPORT_WHATSAPP always has the D2H Core default, so this never returns null.
+  return whatsappContactLink(SUPPORT_WHATSAPP, message) ?? "https://wa.me/917483274168";
 }

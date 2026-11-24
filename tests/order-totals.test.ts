@@ -29,6 +29,15 @@ describe("order amount helpers", () => {
     expect(orderAmount(2970, { status: "accepted", version: 1, total: 3500 }, 534.6)).toBe(3500);
   });
 
+  it("takes the wallet credit used at checkout off the amount to pay", () => {
+    expect(orderAmount(2970, null, 534.6, 100)).toBe(3404.6);
+    expect(orderAmount(2970, { status: "accepted", version: 1, total: 3500 }, 534.6, 100)).toBe(3400);
+  });
+
+  it("never asks for less than nothing", () => {
+    expect(orderAmount(50, null, 0, 100)).toBe(0);
+  });
+
   it("accepts Supabase to-one relations serialized as a single object", () => {
     expect(
       orderAmount(2970, { status: "accepted", version: 1, total: 3200 }),

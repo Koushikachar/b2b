@@ -9,7 +9,7 @@ import { Card } from "@/components/ui/card"
 /** Home hero carousel: same frame as HomeHeroSection's first slide. */
 export function HomeHeroSkeleton() {
   return (
-    <div aria-hidden className="mx-auto w-full max-w-7xl px-4 pt-4">
+    <div aria-hidden className="mx-auto w-full max-w-7xl px-4 pt-2">
       <Skeleton className="aspect-[12/5] w-full rounded-lg" />
     </div>
   )
@@ -375,9 +375,9 @@ export function AddressCardSkeleton() {
 
 export function SearchHeroSkeleton() {
   return (
-    <div aria-hidden className="mx-auto w-full max-w-7xl px-4 py-3 sm:py-6">
+    <div aria-hidden className="mx-auto w-full max-w-7xl px-4 pt-1 pb-1">
       <div className="flex flex-col rounded-lg border border-border bg-card max-sm:rounded-none max-sm:border-0 max-sm:bg-transparent">
-        <div className="flex flex-col gap-2 px-4 pt-4 max-sm:px-0 max-sm:pt-0 sm:px-5 sm:pt-5">
+        <div className="flex flex-col gap-2 px-4 pt-3 max-sm:px-0 max-sm:pt-0 sm:px-5 sm:pt-3">
           <Skeleton className="h-12 w-full rounded-md" />
           {/* Tablet/desktop hot-search row */}
           <div className="hidden items-center gap-2 sm:flex">
@@ -857,7 +857,7 @@ export function StorePageSkeleton() {
 
 export function OrderSuccessSkeleton() {
   return (
-    <div aria-hidden className="mx-auto w-full max-w-3xl px-4 py-8">
+    <div aria-hidden className="mx-auto w-full max-w-3xl px-4 py-5">
       <Skeleton className="h-7 w-48" />
       <Skeleton className="mt-1.5 h-4 w-80 max-w-full" />
       <div className="mt-5 flex flex-col gap-4">
@@ -939,7 +939,7 @@ function ProductRailSkeleton({
   subtitle?: boolean
 }) {
   return (
-    <section aria-hidden className="mx-auto w-full max-w-7xl px-4 py-5">
+    <section aria-hidden className="mx-auto w-full max-w-7xl px-4 py-2">
       <div className="mb-1 flex items-end justify-between gap-2 pb-1">
         <div className="flex flex-col gap-2">
           <div className="flex items-center gap-2">
@@ -980,7 +980,7 @@ export function RecommendedProductsSkeleton() {
 
 export function TopCategoriesSkeleton() {
   return (
-    <section aria-hidden className="mx-auto w-full max-w-7xl px-4 py-5">
+    <section aria-hidden className="mx-auto w-full max-w-7xl px-4 py-2">
       <div className="mb-1 flex items-end justify-between gap-2 pb-1">
         <Skeleton className="h-6 w-36" />
       </div>

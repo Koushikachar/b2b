@@ -3,7 +3,7 @@
 import { useActionState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { HugeiconsIcon } from "@hugeicons/react";
-import { ShoppingCart01Icon } from "@hugeicons/core-free-icons";
+import { Clock01Icon, ShoppingCart01Icon } from "@hugeicons/core-free-icons";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { toast } from "@/components/ui/toast";
@@ -40,14 +40,21 @@ export function CardAddButton({
   }, [state, router]);
 
   if (outOfStock) {
-    return (
+    // Plain muted bar: clearly unavailable without looking broken.
+    const muted = "border border-border bg-muted text-muted-foreground";
+    return compact ? (
       <span
-        className={
-          compact
-            ? "inline-flex h-8 shrink-0 items-center rounded-lg border border-border bg-muted px-2 text-[11px] font-semibold text-muted-foreground"
-            : "inline-flex h-9 w-full items-center justify-center rounded-md border border-border bg-muted text-xs font-semibold text-muted-foreground"
-        }
+        className={`inline-flex h-8 shrink-0 items-center gap-1 rounded-lg px-2 text-xs font-semibold ${muted}`}
       >
+        <HugeiconsIcon icon={Clock01Icon} strokeWidth={2} className="size-3.5" />
+        Out of stock
+      </span>
+    ) : (
+      <span
+        role="status"
+        className={`inline-flex h-9 w-full items-center justify-center gap-1.5 rounded-md text-xs font-semibold ${muted}`}
+      >
+        <HugeiconsIcon icon={Clock01Icon} strokeWidth={2} className="size-4" />
         Out of stock
       </span>
     );

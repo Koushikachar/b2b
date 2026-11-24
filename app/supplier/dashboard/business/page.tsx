@@ -68,6 +68,12 @@ export default async function SupplierBusinessPage() {
     redirect("/supplier/onboarding");
   }
 
+  // Shown in the delete warning so nobody wipes a catalogue by accident.
+  const { count: productCount } = await supabase
+    .from("products")
+    .select("id", { count: "exact", head: true })
+    .eq("supplier_id", company.id);
+
   const editable =
     company.kyb_status === "draft" || company.kyb_status === "rejected";
 
@@ -79,58 +85,42 @@ export default async function SupplierBusinessPage() {
             Business profile
           </h1>
           <p className="text-sm text-muted-foreground">
-            Edit company name, logo and contact here. Your margin lives under Products. Full application details are under Verification.
+            Edit your logo, name, contact, address and GSTIN here — no re-verification needed.
           </p>
         </div>
-
       </div>
 
-      <div className="grid grid-cols-1 gap-4 @lg/content:grid-cols-[minmax(0,1fr)_320px]">
-        <Card>
-          <CardHeader className="border-b border-border px-5 py-4">
-            <CardTitle>Business profile</CardTitle>
-            <CardDescription>
-              Logo, company name and contact — changes here do not require re-verification.
-            </CardDescription>
-          </CardHeader>
+      <div className="grid grid-cols-1 gap-4 @lg/content:grid-cols-[minmax(0,1fr)_300px]">
+        <Card className="gap-0! py-0!">
           <div className="px-5 py-5">
             <BusinessProfileForm
-              businessName={company.business_name}
-              contactPerson={company.contact_person}
-              logoPath={company.logo_path}
+              values={{
+                businessName: company.business_name ?? "",
+                contactPerson: company.contact_person ?? "",
+                phone: company.phone ?? "",
+                address: company.address ?? "",
+                city: company.city ?? "",
+                state: company.state ?? "",
+                pincode: company.pincode ?? "",
+                gstin: company.gstin ?? "",
+                logoPath: company.logo_path,
+              }}
             />
           </div>
         </Card>
 
         <div className="flex flex-col gap-4 @lg/content:sticky @lg/content:top-4 @lg/content:self-start">
-          <Card size="sm" className="!gap-0 !py-0">
+          <Card size="sm" className="gap-0! py-0!">
             <CardHeader className="border-b border-border px-5 py-4">
-              <CardTitle>Business details</CardTitle>
+              <CardTitle>Verification details</CardTitle>
               <CardDescription>
-                Read-only unless you update the onboarding application.
+                PAN and bank are checked at verification, so they change only through the application.
               </CardDescription>
             </CardHeader>
             <CardContent className="flex flex-col gap-5 px-5 py-5">
               <FieldSet>
-                <FieldLegend variant="label">Contact & address</FieldLegend>
+                <FieldLegend variant="label">Tax ID</FieldLegend>
                 <ItemGroup>
-                  <Detail label="Mobile" value={company.phone} />
-                  <Detail label="City" value={company.city} />
-                  <Detail
-                    label="Registered address"
-                    value={
-                      company.address
-                        ? `${company.address}, ${company.city}, ${company.state} ${company.pincode}`
-                        : null
-                    }
-                  />
-                </ItemGroup>
-              </FieldSet>
-              <Separator />
-              <FieldSet>
-                <FieldLegend variant="label">Tax IDs</FieldLegend>
-                <ItemGroup>
-                  <Detail label="GSTIN" value={company.gstin} />
                   <Detail label="PAN" value={company.pan} />
                 </ItemGroup>
               </FieldSet>
@@ -156,7 +146,7 @@ export default async function SupplierBusinessPage() {
         </div>
       </div>
 
-      <DeleteAccountSection />
+      <DeleteAccountSection businessName={company.business_name ?? ""} productCount={productCount ?? 0} />
     </div>
   );
 }

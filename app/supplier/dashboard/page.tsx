@@ -39,7 +39,7 @@ import { LOGIN_PATH } from "@/lib/auth/paths"
 import { fetchCustomerPricing } from "@/lib/pricing-data"
 import { getAccountStores } from "@/lib/supplier/account-stores"
 import { formatRupees, stockLabel } from "@/lib/format"
-import { latestAcceptedQuotation } from "@/lib/orders/quotation"
+import { orderAmount } from "@/lib/orders/quotation"
 import {
   DASHBOARD_RANGE_LABELS,
   getDashboardMetrics,
@@ -232,7 +232,7 @@ export default async function SupplierOverviewPage({
     supabase
       .from("orders")
       .select(
-        "id, reference, status, payment_status, subtotal, created_at, delivery, quotations(status, version, total)"
+        "id, reference, status, payment_status, subtotal, gst_amount, wallet_amount, created_at, delivery, quotations(status, version, total)"
       )
       .eq("supplier_id", company.id)
       .order("created_at", { ascending: false })
@@ -598,8 +598,11 @@ export default async function SupplierOverviewPage({
                   const quotations = order.quotations as
                     | { status: string; version: number; total: number }[]
                     | undefined
-                  const amount = Number(
-                    latestAcceptedQuotation(quotations)?.total ?? order.subtotal
+                  const amount = orderAmount(
+                    order.subtotal,
+                    quotations,
+                    order.gst_amount,
+                    order.wallet_amount
                   )
                   return (
                     <TableRow key={order.id}>

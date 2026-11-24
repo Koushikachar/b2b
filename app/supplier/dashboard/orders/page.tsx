@@ -19,6 +19,7 @@ import {
 } from "./supplier-orders-table"
 import { StatusFilterChip } from "@/components/orders/status-filter-chip"
 import { orderAmount } from "@/lib/orders/quotation"
+import { orderSearchFilter, orderSearchTerm } from "@/lib/orders/search"
 import {
   Pagination,
   PaginationContent,
@@ -50,6 +51,7 @@ type OrderRow = {
   payment_status: string
   subtotal: number
   gst_amount: number
+  wallet_amount: number | null
   item_count: number
   created_at: string
   updated_at: string
@@ -60,11 +62,12 @@ type OrderRow = {
 export default async function SupplierOrdersPage({
   searchParams,
 }: {
-  searchParams: Promise<{ status?: string; payment?: string; page?: string }>
+  searchParams: Promise<{ status?: string; payment?: string; page?: string; q?: string }>
 }) {
   const params = await searchParams
   const requestedPage = Math.max(1, Math.floor(Number(params.page) || 1))
   const paymentClaimOnly = params.payment === "claimed"
+  const search = orderSearchTerm(params.q)
   const requested = (params.status ?? "")
     .split(",")
     .map((value) => value.trim())
@@ -101,6 +104,9 @@ export default async function SupplierOrdersPage({
   }
   if (paymentClaimOnly) {
     countQuery = countQuery.eq("payment_status", "claimed")
+  }
+  if (search) {
+    countQuery = countQuery.or(orderSearchFilter(search))
   }
 
   // Tab badges and the filtered count are independent aggregates.
@@ -139,7 +145,7 @@ export default async function SupplierOrdersPage({
   let query = supabase
     .from("orders")
     .select(
-      "id, reference, status, payment_status, subtotal, gst_amount, item_count, created_at, updated_at, delivery, quotations(status, version, total)"
+      "id, reference, status, payment_status, subtotal, gst_amount, wallet_amount, item_count, created_at, updated_at, delivery, quotations(status, version, total)"
     )
     .eq("supplier_id", companyId)
     .order("created_at", { ascending: false })
@@ -151,6 +157,9 @@ export default async function SupplierOrdersPage({
   }
   if (paymentClaimOnly) {
     query = query.eq("payment_status", "claimed")
+  }
+  if (search) {
+    query = query.or(orderSearchFilter(search))
   }
 
   const { data, error } = await query
@@ -165,7 +174,8 @@ export default async function SupplierOrdersPage({
       status: order.status,
       paymentStatus: order.payment_status,
       // Amount owed: accepted quotation, else subtotal + GST saved at checkout.
-      subtotal: orderAmount(order.subtotal, order.quotations, order.gst_amount),
+      // Net of wallet credit: the same "To collect" figure as the order page.
+      subtotal: orderAmount(order.subtotal, order.quotations, order.gst_amount, order.wallet_amount),
       itemCount: order.item_count,
       buyerName: order.delivery?.fullName ?? null,
       createdAt: order.created_at,
@@ -183,6 +193,7 @@ export default async function SupplierOrdersPage({
     const query = new URLSearchParams()
     if (requested.length > 0) query.set("status", requested.join(","))
     if (paymentClaimOnly) query.set("payment", "claimed")
+    if (search) query.set("q", search)
     if (target > 1) query.set("page", String(target))
     const suffix = query.toString()
     return suffix ? `${BASE}?${suffix}` : BASE
@@ -293,7 +304,7 @@ export default async function SupplierOrdersPage({
         ))}
       </div>
 
-      <SupplierOrdersTable orders={orders} basePath={BASE} />
+      <SupplierOrdersTable orders={orders} basePath={BASE} search={search} />
 
       {totalPages > 1 ? (
         <Pagination>

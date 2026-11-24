@@ -73,7 +73,7 @@ export default async function PromoEventPage({ params }: Props) {
           />
         </div>
 
-        <section className="mt-8 rounded-xl border border-border bg-card p-4 text-sm">
+        <section className="mt-5 rounded-xl border border-border bg-card p-4 text-sm">
           <h2 className="font-bold tracking-tight">How it works</h2>
           <p className="mt-1.5 leading-relaxed text-muted-foreground">{theme.instructions}</p>
         </section>
