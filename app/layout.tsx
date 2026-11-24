@@ -6,47 +6,35 @@ import { MotionConfig } from "motion/react"
 import "./globals.css"
 import { Toaster } from "@/components/ui/toast"
 import { cn } from "@/lib/utils"
-import { SITE_NAME, SITE_URL, SUPPORT_EMAIL, SUPPORT_PHONE } from "@/lib/site"
+import { SITE_NAME, SITE_URL } from "@/lib/site"
 import { serializeJsonLd } from "@/lib/json-ld"
+import { siteJsonLd } from "@/lib/seo"
 import { AnalyticsConsent } from "@/components/layout/analytics-consent"
 
-// Organization schema (search engines' knowledge panel / sitelinks).
-const ORGANIZATION_JSON_LD = {
-  "@context": "https://schema.org",
-  "@type": "Organization",
-  name: "Direct2Hub",
-  alternateName: SITE_NAME,
-  url: SITE_URL,
-  logo: `${SITE_URL}/logo.jpg`,
-  ...(SUPPORT_EMAIL || SUPPORT_PHONE
-    ? {
-        contactPoint: {
-          "@type": "ContactPoint",
-          contactType: "customer support",
-          areaServed: "IN",
-          ...(SUPPORT_EMAIL ? { email: SUPPORT_EMAIL } : {}),
-          ...(SUPPORT_PHONE ? { telephone: SUPPORT_PHONE } : {}),
-        },
-      }
-    : {}),
-}
+// Organization + WebSite schema (knowledge panel, entity for AI engines, site search).
+const SITE_JSON_LD = siteJsonLd(SITE_URL)
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
+  applicationName: SITE_NAME,
   title: {
-    default: `${SITE_NAME} — Wholesale Sourcing from Verified Indian Suppliers`,
-    template: `%s · ${SITE_NAME}`,
+    default: `${SITE_NAME} — Wholesale Marketplace India | Bulk Buying from Verified Suppliers`,
+    template: `%s | ${SITE_NAME}`,
   },
   description:
-    "Source wholesale products directly from verified Indian manufacturers and suppliers. Live pricing, MOQs and negotiated deals across categories.",
+    "Buy wholesale in bulk from verified Indian suppliers on Direct2Hub. Low MOQs, ₹3,000 minimum order, GST invoices, 5–7 day delivery and free damage protection.",
+  category: "shopping",
   openGraph: {
     siteName: SITE_NAME,
     type: "website",
     locale: "en_IN",
   },
+  twitter: { card: "summary_large_image" },
+  formatDetection: { telephone: false },
   robots: {
     index: true,
     follow: true,
+    googleBot: { index: true, follow: true, "max-image-preview": "large", "max-snippet": -1 },
   },
 }
 
@@ -115,7 +103,7 @@ export default function RootLayout({
       <body suppressHydrationWarning>
         <script
           type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: serializeJsonLd(ORGANIZATION_JSON_LD) }}
+          dangerouslySetInnerHTML={{ __html: serializeJsonLd(SITE_JSON_LD) }}
         />
         {/* Motion honours prefers-reduced-motion app-wide (apple-design §14). */}
         <MotionConfig reducedMotion="user">

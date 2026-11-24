@@ -1,3 +1,6 @@
+import { HugeiconsIcon } from "@hugeicons/react";
+import { Clock01Icon, WhatsappIcon } from "@hugeicons/core-free-icons";
+import { d2hWhatsappLink } from "@/lib/orders/whatsapp-link";
 import { createClient } from "@/lib/supabase/server";
 import { getSessionUser } from "@/lib/auth/session";
 import { isProductSaved } from "@/lib/buyer/queries";
@@ -55,12 +58,27 @@ export async function ProductActionsIsland({
         />
       )}
       {outOfStock ? (
-        <p
+        <div
           role="status"
-          className="flex h-11 items-center justify-center rounded-lg border border-destructive/30 bg-destructive/5 text-sm font-semibold text-destructive"
+          className="flex items-center gap-3 rounded-lg border border-border bg-muted/60 p-3"
         >
-          Currently out of stock
-        </p>
+          <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-destructive/10 text-destructive [&_svg]:size-5">
+            <HugeiconsIcon icon={Clock01Icon} strokeWidth={2} />
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block text-sm font-bold text-foreground">Out of stock — back soon</span>
+            <span className="block text-xs text-muted-foreground">Save it to find it fast, or ask us when it&apos;s back.</span>
+          </span>
+          <a
+            href={d2hWhatsappLink({ productTitle: title })}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="press inline-flex h-9 shrink-0 items-center gap-1.5 rounded-md bg-whatsapp px-3 text-xs font-semibold text-white hover:bg-whatsapp-dark"
+          >
+            <HugeiconsIcon icon={WhatsappIcon} strokeWidth={2} className="size-4" />
+            Ask
+          </a>
+        </div>
       ) : (
         <AddToCartForm
           productId={productId}

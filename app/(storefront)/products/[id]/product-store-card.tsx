@@ -88,7 +88,7 @@ export function ProductStoreCard({
                 alt=""
                 fill
                 sizes="48px"
-                className={card.logo.programme ? "object-contain p-0.5" : "object-cover"}
+                className={card.logo.programme ? "object-contain p-2" : "object-cover"}
               />
             ) : (
               <HugeiconsIcon icon={Building02Icon} strokeWidth={2} className="size-5 text-muted-foreground" />

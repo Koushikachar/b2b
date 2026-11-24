@@ -77,6 +77,13 @@ export function displayName(profile: Pick<BuyerProfile, "fullName" | "email">): 
     .trim() || "My account";
 }
 
+/** New-address prefill: the account name and phone, both editable in the form. */
+export function addressDefaults(
+  profile: Pick<BuyerProfile, "fullName" | "email" | "phone">,
+): { fullName: string; phone: string } {
+  return { fullName: displayName(profile).replace(/^My account$/, ""), phone: profile.phone ?? "" };
+}
+
 // ---------------------------------------------------------------------------
 // Wallet
 // ---------------------------------------------------------------------------

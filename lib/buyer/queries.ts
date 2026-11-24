@@ -16,6 +16,8 @@ export type SavedProductRecord = {
     unit: string;
     moq: number;
     negotiable: boolean;
+    mrp: number | null;
+    is_out_of_stock: boolean | null;
     images: { path: string; sort: number }[];
     supplier: {
       id: string;
@@ -43,7 +45,7 @@ export async function getBuyerSavedProducts(
       `
         id, product_id, created_at,
         product:product_id(
-          id, title, unit, moq, negotiable, supplier_id,
+          id, title, unit, moq, mrp, is_out_of_stock, negotiable, supplier_id,
           images:product_images(path, sort),
           supplier:supplier_id(id, business_name, city, state, logo_path)
         )
@@ -142,6 +144,8 @@ export type RecentlyViewedRecord = {
     unit: string;
     moq: number;
     negotiable: boolean;
+    mrp: number | null;
+    is_out_of_stock: boolean | null;
     images: { path: string; sort: number }[];
     supplier: {
       id: string;
@@ -169,7 +173,7 @@ export async function getBuyerRecentlyViewed(
       `
         id, product_id, last_viewed_at,
         product:product_id(
-          id, title, unit, moq, negotiable, supplier_id,
+          id, title, unit, moq, mrp, is_out_of_stock, negotiable, supplier_id,
           images:product_images(path, sort),
           supplier:supplier_id(id, business_name, city, state, logo_path)
         )

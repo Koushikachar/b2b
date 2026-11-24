@@ -106,7 +106,7 @@ async function CategoryProductListings({
 
       {/* Pagination */}
       {totalPages > 1 && (
-        <div className="mt-8">
+        <div className="mt-5">
           <Pagination>
             <PaginationContent>
               {page > 1 && (

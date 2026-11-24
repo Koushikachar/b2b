@@ -7,6 +7,7 @@ import { StorefrontFooter } from "@/components/layout/storefront-footer"
 import { StorefrontBottomNav } from "@/components/layout/storefront-bottom-nav"
 import { StoreTabs } from "@/components/storefront/store-tabs"
 import { StorefrontSession } from "@/components/storefront/storefront-session"
+import { SignupBonus } from "@/components/storefront/signup-bonus"
 import type { MegaMenuCategory } from "@/components/storefront/search-mega-menu"
 
 
@@ -40,6 +41,7 @@ export function StorefrontShell({
       }
     >
       <StorefrontSession />
+      {user ? <SignupBonus accountKey={user.email} /> : null}
       {pathname === "/" || pathname === "/select" || pathname?.startsWith("/select/") ? (
         <StoreTabs />
       ) : null}
@@ -49,8 +51,13 @@ export function StorefrontShell({
         megaCategories={megaCategories}
         cartCount={cartCount}
       />
-      <main className="flex-1">{children}</main>
-      <StorefrontFooter />
+      {/* Light brand tint on the side margins (all screen sizes), fading to the
+          page background toward the centre so content stays clean. */}
+      {/* pb-8: breathing room between the last product row and the footer. */}
+      <main className="flex-1 bg-[linear-gradient(90deg,var(--brand-50),var(--background)_22%,var(--background)_78%,var(--brand-50))] pb-8">
+        {children}
+      </main>
+      <StorefrontFooter user={user} />
       {!hideBottomNav && (
         <StorefrontBottomNav user={user} cartCount={cartCount} />
       )}

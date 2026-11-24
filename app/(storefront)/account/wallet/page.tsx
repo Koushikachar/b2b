@@ -53,10 +53,10 @@ export default async function WalletPage() {
         <div className="rounded-2xl border border-dashed border-border bg-card p-8 text-center">
           <p className="text-sm font-medium">No transactions yet</p>
           <p className="mt-1 text-sm text-muted-foreground">
-            Rewards from festival events and refunds will show up here.
+            Your signup bonus, rewards and refunds will show up here.
           </p>
-          <Link href="/select" className="mt-3 inline-block text-sm font-semibold text-primary hover:underline">
-            Explore D2H Select deals
+          <Link href="/products" className="mt-3 inline-block text-sm font-semibold text-primary hover:underline">
+            Shop products
           </Link>
         </div>
       ) : (

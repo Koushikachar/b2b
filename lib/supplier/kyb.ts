@@ -120,10 +120,21 @@ export const marginPctSchema = z
   )
   .transform((v) => Number(v));
 
-export const businessProfileSchema = kybSchema.pick({
-  business_name: true,
-  contact_person: true,
-});
+// Editable any time from Settings → Business profile (no re-verification):
+// name, contact, phone, registered address and an optional GSTIN.
+export const businessProfileSchema = kybSchema
+  .pick({
+    business_name: true,
+    contact_person: true,
+    phone: true,
+    address: true,
+    city: true,
+    state: true,
+    pincode: true,
+  })
+  .extend({
+    gstin: z.union([z.literal("").transform(() => null), kybSchema.shape.gstin]),
+  });
 
 export const MAX_LOGO_BYTES = 2 * 1024 * 1024;
 

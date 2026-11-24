@@ -1,7 +1,7 @@
 import { Suspense } from "react"
 import { sanitizeRichText } from "@/lib/supplier/sanitize"
 import { formatIndianNumber, formatRupees, stockLabel } from "@/lib/format"
-import { SITE_NAME, SITE_URL } from "@/lib/site"
+import { d2hWhatsappLink } from "@/lib/orders/whatsapp-link"
 import { getCachedRelatedProducts } from "@/lib/storefront-cache"
 import { publicTransformedImageUrl } from "@/lib/storage"
 import type { CustomerPrices } from "@/lib/pricing"
@@ -153,8 +153,8 @@ export function ProductDetail({ product }: { product: Product }) {
     sortedVariants.length > 0 ||
     Boolean(product.packaging_details)
 
-  const shareText = `Hi, I'm interested in ${product.title} on ${SITE_NAME}: ${SITE_URL}/products/${product.id}`
-  const whatsappHref = `https://wa.me/?text=${encodeURIComponent(shareText)}`
+  // Chat with D2H Core about this product (no order number before an order).
+  const whatsappHref = d2hWhatsappLink({ productTitle: product.title })
 
   // Personalized buy box streams in separately (own Suspense below) so the
   // cached body never waits for per-user lookups.
@@ -276,7 +276,7 @@ export function ProductDetail({ product }: { product: Product }) {
       </div>
 
       {/* Description / highlights */}
-      <div className="mt-8">
+      <div className="mt-5">
         <ProductDetailTabs
           description={
             <Card className="rounded-lg p-4 sm:p-6">
@@ -391,7 +391,7 @@ export async function RelatedProductsSection({
   if (related.length === 0) return null
 
   return (
-    <div className="mx-auto mt-10 w-full max-w-7xl px-4">
+    <div className="mx-auto mt-6 w-full max-w-7xl px-4">
       <SectionHeader title="Related Products" subtitle="More from this category" />
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
         {related.slice(0, 8).map((product) => (

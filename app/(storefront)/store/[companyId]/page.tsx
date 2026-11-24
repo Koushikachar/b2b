@@ -67,6 +67,8 @@ type ProductRow = {
   unit: string;
   moq: number;
   negotiable: boolean;
+  mrp: number | null;
+  is_out_of_stock: boolean | null;
   images: { path: string; sort: number }[] | null;
 };
 
@@ -144,7 +146,7 @@ async function StoreProducts({
   const supabase = await createClient();
   const { data: products } = await supabase
     .from("products")
-    .select("id, title, unit, moq, negotiable, images:product_images(path, sort)")
+    .select("id, title, unit, moq, mrp, is_out_of_stock, negotiable, images:product_images(path, sort)")
     .eq("supplier_id", companyId)
     .eq("status", "approved")
     .eq("is_hidden", false)
@@ -179,6 +181,8 @@ async function StoreProducts({
               unit: p.unit,
               moq: p.moq,
               negotiable: p.negotiable,
+              mrp: p.mrp == null ? null : Number(p.mrp),
+              is_out_of_stock: p.is_out_of_stock === true,
               images: p.images,
               pricing: priceMap.get(p.id) ?? null,
               supplier: {

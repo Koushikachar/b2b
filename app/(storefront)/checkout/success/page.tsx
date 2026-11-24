@@ -10,8 +10,8 @@ import { Card } from "@/components/ui/card";
 import { formatRupees } from "@/lib/format";
 import { ORDER_STATUS_LABELS, parseOrderStatus } from "@/lib/orders/lifecycle";
 import { orderAmount } from "@/lib/orders/quotation";
-import { whatsappContactLink } from "@/lib/orders/whatsapp-link";
-import { SUPPORT_WHATSAPP } from "@/lib/site";
+import { d2hWhatsappLink } from "@/lib/orders/whatsapp-link";
+import { COMPANY } from "@/lib/company";
 import { OrderPlacedDialog } from "./order-placed-dialog";
 
 export const metadata: Metadata = {
@@ -43,13 +43,11 @@ export default async function CheckoutSuccessPage({
 
   const results = await getCheckoutOrders(supabase, user.id, orderIds);
   const references = results.map(({ order }) => order.reference);
-  const whatsappHref = whatsappContactLink(
-    SUPPORT_WHATSAPP,
-    `Hello D2B team, I placed order ${references.join(", ")}.`,
-  );
+  const whatsappHref =
+    references.length > 0 ? d2hWhatsappLink({ orderReference: references.join(", ") }) : null;
 
   return (
-    <div className="mx-auto w-full max-w-3xl px-4 py-8">
+    <div className="mx-auto w-full max-w-3xl px-4 py-5">
       {results.length > 0 ? (
         <OrderPlacedDialog references={references} whatsappHref={whatsappHref} />
       ) : null}
@@ -59,11 +57,11 @@ export default async function CheckoutSuccessPage({
       <p className="mt-1 text-sm text-muted-foreground">
         {results.length === 0
           ? "We could not find those orders on your account."
-          : "Submitted to the suppliers for review. Nothing has been paid yet."}
+          : "Submitted to Direct2Hub for review. Nothing has been paid yet."}
       </p>
 
       <div className="mt-5 flex flex-col gap-4">
-        {results.map(({ order, supplierName, items }) => (
+        {results.map(({ order, items }) => (
           <Card key={order.id} className="rounded-lg p-4">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div className="flex items-center gap-2">
@@ -75,13 +73,13 @@ export default async function CheckoutSuccessPage({
                 </Badge>
               </div>
               <span className="text-sm font-semibold tabular-nums">
-                {formatRupees(orderAmount(order.subtotal, null, order.gst_amount))}
+                {formatRupees(orderAmount(order.subtotal, null, order.gst_amount, order.wallet_amount))}
                 {Number(order.gst_amount) > 0 ? (
                   <span className="ml-1 text-xs font-normal text-muted-foreground">incl. GST</span>
                 ) : null}
               </span>
             </div>
-            <p className="mt-1 text-sm text-muted-foreground">{supplierName}</p>
+            <p className="mt-1 text-sm text-muted-foreground">{COMPANY.legalName}</p>
             <ul className="mt-3 flex flex-col gap-1 text-sm">
               {items.map((item) => (
                 <li key={item.id} className="flex justify-between gap-3">
@@ -119,13 +117,10 @@ function AlertNote() {
     <div className="mt-5 rounded-lg border border-border bg-card p-4 text-sm text-muted-foreground">
       <p className="font-semibold text-foreground">What happens next</p>
       <ul className="mt-2 flex list-disc flex-col gap-1 pl-5">
-        <li>Each supplier reviews availability and confirms or rejects the order.</li>
-        <li>
-          A supplier may send a quotation if final charges need confirming —
-          you approve it before anything is due.
-        </li>
-        <li>You pay suppliers directly, outside this platform.</li>
-        <li>Track status and delivery any time from your orders page.</li>
+        <li>Direct2Hub reviews your order and accepts or cancels it.</li>
+        <li>Once accepted, we contact you to arrange payment (outside this website).</li>
+        <li>After payment is received, your order is packed and shipped.</li>
+        <li>Track status, tracking number and invoice any time from your orders page.</li>
       </ul>
     </div>
   );

@@ -37,8 +37,8 @@ function line(overrides: Partial<CartLinePricing> = {}): CartLinePricing {
 }
 
 describe("MIN_CART_VALUE", () => {
-  it("is ₹2,500", () => {
-    expect(MIN_CART_VALUE).toBe(2500);
+  it("is ₹3,000", () => {
+    expect(MIN_CART_VALUE).toBe(3000);
   });
 });
 
@@ -121,19 +121,19 @@ describe("summarizeCart", () => {
     expect(summary.itemCount).toBe(5);
   });
 
-  it("fails the gate below ₹2,500 with the shortfall", () => {
+  it("fails the gate below ₹3,000 with the shortfall", () => {
     const summary = summarizeCart([line({ quantity: 20 })], resolve);
 
     // 20 × 95 (slab) = 1900
     expect(summary.subtotal).toBe(1900);
     expect(summary.meetsMinimum).toBe(false);
-    expect(summary.shortfall).toBe(600);
+    expect(summary.shortfall).toBe(1100);
   });
 
-  it("passes the gate at exactly ₹2,500", () => {
-    const summary = summarizeCart([line({ quantity: 25 })], () => 100);
+  it("passes the gate at exactly ₹3,000", () => {
+    const summary = summarizeCart([line({ quantity: 30 })], () => 100);
 
-    expect(summary.subtotal).toBe(2500);
+    expect(summary.subtotal).toBe(3000);
     expect(summary.meetsMinimum).toBe(true);
     expect(summary.shortfall).toBe(0);
   });

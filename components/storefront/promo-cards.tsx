@@ -151,7 +151,7 @@ export function PromoCollectionCard({
       </Link>
       <div className="@container mx-2 mb-2 flex flex-1 flex-col rounded-lg bg-card px-2.5 pt-1 pb-2.5 shadow-xs @[18rem]:mx-2.5 @[18rem]:mb-2.5 @[18rem]:px-3 @[18rem]:pb-3">
         {products.length === 0 ? (
-          <p className="flex flex-1 items-center justify-center py-10 text-center text-sm text-muted-foreground">
+          <p className="flex flex-1 items-center justify-center py-6 text-center text-sm text-muted-foreground">
             New deals are on the way.
           </p>
         ) : (

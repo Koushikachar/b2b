@@ -19,7 +19,7 @@ import { CartLineControls } from "./cart-line-controls"
 
 /**
  * Cart grouped by supplier, each with its own coupon box. Applied discounts
- * are summed into the order summary; the ₹2,500 gate still reads the
+ * are summed into the order summary; the minimum-order gate still reads the
  * pre-discount subtotal, and checkout revalidates every code.
  */
 export function CartGroups({
@@ -29,11 +29,8 @@ export function CartGroups({
   meetsMinimum,
   shortfall,
   unavailableCount,
-  buyerName,
 }: {
   groups: CartSupplierGroup[]
-  /** Shown as each group's heading (profile name, else from the email). */
-  buyerName: string
   /** Persisted coupon codes by supplier, hydrated into each box on load. */
   savedCoupons: Record<string, string>
   subtotal: number
@@ -81,22 +78,8 @@ export function CartGroups({
           </p>
         )}
         {groups.map((group) => (
-          <section
-            key={group.supplierId}
-            aria-label={`${buyerName}'s cart items`}
-          >
-            <div className="flex items-baseline justify-between gap-2">
-              {/* The buyer's own name heads the cart; the supplier's store
-                  name is not shown to buyers. */}
-              <span className="truncate text-sm font-bold tracking-tight">
-                {buyerName}
-              </span>
-              <span className="shrink-0 text-xs text-muted-foreground tabular-nums">
-                {group.lines.length} item{group.lines.length > 1 ? "s" : ""} ·{" "}
-                {formatRupees(group.subtotal)}
-              </span>
-            </div>
-            <div className="mt-2 flex flex-col gap-3">
+          <section key={group.supplierId} aria-label="Cart items">
+            <div className="flex flex-col gap-3">
               {group.lines.map((line) => (
                 <Card key={line.cartItemId} className="rounded-lg p-4">
                   <div className="flex gap-3">
@@ -178,70 +161,75 @@ export function CartGroups({
         ))}
       </div>
 
-      <Card className="h-fit rounded-lg p-4 lg:sticky lg:top-32">
-        <p className="text-sm font-semibold">Order summary</p>
-        <div className="mt-3 flex items-center justify-between text-sm">
-          <span className="text-muted-foreground">Subtotal</span>
-          <span className="font-bold tabular-nums">
-            {formatRupees(subtotal)}
-          </span>
-        </div>
-        {savings > 0 && (
-          <>
-            <div className="mt-1.5 flex items-center justify-between text-sm">
-              <span className="text-muted-foreground">Coupon savings</span>
-              <span className="font-bold text-success tabular-nums">
-                −{formatRupees(savings)}
-              </span>
-            </div>
-            <div className="mt-1.5 flex items-center justify-between text-sm">
-              <span className="font-semibold">Total</span>
-              <span className="font-bold tabular-nums">
-                {formatRupees(subtotal - savings)}
-              </span>
-            </div>
-          </>
-        )}
-        <div className="mt-3">
-          <div
-            role="progressbar"
-            aria-valuenow={progress}
-            aria-valuemin={0}
-            aria-valuemax={100}
-            aria-label="Progress to minimum cart value"
-            className="h-2 overflow-hidden rounded-sm bg-muted"
-          >
+      {/* Stays put on the right while the product list scrolls (desktop). */}
+      <section aria-labelledby="order-summary-title" className="h-fit lg:sticky lg:top-32">
+        <Card className="rounded-lg p-4">
+          <h2 id="order-summary-title" className="text-sm font-bold tracking-tight">
+            Order summary
+          </h2>
+          <div className="mt-3 flex items-center justify-between text-sm">
+            <span className="text-muted-foreground">Subtotal</span>
+            <span className="font-bold tabular-nums">
+              {formatRupees(subtotal)}
+            </span>
+          </div>
+          {savings > 0 && (
+            <>
+              <div className="mt-1.5 flex items-center justify-between text-sm">
+                <span className="text-muted-foreground">Coupon savings</span>
+                <span className="font-bold text-success tabular-nums">
+                  −{formatRupees(savings)}
+                </span>
+              </div>
+              <div className="mt-1.5 flex items-center justify-between text-sm">
+                <span className="font-semibold">Total</span>
+                <span className="font-bold tabular-nums">
+                  {formatRupees(subtotal - savings)}
+                </span>
+              </div>
+            </>
+          )}
+          <div className="mt-3">
             <div
-              className="h-full bg-primary"
-              style={{ width: `${progress}%` }}
-            />
+              role="progressbar"
+              aria-valuenow={progress}
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-label="Progress to minimum cart value"
+              className="h-2 overflow-hidden rounded-sm bg-muted"
+            >
+              <div
+                className="h-full bg-primary"
+                style={{ width: `${progress}%` }}
+              />
+            </div>
+            {meetsMinimum ? (
+              <p className="mt-2 text-xs font-medium text-success">
+                Minimum met — you can check out.
+              </p>
+            ) : (
+              <p className="mt-2 text-xs text-muted-foreground">
+                Add {formatRupees(shortfall)} more to reach the{" "}
+                {formatRupees(MIN_CART_VALUE)} minimum.
+              </p>
+            )}
           </div>
           {meetsMinimum ? (
-            <p className="mt-2 text-xs font-medium text-success">
-              Minimum met — you can check out.
-            </p>
+            <Link href="/checkout" className="mt-4 block">
+              <Button size="lg" className="w-full">
+                Proceed to Checkout
+              </Button>
+            </Link>
           ) : (
-            <p className="mt-2 text-xs text-muted-foreground">
-              Add {formatRupees(shortfall)} more to reach the{" "}
-              {formatRupees(MIN_CART_VALUE)} minimum.
-            </p>
-          )}
-        </div>
-        {meetsMinimum ? (
-          <Link href="/checkout" className="mt-4 block">
-            <Button size="lg" className="w-full">
-              Proceed to Checkout
+            <Button disabled size="lg" className="mt-4 w-full">
+              {`Checkout · min ${formatRupees(MIN_CART_VALUE)}`}
             </Button>
-          </Link>
-        ) : (
-          <Button disabled size="lg" className="mt-4 w-full">
-            {`Checkout · min ${formatRupees(MIN_CART_VALUE)}`}
-          </Button>
-        )}
-        <p className="mt-2 text-center text-[11px] text-muted-foreground">
-          Prices include applicable slabs and are confirmed at checkout.
-        </p>
-      </Card>
+          )}
+          <p className="mt-2 text-center text-[11px] text-muted-foreground">
+            Prices include applicable slabs and are confirmed at checkout.
+          </p>
+        </Card>
+      </section>
     </div>
   )
 }

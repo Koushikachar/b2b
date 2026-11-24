@@ -18,7 +18,7 @@ export function RecentlyViewedBlock({
   if (products.length === 0) return null
 
   return (
-    <section className="mx-auto w-full max-w-7xl px-4 py-5">
+    <section className="mx-auto w-full max-w-7xl px-4 py-2">
       <SectionHeader
         title="Recently viewed"
         icon={

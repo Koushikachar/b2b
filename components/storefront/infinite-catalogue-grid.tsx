@@ -1,10 +1,11 @@
 "use client"
 
-import { useCallback, useEffect, useRef, useState } from "react"
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { Loading03Icon } from "@hugeicons/core-free-icons"
 import { loadCataloguePage } from "@/lib/catalogue-actions"
 import type { CatalogueFilters } from "@/lib/catalogue"
+import { restoreGrid, saveGrid } from "@/lib/catalogue-grid-cache"
 import type { CataloguePage } from "@/lib/storefront"
 import { Button } from "@/components/ui/button"
 import { Empty, EmptyDescription, EmptyTitle } from "@/components/ui/empty"
@@ -25,15 +26,44 @@ export function InfiniteCatalogueGrid({
   initialPage: CataloguePage
   filters: CatalogueFilters
 }) {
-  const [items, setItems] = useState(initialPage.items)
-  const [cursor, setCursor] = useState(initialPage.nextCursor)
+  // Coming back from a product page: pick up the pages already loaded instead
+  // of starting over (empty on a full reload, so SSR hydration still matches).
+  const [restored] = useState(() => restoreGrid(filters, initialPage.items[0]?.id))
+  const [items, setItems] = useState(restored?.items ?? initialPage.items)
+  const [cursor, setCursor] = useState(restored ? restored.cursor : initialPage.nextCursor)
   const [status, setStatus] = useState<GridStatus>(
-    initialPage.nextCursor ? "idle" : "complete",
+    (restored ? restored.complete : !initialPage.nextCursor) ? "complete" : "idle",
   )
   const [error, setError] = useState<string | null>(null)
   const sentinelRef = useRef<HTMLDivElement | null>(null)
   const requestRef = useRef(0)
   const inFlightRef = useRef(false)
+  const scrollYRef = useRef(restored?.scrollY ?? 0)
+
+  useLayoutEffect(() => {
+    if (restored) window.scrollTo(0, restored.scrollY)
+  }, [restored])
+
+  useEffect(() => {
+    const onScroll = () => {
+      scrollYRef.current = window.scrollY
+    }
+    window.addEventListener("scroll", onScroll, { passive: true })
+    return () => window.removeEventListener("scroll", onScroll)
+  }, [])
+
+  // Save on every change and when leaving, so "back" lands where the user was.
+  useEffect(() => {
+    const save = () =>
+      saveGrid(filters, {
+        items,
+        cursor,
+        complete: status === "complete",
+        scrollY: scrollYRef.current,
+      })
+    save()
+    return save
+  }, [filters, items, cursor, status])
 
   const loadMore = useCallback(async () => {
     if (!cursor || inFlightRef.current || status === "complete") return
@@ -89,7 +119,7 @@ export function InfiniteCatalogueGrid({
 
   if (items.length === 0) {
     return (
-      <div className="py-16">
+      <div className="py-8">
         <Empty>
           <EmptyTitle>No products found</EmptyTitle>
           <EmptyDescription>

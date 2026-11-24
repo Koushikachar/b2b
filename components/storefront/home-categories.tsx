@@ -18,7 +18,7 @@ export async function TopCategoriesSection() {
   if (categories.length === 0) return null
 
   return (
-    <section className="mx-auto w-full max-w-7xl px-4 py-5">
+    <section className="mx-auto w-full max-w-7xl px-4 py-2">
       <SectionHeader title="Top categories" />
       <Carousel opts={{ align: "start", loop: false, dragFree: true }} className="relative">
         <CarouselContent className="-ml-2.5">

@@ -1,6 +1,5 @@
 "use client"
 
-import Link from "next/link"
 import { useState, useTransition } from "react"
 import { HugeiconsIcon } from "@hugeicons/react"
 import {
@@ -67,9 +66,7 @@ export function OrderActionsPanel({
   const orderStatus = parseOrderStatus(status)
   const payment = parsePaymentStatus(paymentStatus) ?? "not_requested"
   const actions: readonly SupplierOrderAction[] = orderStatus
-    ? availableSupplierActions(orderStatus).filter(
-        (action) => !(hasAcceptedQuote && action === "create_quotation")
-      )
+    ? availableSupplierActions(orderStatus)
     : []
 
   const [notice, setNotice] = useState<OrderActionResult | null>(null)
@@ -124,22 +121,10 @@ export function OrderActionsPanel({
           ? "The buyer accepted your quotation. Confirm the order when you are ready to fulfil it."
           : orderStatus === "quoted"
             ? "Your quotation is with the buyer — you can also accept or reject now."
-            : "Check the items, then quote a price or confirm the order as placed.",
+            : "Check the items, then accept the order or reject it with a reason.",
       done: reviewDone,
       body: reviewDone ? null : (
         <>
-          {actions.includes("create_quotation") ? (
-            <Button
-              render={
-                <Link href={`/supplier/dashboard/orders/${orderId}/quote`} />
-              }
-              nativeButton={false}
-              variant="outline"
-              size="sm"
-            >
-              Send quotation
-            </Button>
-          ) : null}
           {actions.includes("accept") ? (
             <ConfirmDialog
               trigger={
@@ -491,8 +476,8 @@ export function OrderActionsPanel({
           <DialogHeader>
             <DialogTitle>Record shipment</DialogTitle>
             <DialogDescription>
-              The buyer sees these details on their order. All fields are
-              optional.
+              The buyer sees these details on their order and uses them to
+              track the parcel. Carrier and tracking number are required.
             </DialogDescription>
           </DialogHeader>
           <form
@@ -514,21 +499,27 @@ export function OrderActionsPanel({
                 <Input
                   id="carrier"
                   name="carrier"
-                  placeholder="e.g. Delhivery, own fleet"
+                  placeholder="e.g. Vyoma Route, Delhivery"
+                  maxLength={120}
+                  required
                 />
               </Field>
               <Field>
                 <FieldLabel htmlFor="trackingRef">
-                  Tracking reference
+                  Tracking number
                 </FieldLabel>
                 <Input
                   id="trackingRef"
                   name="trackingRef"
                   placeholder="AWB / tracking number"
+                  maxLength={80}
+                  required
                 />
               </Field>
               <Field>
-                <FieldLabel htmlFor="shipmentNotes">Delivery notes</FieldLabel>
+                <FieldLabel htmlFor="shipmentNotes">
+                  Delivery notes (optional)
+                </FieldLabel>
                 <Textarea
                   id="shipmentNotes"
                   name="shipmentNotes"

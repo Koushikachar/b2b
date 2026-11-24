@@ -4,11 +4,13 @@ import type { Metadata } from "next"
 import { getCachedProduct } from "@/lib/storefront-cache"
 import { publicImageUrl } from "@/lib/storage"
 import {
+  productPageTitle,
   resolveProductMetaDescription,
   resolveProductMetaTitle,
 } from "@/lib/product-meta"
 import { SITE_NAME, SITE_URL } from "@/lib/site"
 import { serializeJsonLd } from "@/lib/json-ld"
+import { productJsonLd } from "@/lib/seo"
 import { ProductDetail, RelatedProductsSection } from "./product-detail"
 import {
   ProductDetailSkeleton,
@@ -45,7 +47,7 @@ export async function generateMetadata({
     : undefined
 
   return {
-    title,
+    title: productPageTitle(title),
     description,
     alternates: { canonical: `/products/${id}` },
     openGraph: {
@@ -78,46 +80,32 @@ export default async function ProductPage({
   const catId = getRootCategoryId(product)
 
   const pricing = product.pricing as { customer_price?: number } | null
-  const stockQty = (product.stock_qty as number | null) ?? 0
   const imagePaths = [
     product.seo_image_path as string | null,
     ...((product.images as { path: string }[] | null) ?? []).map(
       (image) => image.path
     ),
   ].filter((path): path is string => Boolean(path))
-  const jsonLd = {
-    "@context": "https://schema.org",
-    "@type": "Product",
-    name: product.title,
-    ...(imagePaths.length > 0
-      ? {
-          image: imagePaths
-            .slice(0, 5)
-            .map((path) => publicImageUrl("product_images", path)),
-        }
-      : {}),
-    ...(product.description
-      ? { description: (product.description as string).slice(0, 500) }
-      : {}),
-    ...(product.brand
-      ? { brand: { "@type": "Brand", name: product.brand } }
-      : {}),
-    ...(pricing?.customer_price != null
-      ? {
-          offers: {
-            "@type": "Offer",
-            priceCurrency: "INR",
-            price: pricing.customer_price,
-            // Products without tracked stock are made to order, not unavailable.
-            availability:
-              stockQty > 0
-                ? "https://schema.org/InStock"
-                : "https://schema.org/PreOrder",
-            url: `${SITE_URL}/products/${id}`,
-          },
-        }
-      : {}),
-  }
+  const rawCategory = (product as { category?: unknown }).category
+  const category = (Array.isArray(rawCategory) ? rawCategory[0] : rawCategory) as
+    | { name: string; slug: string }
+    | null
+    | undefined
+  const jsonLd = productJsonLd(
+    {
+      id,
+      title: product.title as string,
+      description: (product.description as string | null) ?? null,
+      brand: (product.brand as string | null) ?? null,
+      sku: (product.seller_sku as string | null) ?? null,
+      category: category ?? null,
+      imageUrls: [...new Set(imagePaths)].map((path) => publicImageUrl("product_images", path)),
+      price: pricing?.customer_price ?? null,
+      // Same flag the storefront shows buyers ("Out of stock" badge).
+      outOfStock: Boolean(product.is_out_of_stock),
+    },
+    SITE_URL,
+  )
 
   return (
     <>
@@ -137,7 +125,7 @@ export default async function ProductPage({
       {catId && (
         <Suspense
           fallback={
-            <div className="mx-auto mt-10 w-full max-w-7xl px-4">
+            <div className="mx-auto mt-6 w-full max-w-7xl px-4">
               <ProductGridSkeleton
                 count={4}
                 className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4"

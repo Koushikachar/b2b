@@ -20,7 +20,7 @@ export function SectionHeader({
 }) {
   return (
     <div
-      className={`mb-1 flex items-end justify-between gap-2 pb-1 sm:gap-4 ${className ?? ""}`}
+      className={`mb-1 flex items-start justify-between gap-2 pb-1 sm:gap-4 ${className ?? ""}`}
     >
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
@@ -38,7 +38,8 @@ export function SectionHeader({
         ) : null}
       </div>
       {actionLabel && actionHref ? (
-        <Link href={actionHref} className="shrink-0">
+        // Same line as the title (not the subtitle): h-7 link centred on the h-8 title row.
+        <Link href={actionHref} className="mt-0.5 shrink-0">
           <Button
             variant="link"
             size="sm"

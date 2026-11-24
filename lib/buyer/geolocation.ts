@@ -38,13 +38,14 @@ export type LocationDetection =
   | { ok: true; address: DetectedAddress }
   | { ok: false; reason: LocationFailure };
 
-type NominatimAddress = {
+export type NominatimAddress = {
   house_number?: string;
   road?: string;
   neighbourhood?: string;
   quarter?: string;
   suburb?: string;
   city_district?: string;
+  hamlet?: string;
   village?: string;
   town?: string;
   city?: string;
@@ -70,35 +71,43 @@ const NOMINATIM_URL = "https://nominatim.openstreetmap.org/reverse";
 const firstString = (...values: Array<string | undefined>): string =>
   values.find((value) => typeof value === "string" && value.trim().length > 0)?.trim() ?? "";
 
-function buildLine1(address: NominatimAddress): string {
-  const street = firstString(
-    address.road,
-    address.neighbourhood,
-    address.quarter,
-    address.suburb,
-  );
-  const house = firstString(address.house_number);
-  const joined = firstString(house && street ? `${house} ${street}` : undefined);
-  return joined || firstString(address.village, address.town, address.city);
-}
+// "Kundapura taluk" -> "Kundapura": OSM names Indian sub-districts with a suffix.
+const withoutAdminSuffix = (value: string | undefined): string | undefined =>
+  value?.replace(/\s+(taluka?|tehsil|tahsil|mandal|block|district)$/i, "");
 
-function buildDetectedAddress(address: NominatimAddress): DetectedAddress {
+const PIN_RE = /^[1-9][0-9]{5}$/;
+
+/**
+ * Turn a Nominatim address into form fields. The city is the real town (or
+ * the taluk town for a village), never a hobli or ward; those, the village and
+ * the locality go into address line 1 instead so nothing detected is lost.
+ */
+export function buildDetectedAddress(address: NominatimAddress): DetectedAddress {
+  const city = firstString(
+    address.city,
+    address.town,
+    withoutAdminSuffix(address.county),
+    withoutAdminSuffix(address.state_district),
+    address.municipality,
+    address.city_district,
+    address.village,
+  );
+  const street = [address.house_number, address.road].filter((part) => part?.trim()).join(" ");
+  const line1 = [
+    street,
+    firstString(address.neighbourhood, address.quarter, address.suburb),
+    firstString(address.hamlet, address.village),
+    firstString(address.city_district, address.municipality),
+  ]
+    .map((part) => part.trim())
+    .filter((part, index, parts) => part && part !== city && parts.indexOf(part) === index)
+    .join(", ");
+  const postcode = firstString(address.postcode).replace(/\s/g, "");
   return {
-    line1: buildLine1(address),
-    // Taluka/tehsil-level matches carry no city at all; fall back to the
-    // county or district name rather than leaving the field blank, and let
-    // the user correct it before saving.
-    city: firstString(
-      address.city,
-      address.town,
-      address.municipality,
-      address.city_district,
-      address.village,
-      address.county,
-      address.state_district,
-    ),
+    line1,
+    city,
     state: firstString(address.state, address.region),
-    pincode: firstString(address.postcode),
+    pincode: PIN_RE.test(postcode) ? postcode : "",
   };
 }
 
@@ -126,7 +135,9 @@ export async function detectAddressFromDevice(): Promise<LocationDetection> {
     navigator.geolocation.getCurrentPosition(
       (value) => resolve({ position: value }),
       (error) => resolve({ reason: error.code === 1 ? "denied" : "unavailable" }),
-      { enableHighAccuracy: false, timeout: 10_000, maximumAge: 300_000 },
+      // A fresh, precise fix: a cached or Wi-Fi/IP estimate can be kilometres off,
+      // which put buyers in the wrong locality and PIN code.
+      { enableHighAccuracy: true, timeout: 20_000, maximumAge: 0 },
     );
   });
 
@@ -140,6 +151,8 @@ export async function detectAddressFromDevice(): Promise<LocationDetection> {
       format: "jsonv2",
       addressdetails: "1",
       zoom: "18",
+      // English names; otherwise fields can come back in the local script.
+      "accept-language": "en",
     });
     const response = await fetch(`${NOMINATIM_URL}?${params.toString()}`, {
       headers: { Accept: "application/json" },

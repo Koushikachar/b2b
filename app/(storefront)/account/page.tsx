@@ -61,7 +61,7 @@ const MENU: MenuItem[] = [
 ]
 
 const MENU_TAIL: MenuItem[] = [
-  { label: "Contact Us", href: "/account/contact", icon: CustomerSupportIcon },
+  { label: "Contact Us", href: "/contact", icon: CustomerSupportIcon },
   { label: "Notifications", href: "/account/notifications", icon: Notification01Icon },
 ]
 

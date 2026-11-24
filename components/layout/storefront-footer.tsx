@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { Logo } from "@/components/layout/logo";
 import { Separator } from "@/components/ui/separator";
+import { dashboardHref } from "@/lib/nav";
 
 function LinkColumn({
   title,
@@ -32,11 +33,33 @@ function LinkColumn({
   );
 }
 
-export function StorefrontFooter() {
+type FooterUser = { user_type: string; isStaff?: boolean } | null;
+
+/**
+ * Account links follow the session: guests see Sign in / Register; signed-in
+ * buyers see their account; only suppliers and admins see a dashboard link.
+ */
+function accountLinks(user: FooterUser): { label: string; href: string }[] {
+  if (!user) {
+    return [
+      { label: "Sign in", href: "/auth/login" },
+      { label: "Register", href: "/auth/login?mode=signup" },
+    ];
+  }
+  const links = [
+    { label: "My Account", href: "/account" },
+    { label: "My Orders", href: "/orders" },
+  ];
+  // Same rule as the header: buyers get "/" (no dashboard).
+  const dashboard = dashboardHref(user.user_type, user.isStaff);
+  if (dashboard !== "/") links.push({ label: "Dashboard", href: dashboard });
+  return links;
+}
+
+export function StorefrontFooter({ user }: { user: FooterUser }) {
   return (
     <footer className="border-t border-border/60 bg-brand-navy text-white">
-      <div className="mx-auto grid max-w-7xl grid-cols-2 gap-8 px-4 py-12 sm:grid-cols-4">
-        <div className="col-span-2">
+      <div className="mx-auto grid max-w-7xl grid-cols-2 gap-6 px-4 py-8 sm:grid-cols-4">        <div className="col-span-2">
           <div className="flex items-center gap-2">
             <Logo className="size-7" />
           </div>
@@ -51,25 +74,10 @@ export function StorefrontFooter() {
           links={[
             { label: "Browse Products", href: "/products" },
             { label: "Browse Categories", href: "/categories" },
-            { label: "Wholesale Deals", href: "/select" },
             { label: "More Services", href: "/services" },
           ]}
         />
-        <LinkColumn
-          title="For Suppliers"
-          links={[
-            { label: "Supplier Dashboard", href: "/supplier/dashboard" },
-            { label: "Post Requirements", href: "/products" },
-          ]}
-        />
-        <LinkColumn
-          title="Account"
-          links={[
-            { label: "Sign in", href: "/auth/login" },
-            { label: "Register", href: "/auth/login" },
-            { label: "Your Dashboard", href: "/products" },
-          ]}
-        />
+        <LinkColumn title="Account" links={accountLinks(user)} />
       </div>
 
       <Separator className="bg-white/10" />
@@ -77,12 +85,14 @@ export function StorefrontFooter() {
       {/* Bottom bar */}
       <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-2 px-4 py-4 text-xs text-white/50">
         <span>
-          &copy; {new Date().getFullYear()} D2B. All rights reserved.
+          &copy; {new Date().getFullYear()} DIRECT2HUB PRIVATE LIMITED. All rights reserved.
         </span>
         <nav aria-label="Legal" className="flex flex-wrap items-center gap-x-4 gap-y-1">
+          <Link href="/about" className="hover:text-white">About Us</Link>
+          <Link href="/faq" className="hover:text-white">FAQ</Link>
           <Link href="/privacy" className="hover:text-white">Privacy Policy</Link>
           <Link href="/terms" className="hover:text-white">Terms &amp; Conditions</Link>
-          <Link href="/account/contact" className="hover:text-white">Contact</Link>
+          <Link href="/contact" className="hover:text-white">Contact</Link>
         </nav>
       </div>
     </footer>

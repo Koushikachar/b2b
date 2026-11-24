@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import type { Metadata } from "next";
 import { HugeiconsIcon } from "@hugeicons/react";
-import { ArrowLeft01Icon } from "@hugeicons/core-free-icons";
+import { ArrowLeft01Icon, Download01Icon } from "@hugeicons/core-free-icons";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -28,19 +28,18 @@ import { formatRupees } from "@/lib/format";
 import { StatusBadge } from "@/components/dashboard/status-badge";
 import { OrderItems } from "@/components/orders/order-items";
 import { OrderProgress } from "@/components/orders/order-progress";
-import { OrderNotifications } from "@/components/orders/order-notifications";
-import type { DeliverySnapshot } from "@/lib/orders/delivery";
+import { CopyButton } from "@/components/orders/copy-button";
+import { formatDeliveryLine, type DeliverySnapshot } from "@/lib/orders/delivery";
 import { getOrderItemImages } from "@/lib/orders/item-images";
 import {
   grossItemsTotal,
   latestAcceptedQuotation,
   orderAmount,
 } from "@/lib/orders/quotation";
-import type {
-  OrderStatus,
-  PaymentStatus,
-} from "@/lib/orders/lifecycle";
+import type { OrderStatus } from "@/lib/orders/lifecycle";
 import { OrderActionsPanel } from "./order-actions-panel";
+import { OrderUndoRedo } from "./order-undo-redo";
+import { orderStepHistory } from "@/lib/orders/step-history";
 
 export const metadata: Metadata = { title: "Order details" };
 
@@ -70,6 +69,10 @@ function eventLabel(event: { event: string; data: Record<string, unknown> }): st
       return event.data.reason
         ? `Order cancelled — ${String(event.data.reason)}`
         : "Order cancelled";
+    case "step_undone":
+      return `Undid the last change (${String(event.data.from)} → ${String(event.data.to)})`;
+    case "step_redone":
+      return `Redid the change (${String(event.data.from)} → ${String(event.data.to)})`;
     default:
       return event.event;
   }
@@ -77,6 +80,7 @@ function eventLabel(event: { event: string; data: Record<string, unknown> }): st
 
 type OrderRow = {
   id: string;
+  buyer_id: string;
   reference: string;
   status: string;
   payment_status: string;
@@ -84,6 +88,8 @@ type OrderRow = {
   discount: number;
   /** GST saved at checkout (0 on orders placed before GST was stored). */
   gst_amount: number;
+  /** Direct2Hub wallet credit the buyer used at checkout. */
+  wallet_amount: number;
   item_count: number;
   delivery: DeliverySnapshot | null;
   buyer_note: string | null;
@@ -131,6 +137,7 @@ type EventRow = {
   id: string;
   event: string;
   data: Record<string, unknown>;
+  actor_id: string | null;
   created_at: string;
 };
 
@@ -167,7 +174,7 @@ export default async function SupplierOrderDetailPage({
     supabase
       .from("orders")
       .select(
-        "id, reference, status, payment_status, subtotal, discount, gst_amount, item_count, delivery, buyer_note, supplier_note, rejection_reason, rejected_at, carrier, tracking_ref, shipment_notes, shipped_at, delivered_at, cancelled_at, payment_confirmed_by, payment_confirmed_at, payment_claim_reference, payment_claimed_at, created_at",
+        "id, buyer_id, reference, status, payment_status, subtotal, discount, gst_amount, wallet_amount, item_count, delivery, buyer_note, supplier_note, rejection_reason, rejected_at, carrier, tracking_ref, shipment_notes, shipped_at, delivered_at, cancelled_at, payment_confirmed_by, payment_confirmed_at, payment_claim_reference, payment_claimed_at, created_at",
       )
       .eq("id", orderId)
       .eq("supplier_id", ctx.companyId)
@@ -179,7 +186,7 @@ export default async function SupplierOrderDetailPage({
       .order("created_at", { ascending: true }),
     supabase
       .from("order_events")
-      .select("id, event, data, created_at")
+      .select("id, event, data, actor_id, created_at")
       .eq("order_id", orderId)
       .order("created_at", { ascending: true }),
     supabase
@@ -217,7 +224,12 @@ export default async function SupplierOrderDetailPage({
   const quoteRows = (quotations ?? []) as unknown as QuotationRow[];
   const acceptedQuote = latestAcceptedQuotation(quoteRows);
   const itemsTotal = grossItemsTotal(orderRow.subtotal, orderRow.discount);
-  const amountDue = orderAmount(orderRow.subtotal, quoteRows, orderRow.gst_amount);
+  const amountDue = orderAmount(
+    orderRow.subtotal,
+    quoteRows,
+    orderRow.gst_amount,
+    orderRow.wallet_amount,
+  );
   const orderItems = orderItemsForImages;
   const quoteItemRows = (quotationItems ?? []) as unknown as {
     id: string;
@@ -249,22 +261,39 @@ export default async function SupplierOrderDetailPage({
           <StatusBadge status="order" value={orderRow.status} />
           <StatusBadge status="payment" value={orderRow.payment_status} />
         </div>
-        <p className="text-sm text-muted-foreground">
-          Placed {formatDateTime(orderRow.created_at)}
-        </p>
+        <div className="flex items-center gap-3">
+          <p className="text-sm text-muted-foreground">
+            Placed {formatDateTime(orderRow.created_at)}
+          </p>
+          <Button
+            render={
+              <a
+                href={`/supplier/dashboard/orders/${orderRow.id}/invoice`}
+                download
+              />
+            }
+            nativeButton={false}
+            variant="outline"
+            size="sm"
+          >
+            <HugeiconsIcon icon={Download01Icon} strokeWidth={2} />
+            Invoice PDF
+          </Button>
+        </div>
       </div>
 
       <Card className="rounded-lg p-4">
         <OrderProgress
           status={orderRow.status as OrderStatus}
-          paymentStatus={orderRow.payment_status as PaymentStatus}
-          hasQuotation={
-            orderRow.status !== "new" || quoteRows.length > 0
-          }
-          quotationAccepted={acceptedQuote !== null}
+          paid={orderRow.payment_status === "paid"}
           cancelledReason={orderRow.rejection_reason}
         />
       </Card>
+
+      <OrderUndoRedo
+        orderId={orderRow.id}
+        {...orderStepHistory((events ?? []) as unknown as EventRow[], orderRow.wallet_amount)}
+      />
 
       <OrderActionsPanel
         orderId={orderRow.id}
@@ -282,13 +311,18 @@ export default async function SupplierOrderDetailPage({
           </CardHeader>
           <CardContent className="p-0">
             {delivery ? (
-              <div className="mt-2 flex flex-col gap-1 text-sm">
-                <p className="font-semibold">{delivery.fullName}</p>
-                <p className="text-muted-foreground">{delivery.phone}</p>
-                <p className="text-muted-foreground">
-                  {delivery.line1}
-                  {delivery.line2 ? `, ${delivery.line2}` : ""}, {delivery.city},{" "}
-                  {delivery.state} — {delivery.pincode}
+              <div className="mt-2 flex flex-col gap-0.5 text-sm">
+                <p className="flex items-center gap-1 font-semibold">
+                  {delivery.fullName}
+                  <CopyButton value={delivery.fullName} label="name" />
+                </p>
+                <p className="flex items-center gap-1 text-muted-foreground">
+                  {delivery.phone}
+                  <CopyButton value={delivery.phone} label="phone number" />
+                </p>
+                <p className="flex items-start gap-1 text-muted-foreground">
+                  <span>{formatDeliveryLine(delivery)}</span>
+                  <CopyButton value={formatDeliveryLine(delivery)} label="address" />
                 </p>
                 {delivery.instructions ? (
                   <p className="text-xs text-muted-foreground">
@@ -419,7 +453,7 @@ export default async function SupplierOrderDetailPage({
               ) : null}
               {Number(acceptedQuote.tax_amount) > 0 ? (
                 <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground">Tax</span>
+                  <span className="text-muted-foreground">GST</span>
                   <span className="tabular-nums">
                     {formatRupees(Number(acceptedQuote.tax_amount))}
                   </span>
@@ -458,8 +492,16 @@ export default async function SupplierOrderDetailPage({
                   </span>
                 </div>
               ) : null}
+              {Number(orderRow.wallet_amount) > 0 ? (
+                <div className="flex items-center justify-between">
+                  <span className="text-muted-foreground">Paid from D2H wallet</span>
+                  <span className="tabular-nums">
+                    −{formatRupees(Number(orderRow.wallet_amount))}
+                  </span>
+                </div>
+              ) : null}
               <div className="flex items-center justify-between border-t border-border pt-2">
-                <span className="font-medium">Total</span>
+                <span className="font-medium">To collect</span>
                 <span className="font-bold tabular-nums">
                   {formatRupees(amountDue)}
                 </span>
@@ -592,7 +634,6 @@ export default async function SupplierOrderDetailPage({
       </Card>
 
       {/* Notifications ---------------------------------------------------------- */}
-      <OrderNotifications orderId={orderRow.id} />
 
       {/* History ----------------------------------------------------------------- */}
       <Card className="rounded-lg p-4">

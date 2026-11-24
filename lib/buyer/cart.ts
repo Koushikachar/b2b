@@ -9,7 +9,7 @@ import type { CustomerPrices } from "@/lib/pricing";
 export { formatRupees } from "@/lib/format";
 
 /** Shared cart-wide minimum subtotal (₹) required to check out. */
-export const MIN_CART_VALUE = 2500;
+export const MIN_CART_VALUE = 3000;
 
 export type CartLinePricing = {
   /** cart_items.id — carried opaquely so controls can update/remove the line. */

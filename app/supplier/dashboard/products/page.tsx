@@ -28,6 +28,7 @@ import { ProductTable, type ProductRow } from "@/components/dashboard/product-ta
 import {
   ProductToolbar,
 } from "@/components/dashboard/product-toolbar";
+import { AnnounceDialog } from "@/components/dashboard/announce-dialog";
 import {
   SORT_COLUMNS,
   SORT_KEYS,
@@ -272,6 +273,7 @@ export default async function SupplierProductsPage({
         </div>
         {verified ? (
           <div className="flex flex-wrap gap-2">
+            <AnnounceDialog />
             <Button variant="outline" render={<Link href={`${BASE}/import`} />} nativeButton={false}>
               <HugeiconsIcon icon={Upload01Icon} strokeWidth={2} />
               Import

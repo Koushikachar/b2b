@@ -1,4 +1,5 @@
-import type { CSSProperties, ReactNode } from "react"
+import type { ReactNode } from "react"
+import Image from "next/image"
 import { HugeiconsIcon, type IconSvgElement } from "@hugeicons/react"
 import {
   ArrowRight01Icon,
@@ -16,6 +17,8 @@ import { cn } from "cn"
 
 type Service = {
   name: string
+  /** Brand art shown in place of the plain-text name. */
+  title?: ReactNode
   tag: string
   tagIcon: IconSvgElement
   description: string
@@ -25,22 +28,44 @@ type Service = {
   aside?: ReactNode
 }
 
-/* ---------- Decorative visuals (Hugeicons + tokens only, no raster art) ---------- */
+/* ---------- Decorative visuals ---------- */
 
-/** SuperPi "S" mark: two offset strokes, slanted, in the SuperPi teal. */
-function SuperPiMark() {
+/** SuperPi brand art (public/services): pi icon, wordmark and full lockup. */
+function SuperPiIcon() {
   return (
-    <svg
-      aria-hidden="true"
-      viewBox="0 0 48 48"
-      className="size-16 -skew-x-12 text-superpi sm:size-20"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={8}
-      strokeLinejoin="round"
-    >
-      <path d="M38 9H18a7.5 7.5 0 0 0 0 15h12a7.5 7.5 0 0 1 0 15H10" />
-    </svg>
+    <Image
+      src="/services/superpi-icon.webp"
+      alt=""
+      aria-hidden
+      width={256}
+      height={256}
+      className="size-16 rounded-xl sm:size-20"
+    />
+  )
+}
+
+function SuperPiWordmark() {
+  return (
+    <Image
+      src="/services/superpi-wordmark.webp"
+      alt="SuperPi"
+      width={342}
+      height={96}
+      className="h-7 w-auto sm:h-8"
+    />
+  )
+}
+
+function SuperPiLockup() {
+  return (
+    <Image
+      src="/services/superpi-logo.webp"
+      alt=""
+      aria-hidden
+      width={689}
+      height={160}
+      className="hidden h-12 w-auto shrink-0 lg:block"
+    />
   )
 }
 
@@ -73,43 +98,16 @@ function BookCover() {
   )
 }
 
-/** Small laptop showing an analytics screen (mockup's SuperPi illustration). */
-function LaptopDashboard() {
-  const bars = ["h-2", "h-3.5", "h-2.5", "h-5", "h-4"]
-  const pie: CSSProperties = {
-    background:
-      "conic-gradient(var(--success) 0 45%, var(--primary) 45% 72%, var(--info) 72% 100%)",
-  }
-  return (
-    <span aria-hidden="true" className="hidden w-24 shrink-0 flex-col items-center min-[400px]:flex sm:w-32">
-      <span className="flex h-14 w-22 items-end sm:h-[4.5rem] sm:w-28 justify-between gap-1 rounded-t-md border-[3px] border-b-0 border-foreground bg-card p-1.5">
-        <span className="flex flex-col gap-0.5 self-start">
-          <span className="h-0.5 w-5 rounded-sm bg-muted-foreground/40" />
-          <span className="h-0.5 w-4 rounded-sm bg-muted-foreground/30" />
-          <span className="h-0.5 w-5 rounded-sm bg-muted-foreground/30" />
-          <span className="h-0.5 w-3 rounded-sm bg-muted-foreground/30" />
-        </span>
-        <span className="flex items-end gap-0.5">
-          {bars.map((height, index) => (
-            <span key={index} className={cn("w-1 rounded-t-[1px] bg-success", height)} />
-          ))}
-        </span>
-        <span className="size-4 self-center rounded-full" style={pie} />
-      </span>
-      <span className="h-1.5 w-24 rounded-b-md bg-gray-400 sm:h-2 sm:w-32" />
-    </span>
-  )
-}
-
 const SERVICES: Service[] = [
   {
     name: "SuperPi",
+    title: <SuperPiWordmark />,
     tag: "Business Tool",
     tagIcon: ComputerIcon,
     description: "Inventory Management + Product Intelligence (AI)",
-    href: "https://superpi.vercel.app/",
-    visual: <SuperPiMark />,
-    aside: <LaptopDashboard />,
+    href: "https://super-pi-taupe.vercel.app/",
+    visual: <SuperPiIcon />,
+    aside: <SuperPiLockup />,
   },
   {
     name: "The Ecommerce Playbook",
@@ -193,7 +191,7 @@ function ServiceCard({ service }: { service: Service }) {
       <span aria-hidden="true" className="h-16 w-px shrink-0 bg-border sm:h-20" />
       <span className="flex min-w-0 flex-1 flex-col items-start gap-2">
         <span className="text-lg leading-tight font-extrabold tracking-tight text-foreground sm:text-xl">
-          {service.name}
+          {service.title ?? service.name}
         </span>
         <span className="flex flex-wrap items-center gap-1.5">
           <span className="inline-flex items-center gap-1 rounded-md bg-primary/10 px-2 py-1 text-xs leading-none font-semibold text-brand-700 sm:text-sm [&_svg]:size-3.5 sm:[&_svg]:size-4">

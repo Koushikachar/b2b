@@ -9,7 +9,7 @@ import { ShoppingCart01Icon } from "@hugeicons/core-free-icons";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/components/ui/toast";
 import { addToCart, type BuyerActionState } from "@/lib/buyer/cart-actions";
-import { parseQuantityInput } from "@/lib/buyer/cart";
+import { MIN_CART_VALUE, formatRupees, parseQuantityInput } from "@/lib/buyer/cart";
 import { useVariantSelection } from "./variant-selection";
 
 const initialState: BuyerActionState = { ok: false, message: "" };
@@ -199,7 +199,7 @@ export function AddToCartForm({
 
         <p className="text-xs text-muted-foreground">
           MOQ: {effectiveMoq} {unit}
-          {effectiveMoq > 1 ? "s" : ""} · Minimum cart value ₹2,500
+          {effectiveMoq > 1 ? "s" : ""} · Minimum cart value {formatRupees(MIN_CART_VALUE)}
         </p>
         {state.message && (
           <p role="alert" className="text-sm text-destructive">

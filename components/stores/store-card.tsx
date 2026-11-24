@@ -39,7 +39,7 @@ export function StoreCard({
           width={56}
           height={56}
           priority={priority}
-          className="size-14 shrink-0 rounded-xl border border-border bg-card object-cover"
+          className="size-14 shrink-0 rounded-xl border border-border bg-card object-contain p-2"
         />
         <div className="min-w-0 flex-1">
           <h2 className="flex items-center gap-1.5 text-lg font-extrabold tracking-tight">

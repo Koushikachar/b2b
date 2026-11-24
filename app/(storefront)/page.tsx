@@ -23,17 +23,16 @@ import {
   TopCategoriesSkeleton,
 } from "@/components/storefront/skeletons"
 
+const HOME_TITLE = "Direct2Hub — Wholesale Marketplace India | Bulk Buying from Verified Suppliers"
+const HOME_DESCRIPTION =
+  "Buy car accessories, kitchen, home, beauty and travel products wholesale from verified Indian suppliers. Low MOQs, GST invoices, 5–7 day delivery."
+
 export const metadata: Metadata = {
-  title: "Wholesale Marketplace from India",
-  description:
-    "Source wholesale products across textiles, electronics, chemicals, packaging and more — directly from verified Indian suppliers with live pricing.",
+  // absolute: the brand already leads, so skip the "| Direct2Hub" suffix.
+  title: { absolute: HOME_TITLE },
+  description: HOME_DESCRIPTION,
   alternates: { canonical: "/" },
-  openGraph: {
-    title: "Wholesale Marketplace from India",
-    description:
-      "Source wholesale products across textiles, electronics, chemicals, packaging and more — directly from verified Indian suppliers with live pricing.",
-    url: "/",
-  },
+  openGraph: { title: HOME_TITLE, description: HOME_DESCRIPTION, url: "/" },
 }
 
 type BannerRow = { slot: string; title: string | null; link_url: string | null; image_path: string }
@@ -77,7 +76,7 @@ export default async function HomePage({
   const coreStoreId = await getCachedStoreId("d2h-core")
 
   return (
-    <div className="min-h-full bg-white">
+    <div className="min-h-full">
       <h1 className="sr-only">
         Wholesale marketplace — source directly from verified Indian suppliers
       </h1>
@@ -105,7 +104,7 @@ export default async function HomePage({
         <RecentlyViewedSection />
       </Suspense>
 
-      {/* Buy again: personal and usually empty, so no placeholder (it would
+      {/* Frequently bought: personal and usually empty, so no placeholder (it would
           only flash and collapse for guests and new accounts). */}
       <Suspense fallback={null}>
         <FrequentlyBoughtSection />
@@ -118,7 +117,7 @@ export default async function HomePage({
       <Suspense
         fallback={
           <section className="border-y border-border bg-muted/60">
-            <div className="mx-auto w-full max-w-[1440px] px-4 py-5 sm:py-7">
+            <div className="mx-auto w-full max-w-[1440px] px-4 py-4 sm:py-5">
               <CatalogueSkeleton />
             </div>
           </section>

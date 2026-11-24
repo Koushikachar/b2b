@@ -46,10 +46,15 @@ import { formatDeliveryLine, type BuyerAddress } from "@/lib/orders/delivery";
 
 const initialState: AddressActionState = { ok: false, message: "" };
 
+/** Prefill for a new address: the account's own name and phone (editable). */
+export type AddressDefaults = { fullName: string; phone: string };
+
 export function AddressesTab({
   addresses,
+  defaults,
 }: {
   addresses: BuyerAddress[];
+  defaults: AddressDefaults;
 }) {
   const router = useRouter();
   const [formOpen, setFormOpen] = useState(false);
@@ -95,7 +100,7 @@ export function AddressesTab({
       ) : null}
 
       {addresses.length === 0 ? (
-        <div className="py-10">
+        <div className="py-6">
           <Empty>
             <EmptyTitle>No saved addresses</EmptyTitle>
             <EmptyDescription>
@@ -182,6 +187,7 @@ export function AddressesTab({
           <AddressForm
             key={formKey}
             initial={editing}
+            defaults={defaults}
             hasAddresses={addresses.length > 0}
             onDone={() => {
               setFormOpen(false);
@@ -194,12 +200,14 @@ export function AddressesTab({
   );
 }
 
-function AddressForm({
+export function AddressForm({
   initial,
+  defaults,
   hasAddresses,
   onDone,
 }: {
   initial: BuyerAddress | null;
+  defaults: AddressDefaults;
   hasAddresses: boolean;
   onDone: () => void;
 }) {
@@ -209,6 +217,9 @@ function AddressForm({
   const cityRef = useRef<HTMLInputElement>(null);
   const stateRef = useRef<HTMLInputElement>(null);
   const pincodeRef = useRef<HTMLInputElement>(null);
+  // Fixed at first render: `hasAddresses` changes after a save + refresh, and
+  // an uncontrolled checkbox must not get a new default (Base UI warning).
+  const [defaultChecked] = useState(() => (initial ? initial.isDefault : !hasAddresses));
   const [locating, setLocating] = useState(false);
   const [locateError, setLocateError] = useState<string | null>(null);
 
@@ -275,7 +286,7 @@ function AddressForm({
             id="fullName"
             name="fullName"
             autoComplete="name"
-            defaultValue={initial?.fullName ?? ""}
+            defaultValue={initial?.fullName ?? defaults.fullName}
             required
           />
         </Field>
@@ -288,7 +299,7 @@ function AddressForm({
             ref={phoneRef}
             inputMode="numeric"
             autoComplete="tel"
-            defaultValue={initial?.phone ?? ""}
+            defaultValue={initial?.phone ?? defaults.phone}
             required
           />
         </Field>
@@ -369,7 +380,7 @@ function AddressForm({
             id="isDefault"
             name="isDefault"
             value="on"
-            defaultChecked={initial ? initial.isDefault : !hasAddresses}
+            defaultChecked={defaultChecked}
           />
           <FieldLabel htmlFor="isDefault">Use as my default delivery address</FieldLabel>
         </Field>

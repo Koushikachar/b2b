@@ -1,17 +1,17 @@
 // Buyer order history. Every query is scoped to the signed-in buyer (RLS
 // enforces buyer_id = auth.uid() on orders; this helper just passes the
-// session user explicitly for clarity). Supplier names come from the
-// order_supplier_contact view — a SECURITY DEFINER view that only ever
-// returns rows for the caller's own orders.
+// session user explicitly for clarity).
 
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { COMPANY } from "@/lib/company";
 import { parseOrderStatus, type OrderStatus } from "@/lib/orders/lifecycle";
+import { orderAmount } from "@/lib/orders/quotation";
 
 export type BuyerOrderSummary = {
   id: string;
   reference: string;
   status: OrderStatus;
-  /** Agreed total: accepted quotation total when one exists, else subtotal + GST. */
+  /** Amount to pay: subtotal + GST (or an older accepted quotation), minus wallet. */
   total: number;
   hasAcceptedQuote: boolean;
   itemCount: number;
@@ -28,6 +28,7 @@ type OrderRow = {
   status: string;
   subtotal: number;
   gst_amount: number;
+  wallet_amount: number;
   item_count: number;
   delivery: { fullName?: string } | null;
   created_at: string;
@@ -44,7 +45,7 @@ export async function getBuyerOrders(
   const { data: orderRows, error } = await supabase
     .from("orders")
     .select(
-      "id, reference, status, subtotal, gst_amount, item_count, delivery, created_at",
+      "id, reference, status, subtotal, gst_amount, wallet_amount, item_count, delivery, created_at",
     )
     .eq("buyer_id", buyerId)
     .order("created_at", { ascending: false })
@@ -61,38 +62,29 @@ export async function getBuyerOrders(
 
   const orderIds = orders.map((order) => order.id);
 
-  const [{ data: contactRows }, { data: quoteRows }] = await Promise.all([
-    supabase
-      .from("order_supplier_contact")
-      .select("order_id, supplier_name")
-      .in("order_id", orderIds),
-    supabase
-      .from("quotations")
-      .select("order_id, total, status")
-      .in("order_id", orderIds)
-      .eq("status", "accepted"),
-  ]);
+  // Only accepted quotations on older orders still change the total.
+  const { data: quoteRows } = await supabase
+    .from("quotations")
+    .select("order_id, version, total, status")
+    .in("order_id", orderIds)
+    .eq("status", "accepted");
 
-  const supplierNames = new Map<string, string>();
-  for (const row of (contactRows ?? []) as { order_id: string; supplier_name: string }[]) {
-    supplierNames.set(row.order_id, row.supplier_name);
-  }
-  const acceptedTotals = new Map<string, number>();
-  for (const row of (quoteRows ?? []) as { order_id: string; total: number }[]) {
-    acceptedTotals.set(row.order_id, Number(row.total));
+  const acceptedQuotes = new Map<string, { status: string; version: number; total: number }>();
+  for (const row of (quoteRows ?? []) as { order_id: string; version: number; total: number; status: string }[]) {
+    acceptedQuotes.set(row.order_id, row);
   }
 
   return orders.map((order) => {
-    const acceptedTotal = acceptedTotals.get(order.id);
+    const acceptedQuote = acceptedQuotes.get(order.id) ?? null;
     return {
       id: order.id,
       reference: order.reference,
       status: parseOrderStatus(order.status) ?? "new",
-      // Accepted quotation, else subtotal + GST saved at checkout.
-      total: acceptedTotal ?? Math.round((Number(order.subtotal) + Number(order.gst_amount ?? 0)) * 100) / 100,
-      hasAcceptedQuote: acceptedTotal !== undefined,
+      total: orderAmount(order.subtotal, acceptedQuote, order.gst_amount, order.wallet_amount),
+      hasAcceptedQuote: acceptedQuote !== null,
       itemCount: order.item_count,
-      supplierName: supplierNames.get(order.id) ?? null,
+      // Only D2H Core is open; every order is sold by Direct2Hub.
+      supplierName: COMPANY.legalName,
       buyerName: order.delivery?.fullName ?? null,
       createdAt: order.created_at,
     };

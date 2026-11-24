@@ -15,38 +15,52 @@ import { AuthShell } from "../shell";
 import { RequestOtpForm } from "./login-form";
 
 export const metadata: Metadata = {
-  title: "Log in",
-  description: "Log in with an email code or Google to trade with verified suppliers.",
+  title: "Log in or sign up",
+  description: "Log in or create your Direct2Hub account with an email code or Google. New accounts get ₹100 in their wallet.",
   robots: { index: false, follow: false },
 };
 
 type LoginPageProps = {
-  searchParams: Promise<{ next?: string; reason?: string }>;
+  searchParams: Promise<{ next?: string; reason?: string; mode?: string }>;
 };
 
+/**
+ * One page for both: an email code (or Google) signs existing users in and
+ * creates the account for a new email (signInWithOtp with shouldCreateUser).
+ */
 export default async function LoginPage({ searchParams }: LoginPageProps) {
-  const { next, reason } = await searchParams;
+  const { next, reason, mode } = await searchParams;
   const safeNext = getSafeNextPath(next);
   // Sent here from Add to cart, the cart or checkout: say why.
   const purchaseNotice = reason === "purchase";
+  // From "Register" / "Sign up" links: lead with account creation.
+  const signup = mode === "signup";
 
   return (
     <AuthShell
-      heading="Log in to trade with verified businesses."
+      heading={signup ? "Create your Direct2Hub account in seconds." : "Log in or sign up to trade with verified businesses."}
       steps={[
         "Enter your email — we send a 6-digit code, no password needed.",
+        "New email? Your account is created automatically, with ₹100 in your wallet.",
         "Enter the code here, or continue with Google instead.",
-        "Suppliers: apply once, then track verification from your dashboard.",
       ]}
     >
       <Card className="w-full max-w-sm">
         <CardHeader>
-          <CardTitle>Log in</CardTitle>
+          <CardTitle>{signup ? "Create your account" : "Log in or sign up"}</CardTitle>
           <CardDescription>
-            Use your email or Google account to continue.
+            {signup
+              ? "Use your email or Google account. No password needed."
+              : "Same steps for new and returning users — use your email or Google account."}
           </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
+          <p className="flex items-center gap-2 rounded-lg border border-brand-200 bg-linear-to-r from-brand-50 to-card px-3 py-2 text-sm">
+            <span aria-hidden>🎁</span>
+            <span>
+              <strong className="text-primary">₹100 welcome bonus</strong> in your wallet when you sign up.
+            </span>
+          </p>
           {purchaseNotice ? (
             <Alert>
               <AlertDescription>

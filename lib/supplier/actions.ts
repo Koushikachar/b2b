@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireUser, getSupplierContext, requireOwnerCompany } from "@/lib/auth/guard";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { deleteConfirmationError } from "@/lib/supplier/delete-account";
 import {
   businessProfileSchema,
   kybSchema,
@@ -165,9 +166,10 @@ export async function submitKyb(
 }
 
 /**
- * Edit-anytime business profile: logo, company name, contact name.
- * Column whitelist — kyb_status, documents, tax and bank fields are
- * untouched, so edits never trigger re-verification.
+ * Edit-anytime business profile: logo, company name, contact name, phone,
+ * address and GSTIN (printed on invoices). Column whitelist — kyb_status,
+ * documents and bank fields are untouched, so edits never trigger
+ * re-verification.
  */
 export async function updateBusinessProfile(
   _prevState: KybActionState,
@@ -178,6 +180,12 @@ export async function updateBusinessProfile(
   const parsed = businessProfileSchema.safeParse({
     business_name: formData.get("business_name"),
     contact_person: formData.get("contact_person"),
+    phone: formData.get("phone"),
+    address: formData.get("address"),
+    city: formData.get("city"),
+    state: formData.get("state"),
+    pincode: formData.get("pincode"),
+    gstin: formData.get("gstin") ?? "",
   });
   if (!parsed.success) {
     return {
@@ -226,6 +234,12 @@ export async function updateBusinessProfile(
     .update({
       business_name: parsed.data.business_name,
       contact_person: parsed.data.contact_person,
+      phone: parsed.data.phone,
+      address: parsed.data.address,
+      city: parsed.data.city,
+      state: parsed.data.state,
+      pincode: parsed.data.pincode,
+      gstin: parsed.data.gstin,
       logo_path: logoPath,
     })
     .eq("id", companyId);
@@ -298,7 +312,16 @@ export type AccountActionState = {
  * images/variants, and company_members, so the supplier's entire footprint is
  * removed. The session is cleared so the client can navigate back to log in.
  */
-export async function deleteAccount(): Promise<AccountActionState> {
+/**
+ * Permanently deletes the owner's account; the database cascade removes the
+ * company and every product, image, coupon and customer with it. Requires the
+ * exact company name, checked here on the server, so a stray click can never
+ * wipe a catalogue.
+ */
+export async function deleteAccount(
+  confirmName: string,
+  confirmPhrase: string,
+): Promise<AccountActionState> {
   const { supabase, user } = await requireUser();
 
   const ctx = await getSupplierContext(supabase, user.id);
@@ -308,6 +331,18 @@ export async function deleteAccount(): Promise<AccountActionState> {
       message: "Only the business owner can delete the supplier account.",
     };
   }
+
+  const { data: company } = await supabase
+    .from("companies")
+    .select("business_name")
+    .eq("id", ctx.companyId)
+    .maybeSingle();
+  const confirmError = deleteConfirmationError(
+    company?.business_name ?? "",
+    confirmName,
+    confirmPhrase,
+  );
+  if (confirmError) return { ok: false, message: confirmError };
 
   // Service role is required: auth.admin.deleteUser is not exposed to the
   // caller's regular (RLS-bound) token.

@@ -1,13 +1,9 @@
 import { describe, expect, it } from "vitest";
-import {
-  contactMessage,
-  whatsappContactLink,
-} from "@/lib/orders/whatsapp-link";
+import { d2hWhatsappLink, whatsappContactLink } from "@/lib/orders/whatsapp-link";
 
-// The buyer -> supplier chat link is a plain deep link: no credentials, no
-// automatic sending, and the message may only carry the order reference and
-// supplier name. The builder must reject anything that isn't a plausible
-// Indian mobile rather than emit a broken or leaky link.
+// WhatsApp links are plain deep links: no credentials, no automatic sending,
+// and the message carries no address, phone or price. The builder must reject
+// anything that isn't a plausible Indian mobile rather than emit a broken link.
 
 describe("whatsappContactLink", () => {
   it("builds a wa.me link from a 10-digit national number", () => {
@@ -26,8 +22,8 @@ describe("whatsappContactLink", () => {
   });
 
   it("URL-encodes the message", () => {
-    expect(whatsappContactLink("9876543210", "Order B2B-100001 ready?")).toBe(
-      "https://wa.me/919876543210?text=Order%20B2B-100001%20ready%3F",
+    expect(whatsappContactLink("9876543210", "Order D2H-100001 ready?")).toBe(
+      "https://wa.me/919876543210?text=Order%20D2H-100001%20ready%3F",
     );
   });
 
@@ -41,13 +37,26 @@ describe("whatsappContactLink", () => {
   });
 });
 
-describe("contactMessage", () => {
-  it("contains only the supplier name and order reference", () => {
-    const message = contactMessage("Shree Traders", "B2B-100042");
-    expect(message).toBe(
-      "Hello Shree Traders, I would like to discuss my order B2B-100042.",
+const text = (href: string) => new URL(href).searchParams.get("text");
+
+describe("d2hWhatsappLink", () => {
+  it("opens a chat with the D2H Core number", () => {
+    expect(d2hWhatsappLink({}).startsWith("https://wa.me/917483274168?")).toBe(true);
+  });
+
+  it("names the order once the buyer has placed it", () => {
+    expect(text(d2hWhatsappLink({ orderReference: "D2H-100118" }))).toBe(
+      "Hi Direct2Hub, I completed order D2H-100118.",
     );
-    // Guards against accidental leakage of addresses or prices later.
-    expect(message).not.toMatch(/₹|address|street|pincode/i);
+  });
+
+  it("asks about the product, without any order number, before an order", () => {
+    expect(text(d2hWhatsappLink({ productTitle: "Car Seat Belt Cover" }))).toBe(
+      "Hi Direct2Hub, I'm interested in Car Seat Belt Cover.",
+    );
+  });
+
+  it("falls back to a general question", () => {
+    expect(text(d2hWhatsappLink({}))).toBe("Hi Direct2Hub, I have a question.");
   });
 });

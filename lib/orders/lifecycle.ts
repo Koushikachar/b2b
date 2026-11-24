@@ -63,7 +63,6 @@ export function canTransitionPaymentStatus(from: PaymentStatus, to: PaymentStatu
 export const SUPPLIER_ORDER_ACTIONS = [
   "accept",
   "reject",
-  "create_quotation",
   "mark_payment_pending",
   "mark_payment_not_received",
   "mark_paid",
@@ -84,7 +83,8 @@ export function availableSupplierActions(
 ): readonly SupplierOrderAction[] {
   const actions: SupplierOrderAction[] = [];
   if (status === "new" || status === "quoted") {
-    actions.push("accept", "reject", "create_quotation");
+    // No quotation step: the supplier accepts or rejects the order as placed.
+    actions.push("accept", "reject");
   }
   if (status === "confirmed" || status === "processing") {
     actions.push("start_processing");

@@ -1,8 +1,25 @@
 import { describe, expect, it } from "vitest";
 import {
+  productPageTitle,
   resolveProductMetaDescription,
   resolveProductMetaTitle,
 } from "../lib/product-meta";
+
+describe("productPageTitle (brand appears once in the browser/Google title)", () => {
+  it("keeps an SEO title that already names Direct2Hub as-is, so the site suffix is not added twice", () => {
+    expect(productPageTitle("Car Mug Cup | Wholesale Price | Direct2Hub")).toEqual({
+      absolute: "Car Mug Cup | Wholesale Price | Direct2Hub",
+    });
+  });
+
+  it("matches the brand in any letter case", () => {
+    expect(productPageTitle("Car Mug Cup - DIRECT2HUB")).toEqual({ absolute: "Car Mug Cup - DIRECT2HUB" });
+  });
+
+  it("returns a plain title (the site adds \" | Direct2Hub\") when the brand is missing", () => {
+    expect(productPageTitle("Car Mug Cup")).toBe("Car Mug Cup");
+  });
+});
 import { productSchema } from "../lib/supplier/products";
 
 const baseProduct = {

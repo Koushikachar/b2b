@@ -66,16 +66,26 @@ export function ProductCard({
   priority?: boolean
   sizes?: string
 }) {
+  const soldOut = product.is_out_of_stock === true
   return (
-    <Card className="group flex h-full flex-col !gap-0 overflow-hidden border-border !py-0 transition-shadow hover:shadow-md">
+    <Card className="group flex h-full flex-col gap-0! overflow-hidden border-border py-0! transition-shadow hover:shadow-md">
       <Link href={`/products/${product.id}`} className="block press">
         <div className="relative aspect-square w-full overflow-hidden bg-muted">
-          <ProductImage
-            src={coverUrl(product)}
-            alt={product.title}
-            priority={priority}
-            sizes={sizes}
-          />
+          {/* relative: the fill image positions against this wrapper, its direct parent. */}
+          <div className={soldOut ? "relative size-full opacity-55" : "relative size-full"}>
+            <ProductImage
+              src={coverUrl(product)}
+              alt={product.title}
+              priority={priority}
+              sizes={sizes}
+            />
+          </div>
+          {soldOut ? (
+            <span className="absolute top-2 left-2 inline-flex items-center gap-1.5 rounded-sm border border-border bg-card px-2 py-1 text-[11px] leading-none font-semibold text-foreground shadow-xs">
+              <span aria-hidden className="size-1.5 rounded-full bg-destructive" />
+              Out of stock
+            </span>
+          ) : null}
         </div>
 
         <div className="flex flex-col gap-1 px-2.5 pt-2">

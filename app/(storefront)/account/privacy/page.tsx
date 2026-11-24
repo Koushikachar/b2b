@@ -16,7 +16,7 @@ export default async function PrivacyPage() {
   const profile = await getBuyerProfile(supabase, user.id, user.email)
   const deletionHref = SUPPORT_EMAIL
     ? `mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent("Account deletion request")}&body=${encodeURIComponent(`Please delete my Direct2Hub account (${user.email}).`)}`
-    : "/account/contact"
+    : "/contact"
 
   return (
     <AccountPage>

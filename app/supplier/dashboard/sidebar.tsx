@@ -1,4 +1,5 @@
 "use client"
+import { useState } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { HugeiconsIcon, type IconSvgElement } from "@hugeicons/react"
@@ -39,12 +40,119 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import { NavUser } from "@/components/layout/nav-user"
 import { StatusBadge } from "@/components/dashboard/status-badge"
 import type { AreaAccess } from "@/lib/supplier/permissions"
 
 function isEdit(productPath: string): boolean {
   return /\/products\/[\w-]+\/edit$/.test(productPath)
+}
+
+type NavLink = { href: string; label: string; icon: IconSvgElement; active: boolean }
+
+/**
+ * A section with sub-pages (Analytics, Products, Settings). Expanded, it is a
+ * collapsible list; collapsed to icons the list would be hidden, so the icon
+ * opens a flyout menu with the same links instead.
+ */
+function NavGroup({
+  label,
+  icon,
+  active,
+  links,
+  onNavigate,
+}: {
+  label: string
+  icon: IconSvgElement
+  active: boolean
+  links: NavLink[]
+  onNavigate: () => void
+}) {
+  const { state, isMobile } = useSidebar()
+  // Controlled: `active` changes on navigation, and an uncontrolled
+  // Collapsible must not get a new default (Base UI warning). Entering the
+  // section opens it; the user can still close it.
+  const [open, setOpen] = useState(active)
+  const [prevActive, setPrevActive] = useState(active)
+  if (active !== prevActive) {
+    setPrevActive(active)
+    if (active) setOpen(true)
+  }
+
+  if (state === "collapsed" && !isMobile) {
+    return (
+      <SidebarMenuItem>
+        <DropdownMenu>
+          <DropdownMenuTrigger
+            render={<SidebarMenuButton isActive={active} tooltip={label} />}
+          >
+            <HugeiconsIcon icon={icon} strokeWidth={2} />
+            <span>{label}</span>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent side="right" align="start" className="w-auto">
+            <DropdownMenuGroup>
+              <DropdownMenuLabel>{label}</DropdownMenuLabel>
+              {links.map((link) => (
+                <DropdownMenuItem
+                  key={link.href}
+                  render={<Link href={link.href} />}
+                  className={link.active ? "bg-accent font-medium" : undefined}
+                >
+                  <HugeiconsIcon icon={link.icon} strokeWidth={2} />
+                  {link.label}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuGroup>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </SidebarMenuItem>
+    )
+  }
+
+  return (
+    <Collapsible
+      open={open}
+      onOpenChange={setOpen}
+      className="group/collapsible"
+      render={<SidebarMenuItem />}
+    >
+      <CollapsibleTrigger
+        render={<SidebarMenuButton isActive={active} tooltip={label} />}
+      >
+        <HugeiconsIcon icon={icon} strokeWidth={2} />
+        <span>{label}</span>
+        <HugeiconsIcon
+          icon={ChevronRightIcon}
+          strokeWidth={2}
+          className="ml-auto transition-transform duration-200 group-data-open/collapsible:rotate-90"
+        />
+      </CollapsibleTrigger>
+      <CollapsibleContent>
+        <SidebarMenuSub>
+          {links.map((link) => (
+            <SidebarMenuSubItem key={link.href}>
+              <SidebarMenuSubButton
+                render={<Link href={link.href} />}
+                isActive={link.active}
+                onClick={onNavigate}
+              >
+                <HugeiconsIcon icon={link.icon} strokeWidth={2} />
+                <span>{link.label}</span>
+              </SidebarMenuSubButton>
+            </SidebarMenuSubItem>
+          ))}
+        </SidebarMenuSub>
+      </CollapsibleContent>
+    </Collapsible>
+  )
 }
 
 const COMMING_SOON_TOP: [string, IconSvgElement][] = [
@@ -164,70 +272,17 @@ export function SupplierSidebar({
 
           {access.all ? (
             <>
-              <Collapsible
-                className="group/collapsible"
-                render={<SidebarMenuItem />}
-              >
-                <CollapsibleTrigger
-                  render={
-                    <SidebarMenuButton
-                      isActive={analyticsActive}
-                      tooltip="Analytics"
-                    >
-                      <HugeiconsIcon icon={ChartAverageIcon} strokeWidth={2} />
-                      <span>Analytics</span>
-                      <HugeiconsIcon
-                        icon={ChevronRightIcon}
-                        strokeWidth={2}
-                        className="ml-auto transition-transform duration-200 group-data-open/collapsible:rotate-90"
-                      />
-                    </SidebarMenuButton>
-                  }
-                />
-                <CollapsibleContent>
-                  <SidebarMenuSub>
-                    <SidebarMenuSubItem>
-                      <SidebarMenuSubButton
-                        render={
-                          <Link href="/supplier/dashboard/analytics/sales" />
-                        }
-                        isActive={salesActive}
-                        onClick={closeMobile}
-                      >
-                        <HugeiconsIcon
-                          icon={ChartAverageIcon}
-                          strokeWidth={2}
-                        />
-                        <span>Sales</span>
-                      </SidebarMenuSubButton>
-                    </SidebarMenuSubItem>
-                    <SidebarMenuSubItem>
-                      <SidebarMenuSubButton
-                        render={
-                          <Link href="/supplier/dashboard/analytics/traffic" />
-                        }
-                        isActive={trafficActive}
-                        onClick={closeMobile}
-                      >
-                        <HugeiconsIcon icon={UserGroup02Icon} strokeWidth={2} />
-                        <span>Traffic</span>
-                      </SidebarMenuSubButton>
-                    </SidebarMenuSubItem>
-                    <SidebarMenuSubItem>
-                      <SidebarMenuSubButton
-                        render={
-                          <Link href="/supplier/dashboard/analytics/products" />
-                        }
-                        isActive={productsAnalyticsActive}
-                        onClick={closeMobile}
-                      >
-                        <HugeiconsIcon icon={Package01Icon} strokeWidth={2} />
-                        <span>Products</span>
-                      </SidebarMenuSubButton>
-                    </SidebarMenuSubItem>
-                  </SidebarMenuSub>
-                </CollapsibleContent>
-              </Collapsible>
+              <NavGroup
+                label="Analytics"
+                icon={ChartAverageIcon}
+                active={analyticsActive}
+                onNavigate={closeMobile}
+                links={[
+                  { href: "/supplier/dashboard/analytics/sales", label: "Sales", icon: ChartAverageIcon, active: salesActive },
+                  { href: "/supplier/dashboard/analytics/traffic", label: "Traffic", icon: UserGroup02Icon, active: trafficActive },
+                  { href: "/supplier/dashboard/analytics/products", label: "Products", icon: Package01Icon, active: productsAnalyticsActive },
+                ]}
+              />
 
               <SidebarMenuItem>
                 <SidebarMenuButton
@@ -256,75 +311,20 @@ export function SupplierSidebar({
           ) : null}
 
           {access.products ? (
-            <Collapsible
-              className="group/collapsible"
-              render={<SidebarMenuItem />}
-            >
-              <CollapsibleTrigger
-                render={
-                  <SidebarMenuButton
-                    isActive={productsActive}
-                    tooltip="Products"
-                  >
-                    <HugeiconsIcon icon={Package01Icon} strokeWidth={2} />
-                    <span>Products</span>
-                    <HugeiconsIcon
-                      icon={ChevronRightIcon}
-                      strokeWidth={2}
-                      className="ml-auto transition-transform duration-200 group-data-open/collapsible:rotate-90"
-                    />
-                  </SidebarMenuButton>
-                }
-              />
-              <CollapsibleContent>
-                <SidebarMenuSub>
-                  <SidebarMenuSubItem>
-                    <SidebarMenuSubButton
-                      render={<Link href="/supplier/dashboard/products" />}
-                      isActive={productsListActive}
-                      onClick={closeMobile}
-                    >
-                      <HugeiconsIcon icon={Package01Icon} strokeWidth={2} />
-                      <span>All products</span>
-                    </SidebarMenuSubButton>
-                  </SidebarMenuSubItem>
-                  <SidebarMenuSubItem>
-                    <SidebarMenuSubButton
-                      render={<Link href="/supplier/dashboard/products/new" />}
-                      isActive={addProductActive}
-                      onClick={closeMobile}
-                    >
-                      <HugeiconsIcon icon={Add01Icon} strokeWidth={2} />
-                      <span>Add product</span>
-                    </SidebarMenuSubButton>
-                  </SidebarMenuSubItem>
-                  <SidebarMenuSubItem>
-                    <SidebarMenuSubButton
-                      render={<Link href="/supplier/dashboard/products/import" />}
-                      isActive={importActive}
-                      onClick={closeMobile}
-                    >
-                      <HugeiconsIcon icon={Upload01Icon} strokeWidth={2} />
-                      <span>Import products</span>
-                    </SidebarMenuSubButton>
-                  </SidebarMenuSubItem>
-                  {isStaff ? null : (
-                    <SidebarMenuSubItem>
-                      <SidebarMenuSubButton
-                        render={
-                          <Link href="/supplier/dashboard/products/margin" />
-                        }
-                        isActive={marginActive}
-                        onClick={closeMobile}
-                      >
-                        <HugeiconsIcon icon={PercentIcon} strokeWidth={2} />
-                        <span>Margin</span>
-                      </SidebarMenuSubButton>
-                    </SidebarMenuSubItem>
-                  )}
-                </SidebarMenuSub>
-              </CollapsibleContent>
-            </Collapsible>
+            <NavGroup
+              label="Products"
+              icon={Package01Icon}
+              active={productsActive}
+              onNavigate={closeMobile}
+              links={[
+                { href: "/supplier/dashboard/products", label: "All products", icon: Package01Icon, active: productsListActive },
+                { href: "/supplier/dashboard/products/new", label: "Add product", icon: Add01Icon, active: addProductActive },
+                { href: "/supplier/dashboard/products/import", label: "Import products", icon: Upload01Icon, active: importActive },
+                ...(isStaff
+                  ? []
+                  : [{ href: "/supplier/dashboard/products/margin", label: "Margin", icon: PercentIcon, active: marginActive }]),
+              ]}
+            />
           ) : null}
 
           {COMMING_SOON_TOP.slice(1).map(([label, icon]) => (
@@ -342,51 +342,16 @@ export function SupplierSidebar({
           ))}
 
           {isStaff ? null : (
-            <Collapsible
-              className="group/collapsible"
-              render={<SidebarMenuItem />}
-            >
-              <CollapsibleTrigger
-                render={
-                  <SidebarMenuButton
-                    isActive={settingsActive}
-                    tooltip="Settings"
-                  >
-                    <HugeiconsIcon icon={SettingsIcon} strokeWidth={2} />
-                    <span>Settings</span>
-                    <HugeiconsIcon
-                      icon={ChevronRightIcon}
-                      strokeWidth={2}
-                      className="ml-auto transition-transform duration-200 group-data-open/collapsible:rotate-90"
-                    />
-                  </SidebarMenuButton>
-                }
-              />
-              <CollapsibleContent>
-                <SidebarMenuSub>
-                  <SidebarMenuSubItem>
-                    <SidebarMenuSubButton
-                      render={<Link href="/supplier/dashboard/business" />}
-                      isActive={businessActive}
-                      onClick={closeMobile}
-                    >
-                      <HugeiconsIcon icon={Building02Icon} strokeWidth={2} />
-                      <span>Business profile</span>
-                    </SidebarMenuSubButton>
-                  </SidebarMenuSubItem>
-                  <SidebarMenuSubItem>
-                    <SidebarMenuSubButton
-                      render={<Link href="/supplier/dashboard/team" />}
-                      isActive={teamActive}
-                      onClick={closeMobile}
-                    >
-                      <HugeiconsIcon icon={UserGroup02Icon} strokeWidth={2} />
-                      <span>Team</span>
-                    </SidebarMenuSubButton>
-                  </SidebarMenuSubItem>
-                </SidebarMenuSub>
-              </CollapsibleContent>
-            </Collapsible>
+            <NavGroup
+              label="Settings"
+              icon={SettingsIcon}
+              active={settingsActive}
+              onNavigate={closeMobile}
+              links={[
+                { href: "/supplier/dashboard/business", label: "Business profile", icon: Building02Icon, active: businessActive },
+                { href: "/supplier/dashboard/team", label: "Team", icon: UserGroup02Icon, active: teamActive },
+              ]}
+            />
           )}
         </SidebarMenu>
       </SidebarContent>

@@ -5,7 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getSessionUser } from "@/lib/auth/session";
 import { getBuyerAddresses } from "@/lib/buyer/address-queries";
 import { getCheckoutPreview } from "@/lib/buyer/checkout-queries";
-import { displayName, getBuyerProfile } from "@/lib/buyer/account-queries";
+import { addressDefaults, getBuyerProfile, getWallet } from "@/lib/buyer/account-queries";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Empty, EmptyDescription, EmptyTitle } from "@/components/ui/empty";
@@ -26,10 +26,11 @@ export default async function CheckoutPage() {
     redirect("/auth/login?next=/checkout&reason=purchase");
   }
 
-  const [preview, addresses, profile] = await Promise.all([
+  const [preview, addresses, profile, wallet] = await Promise.all([
     getCheckoutPreview(supabase, user.id),
     getBuyerAddresses(supabase, user.id),
     getBuyerProfile(supabase, user.id, user.email),
+    getWallet(supabase, user.id, 0),
   ]);
 
   return (
@@ -43,7 +44,7 @@ export default async function CheckoutPage() {
       />
       <h1 className="mt-2 text-xl font-bold tracking-tight md:text-2xl">Checkout</h1>
       <p className="mt-1 text-sm text-muted-foreground">
-        One order is created for each supplier in your cart.
+        Review your items, choose a delivery address and place your order.
       </p>
 
       {preview.groups.length === 0 ? (
@@ -60,7 +61,12 @@ export default async function CheckoutPage() {
         </Card>
       ) : (
         <div className="mt-4">
-          <CheckoutClient preview={preview} addresses={addresses} buyerName={displayName(profile)} />
+          <CheckoutClient
+            preview={preview}
+            addresses={addresses}
+            addressDefaults={addressDefaults(profile)}
+            walletBalance={wallet.balance}
+          />
         </div>
       )}
     </div>

@@ -1,7 +1,8 @@
 "use client"
 
-import { useMemo, useState } from "react"
+import Form from "next/form";
 import Link from "next/link"
+import { useSearchParams } from "next/navigation"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { ArrowRight01Icon, Search01Icon } from "@hugeicons/core-free-icons"
 import { Button } from "@/components/ui/button"
@@ -40,50 +41,55 @@ function formatDate(value: string): string {
 export function SupplierOrdersTable({
   orders,
   basePath,
+  search = null,
 }: {
   orders: SupplierOrderListItem[]
   basePath: string
+  /** Active ?q= term; the server already filtered `orders` by it. */
+  search?: string | null
 }) {
-  const [query, setQuery] = useState("")
-  const q = query.trim().toLowerCase()
-
-  const rows = useMemo(
-    () =>
-      q
-        ? orders.filter(
-            (order) =>
-              order.reference.toLowerCase().includes(q) ||
-              (order.buyerName ?? "").toLowerCase().includes(q)
-          )
-        : orders,
-    [orders, q]
-  )
+  const rows = orders
+  const params = useSearchParams()
 
   return (
     <div className="flex flex-col gap-3">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <label className="relative w-full max-w-xs">
+        {/* GET form via next/form: searches every order without a full page reload. */}
+        <Form action={basePath} replace scroll={false} role="search" className="relative w-full max-w-xs">
           <HugeiconsIcon
             icon={Search01Icon}
             strokeWidth={2}
             className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground"
           />
+          {/* A GET form only submits its own fields: keep the active tab filters. */}
+          {(["status", "payment"] as const).map((key) => {
+            const value = params.get(key)
+            return value ? <input key={key} type="hidden" name={key} value={value} /> : null
+          })}
           <Input
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            placeholder="Search this page"
+            key={search ?? ""}
+            name="q"
+            type="search"
+            defaultValue={search ?? ""}
+            placeholder="Order number or buyer name"
             aria-label="Search orders"
+            maxLength={60}
             className="pl-9"
           />
-        </label>
-        <p className="text-xs text-muted-foreground">
-          {rows.length} of {orders.length} shown
-        </p>
+        </Form>
+        {search ? (
+          <Link
+            href={basePath}
+            className="text-xs font-medium text-primary hover:underline"
+          >
+            Clear search
+          </Link>
+        ) : null}
       </div>
 
       {rows.length === 0 ? (
-        <p className="rounded-lg border border-dashed border-border px-4 py-10 text-center text-sm text-muted-foreground">
-          No orders match your search.
+        <p className="rounded-lg border border-dashed border-border px-4 py-8 text-center text-sm text-muted-foreground">
+          {search ? "No orders match your search." : "No orders here yet."}
         </p>
       ) : (
         <>
