@@ -94,6 +94,9 @@ read by any code (the test pay page and WhatsApp alerts were removed). Don't set
 
 ## Deploy on Vercel (direct2hub.in main, direct2hub.com backup)
 
+> **The site is self-hosted on our own server with automatic deploys from GitHub: see
+> `DEPLOY.md`.** The Vercel steps below only apply if the project moves to Vercel.
+
 1. **Region:** `vercel.json` pins functions to `sin1` (Singapore), next to the Supabase
    database (`ap-southeast-1`). Every page queries the database, so this is the main speed setting.
 2. **Environment variables** (Production): `NEXT_PUBLIC_SUPABASE_URL`,

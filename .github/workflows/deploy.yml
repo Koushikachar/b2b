@@ -1,0 +1,32 @@
+# Deploys to the production server after CI passes on master (or by hand from
+# the Actions tab). Zero-downtime: each deploy builds in a new release folder;
+# the live `current` symlink only moves after a successful build, so a failed
+# build leaves the running site untouched. The last 3 releases are kept for rollback.
+#
+# Server layout (see DEPLOY.md):
+#   /var/www/direct2hub/shared/.env   production settings (never in git)
+#   /var/www/direct2hub/releases/…    one folder per deploy
+#   /var/www/direct2hub/current       -> the live release (pm2 runs from here)
+#
+# Repository secrets: SSH_HOST, SSH_USER, SSH_KEY (private key), optional
+# SSH_PORT (default 22) and SSH_FINGERPRINT (server host key, recommended).
+name: Deploy
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          script: |
+            cd /var/www/app
+            git pull origin main
+            npm install
+            npm run build
+            pm2 restart app
