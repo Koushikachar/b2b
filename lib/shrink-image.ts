@@ -38,14 +38,28 @@ export async function loadOrientedImage(url: string): Promise<ImageBitmap | HTML
   });
 }
 
+/** The only formats the upload and image-search routes accept (they sniff magic bytes). */
+const UPLOADABLE_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
+
+/**
+ * Re-encode when the photo is too big, or is an image format the server
+ * rejects (AVIF, GIF, BMP, HEIC… → 415), even if it is small.
+ */
+export function shouldReencodeImage(file: { type: string; size: number }): boolean {
+  if (!file.type.startsWith("image/")) return false;
+  return !UPLOADABLE_TYPES.has(file.type) || file.size > MAX_UPLOAD_IMAGE_BYTES;
+}
+
 /**
  * Shrink an image before upload: fit within 1600px, re-encode as JPEG,
- * stepping quality down until it is under the budget. Small files and
- * anything that fails to decode pass through unchanged (the server still
- * validates type and size).
+ * stepping quality down until it is under the budget. Other image formats
+ * become JPEG too. Small accepted files and anything the browser can't decode
+ * (e.g. HEIC outside Safari) pass through unchanged; the server still
+ * validates type and size.
  */
 export async function shrinkImageFile(file: File): Promise<File> {
-  if (file.size <= MAX_UPLOAD_IMAGE_BYTES || !file.type.startsWith("image/")) return file;
+  if (!shouldReencodeImage(file)) return file;
+  const convert = !UPLOADABLE_TYPES.has(file.type);
   const url = URL.createObjectURL(file);
   try {
     const image = await loadOrientedImage(url);
@@ -68,7 +82,9 @@ export async function shrinkImageFile(file: File): Promise<File> {
       );
       if (blob && blob.size <= MAX_UPLOAD_IMAGE_BYTES) break;
     }
-    if (!blob || blob.size >= file.size) return file;
+    // Keep a smaller original of an accepted type; a format the server rejects
+    // must always be converted, even when the JPEG comes out bigger.
+    if (!blob || (!convert && blob.size >= file.size)) return file;
     return new File([blob], `${file.name.replace(/\.[^.]+$/, "")}.jpg`, {
       type: "image/jpeg",
       lastModified: file.lastModified,
