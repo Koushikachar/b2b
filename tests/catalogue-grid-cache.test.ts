@@ -36,6 +36,14 @@ describe("catalogue grid snapshot (keeps the list when coming back from a produc
     expect(restoreGrid(homeFilters, "z")).toBeNull()
   })
 
+  it("starts fresh after 5 minutes, so edited products never show stale photos", () => {
+    saveGrid(homeFilters, { items: items("a", "b"), cursor: "page-2", complete: false, scrollY: 900 })
+    const later = Date.now() + 5 * 60_000 + 1
+
+    expect(restoreGrid(homeFilters, "a", later)).toBeNull()
+    expect(restoreGrid(homeFilters, "a")).not.toBeNull()
+  })
+
   it("keeps only the most recent lists", () => {
     for (let i = 0; i < 12; i++) {
       saveGrid({ ...homeFilters, query: `q${i}` }, { items: items("a"), cursor: null, complete: true, scrollY: i })

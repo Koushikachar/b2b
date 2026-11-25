@@ -10,15 +10,36 @@ import type { ProductCardData } from "@/components/storefront/product-card"
 
 /**
  * Personalized when the buyer has viewed/saved products; otherwise the newest
- * approved listings. Both paths are real catalogue data.
+ * approved listings. Both paths are real catalogue data. Checkout passes its
+ * own `categoryIds` (cart + past orders) and excludes what is already in the cart.
  */
-export async function RecommendedProductsSection({ storeId = null }: { storeId?: string | null }) {
-  const supabase = await createClient()
-  const user = await getSessionUser(supabase)
-  const categoryIds = user
-    ? await getBuyerInterestCategoryIds(supabase, user.id)
-    : []
-  const products = await getCachedRecommendedProducts(categoryIds, storeId)
+export async function RecommendedProductsSection({
+  storeId = null,
+  categoryIds: givenCategoryIds,
+  excludeIds = [],
+  title = "Recommended products",
+  subtitle,
+}: {
+  storeId?: string | null
+  categoryIds?: string[]
+  excludeIds?: string[]
+  title?: string
+  subtitle?: string
+}) {
+  let categoryIds = givenCategoryIds
+  if (!categoryIds) {
+    const supabase = await createClient()
+    const user = await getSessionUser(supabase)
+    categoryIds = user ? await getBuyerInterestCategoryIds(supabase, user.id) : []
+  }
+  const exclude = new Set(excludeIds)
+  // Fetch extra when excluding, so the row stays full after removing cart items.
+  const products = (
+    await getCachedRecommendedProducts(categoryIds, storeId, 8 + exclude.size)
+  )
+    // Never suggest something the buyer can't add to the cart.
+    .filter((product) => !exclude.has(product.id) && !product.is_out_of_stock)
+    .slice(0, 8)
 
   if (products.length === 0) return null
 
@@ -39,11 +60,12 @@ export async function RecommendedProductsSection({ storeId = null }: { storeId?:
   return (
     <section className="mx-auto w-full max-w-7xl px-4 py-2">
       <SectionHeader
-        title="Recommended products"
+        title={title}
         subtitle={
-          categoryIds.length > 0
+          subtitle ??
+          (categoryIds.length > 0
             ? "Based on the categories you have viewed and saved"
-            : "Fresh listings from verified suppliers"
+            : "Fresh listings from verified suppliers")
         }
         icon={
           <HugeiconsIcon

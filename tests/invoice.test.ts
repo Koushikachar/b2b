@@ -78,7 +78,7 @@ describe("buildInvoiceModel", () => {
 
   it("takes the wallet credit used at checkout off the total", () => {
     const model = buildInvoiceModel({ ...order, walletAmount: 100 }, null);
-    expect(model.summary.at(-1)).toEqual({ label: "Paid from D2H wallet", amount: -100 });
+    expect(model.summary.at(-1)).toEqual({ label: "Paid from Direct2Hub wallet", amount: -100 });
     expect(model.total).toBe(11943.08);
   });
 

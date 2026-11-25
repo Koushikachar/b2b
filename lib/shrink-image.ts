@@ -1,19 +1,17 @@
 /**
  * Browser-only image helpers for uploads.
  *
- * Vercel rejects any request to a function (server action or route handler)
- * over 4.5 MB with HTTP 413, whatever next.config's bodySizeLimit says. Phone
- * photos are often 3–6 MB, so every upload shrinks images here first.
+ * Phone photos are often 3–12 MB, so every upload is resized here first. It is
+ * encoded ONCE at high quality (WebP); the server then stores a 2560px master
+ * (lib/image-optimize.ts). A product save sends up to 8 images + 1 search
+ * image in one request: 9 × 1.8 MB stays under next.config's 20 MB body limit
+ * (nginx `client_max_body_size` must allow it too).
  */
 
-const MAX_DIMENSION = 1600;
+const MAX_DIMENSION = 2560;
 
-/**
- * Per-image upload budget. A product save sends up to 8 images + 1 search
- * image in one request: 9 × 450 KB keeps it under 4.5 MB. The server then
- * stores a high-quality 1600px master (lib/image-optimize.ts).
- */
-export const MAX_UPLOAD_IMAGE_BYTES = 450 * 1024;
+/** Per-image budget; under the server's 2 MB per-image limit (MAX_PRODUCT_IMAGE_BYTES). */
+export const MAX_UPLOAD_IMAGE_BYTES = 1800 * 1024;
 
 /**
  * Resolve a URL to a drawable image while honoring EXIF orientation (matters
@@ -51,11 +49,11 @@ export function shouldReencodeImage(file: { type: string; size: number }): boole
 }
 
 /**
- * Shrink an image before upload: fit within 1600px, re-encode as JPEG,
- * stepping quality down until it is under the budget. Other image formats
- * become JPEG too. Small accepted files and anything the browser can't decode
- * (e.g. HEIC outside Safari) pass through unchanged; the server still
- * validates type and size.
+ * Shrink an image before upload: fit within 2560px, re-encode as WebP (JPEG
+ * where the browser can't write WebP), stepping quality down from 0.95 until
+ * it is under the budget. Other image formats are converted too. Small
+ * accepted files and anything the browser can't decode (e.g. HEIC outside
+ * Safari) pass through unchanged; the server still validates type and size.
  */
 export async function shrinkImageFile(file: File): Promise<File> {
   if (!shouldReencodeImage(file)) return file;
@@ -74,19 +72,25 @@ export async function shrinkImageFile(file: File): Promise<File> {
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
 
-    let blob: Blob | null = null;
-    // Highest quality that fits the budget; most 1600px photos fit at 0.9–0.85.
-    for (const quality of [0.9, 0.85, 0.8, 0.72]) {
-      blob = await new Promise<Blob | null>((resolve) =>
-        canvas.toBlob(resolve, "image/jpeg", quality),
-      );
+    const encode = (type: string, quality: number) =>
+      new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, type, quality));
+    // WebP is ~30% smaller than JPEG at the same quality. Browsers that can't
+    // write it hand back a PNG instead, so then use JPEG.
+    const probe = await encode("image/webp", 0.95);
+    const type = probe?.type === "image/webp" ? "image/webp" : "image/jpeg";
+
+    let blob: Blob | null = type === "image/webp" ? probe : null;
+    // Highest quality that fits the budget; most 2560px photos fit at 0.95–0.9.
+    for (const quality of [0.95, 0.92, 0.88, 0.85]) {
+      if (!(blob && quality === 0.95)) blob = await encode(type, quality);
       if (blob && blob.size <= MAX_UPLOAD_IMAGE_BYTES) break;
     }
     // Keep a smaller original of an accepted type; a format the server rejects
-    // must always be converted, even when the JPEG comes out bigger.
+    // must always be converted, even when the result comes out bigger.
     if (!blob || (!convert && blob.size >= file.size)) return file;
-    return new File([blob], `${file.name.replace(/\.[^.]+$/, "")}.jpg`, {
-      type: "image/jpeg",
+    const extension = type === "image/webp" ? "webp" : "jpg";
+    return new File([blob], `${file.name.replace(/\.[^.]+$/, "")}.${extension}`, {
+      type,
       lastModified: file.lastModified,
     });
   } catch {

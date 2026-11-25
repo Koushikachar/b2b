@@ -21,8 +21,11 @@ import { TRENDING_SEARCHES } from "@/lib/search-suggest"
  */
 export function StorefrontSearchOverlay({
   categories,
+  variant = "icon",
 }: {
   categories: MegaMenuCategory[]
+  /** "field": an always-visible search-box button (sticky header / mobile bar). */
+  variant?: "icon" | "field"
 }) {
   const [open, setOpen] = useState(false)
   const triggerRef = useRef<HTMLButtonElement>(null)
@@ -66,15 +69,26 @@ export function StorefrontSearchOverlay({
       <DialogPrimitive.Trigger
         ref={triggerRef}
         render={
-          <Button
-            variant="ghost"
-            size="icon"
-            aria-label="Search"
-            className="hidden text-foreground/80 lg:inline-flex"
-          />
+          variant === "field" ? (
+            <Button
+              variant="outline"
+              aria-label="Search products"
+              className="h-10 w-full justify-start gap-2 bg-card px-3 font-normal text-muted-foreground hover:text-foreground"
+            />
+          ) : (
+            <Button
+              variant="ghost"
+              size="icon"
+              aria-label="Search"
+              className="hidden text-foreground/80 lg:inline-flex"
+            />
+          )
         }
       >
         <HugeiconsIcon icon={Search01Icon} strokeWidth={2} className="size-5" />
+        {variant === "field" ? (
+          <span className="truncate text-sm">Search products, categories…</span>
+        ) : null}
       </DialogPrimitive.Trigger>
       <DialogPrimitive.Portal>
         <DialogPrimitive.Backdrop

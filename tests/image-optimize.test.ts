@@ -18,15 +18,15 @@ async function photo(kind: "gradient" | "noise"): Promise<File> {
 }
 
 describe("optimizeImageUpload (stored product image master)", () => {
-  it("keeps a typical photo at full 1600px and within the size budget", async () => {
+  it("keeps a typical photo at full 2560px (sharp on zoom and 4K screens) within 900 KB", async () => {
     const out = await optimizeImageUpload(await photo("gradient"));
-    expect(out.width).toBe(1600);
-    expect(out.buffer.byteLength).toBeLessThanOrEqual(400 * 1024);
+    expect(out.width).toBe(2560);
+    expect(out.buffer.byteLength).toBeLessThanOrEqual(900 * 1024);
     expect(out.contentType).toBe("image/webp");
   });
 
-  it("never drops a hard-to-compress photo below 85% size (the old floor was 800px)", async () => {
+  it("never drops a hard-to-compress photo below 85% size (2176px)", async () => {
     const out = await optimizeImageUpload(await photo("noise"));
-    expect(out.width).toBeGreaterThanOrEqual(1360);
-  }, 30_000);
+    expect(out.width).toBeGreaterThanOrEqual(2176);
+  }, 60_000);
 });

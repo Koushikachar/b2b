@@ -494,7 +494,7 @@ export default async function SupplierOrderDetailPage({
               ) : null}
               {Number(orderRow.wallet_amount) > 0 ? (
                 <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground">Paid from D2H wallet</span>
+                  <span className="text-muted-foreground">Paid from Direct2Hub wallet</span>
                   <span className="tabular-nums">
                     −{formatRupees(Number(orderRow.wallet_amount))}
                   </span>

@@ -85,7 +85,7 @@ GitHub → Settings → Secrets and variables → Actions → New repository sec
 server {
     listen 80;
     server_name direct2hub.in www.direct2hub.in direct2hub.com www.direct2hub.com;
-    client_max_body_size 6m;
+    client_max_body_size 25m;   # >= next.config bodySizeLimit (20 MB: 8 high-quality product photos)
     location / {
         proxy_pass http://127.0.0.1:3000;
         proxy_http_version 1.1;

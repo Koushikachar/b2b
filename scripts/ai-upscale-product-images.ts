@@ -12,7 +12,7 @@
  * already an AI copy (`…_ai.webp`):
  *   1. download the original
  *   2. enlarge it 4x with Real-ESRGAN (realesrgan-x4plus, runs on the GPU)
- *   3. save a 1600px WebP (quality 85) NEXT TO the original as `…_ai.webp`
+ *   3. save a 2560px WebP (quality 92, same as new uploads) NEXT TO the original as `…_ai.webp`
  *   4. point the product_images row at it, only if the row still points at
  *      the original (a newer upload is never overwritten)
  * Originals are never deleted. Every change goes to a CSV log in the project
@@ -36,7 +36,7 @@ import sharp from "sharp";
 
 const BUCKET = "product_images";
 const LOW_RES_BELOW = 1400;
-const TARGET = 1600;
+const TARGET = 2560; // same master size as new uploads (lib/image-optimize.ts)
 const AI_SUFFIX = "_ai.webp";
 
 const apply = process.argv.includes("--apply");
@@ -127,8 +127,8 @@ async function main() {
       try {
         if (!existsSync(aiFile)) throw new Error("no AI output");
         const webp = await sharp(aiFile)
-          .resize(TARGET, TARGET, { fit: "inside", kernel: "lanczos3" })
-          .webp({ quality: 85 })
+          .resize(TARGET, TARGET, { fit: "inside", kernel: "lanczos3", withoutEnlargement: true })
+          .webp({ quality: 92, smartSubsample: true, effort: 5 })
           .toBuffer();
         const newPath = `${s.path.replace(/\.[^./]+$/, "")}${AI_SUFFIX}`;
         const { error: upErr } = await db.storage.from(BUCKET).upload(newPath, webp, { contentType: "image/webp", upsert: true });

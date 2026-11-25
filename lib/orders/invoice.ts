@@ -104,7 +104,7 @@ export function buildInvoiceModel(order: InvoiceOrder, quote: InvoiceQuote | nul
     if (Number(order.discount) > 0) summary.push({ label: "Coupon discount", amount: -Number(order.discount) });
     if (Number(order.gstAmount) > 0) summary.push({ label: "GST", amount: Number(order.gstAmount) });
   }
-  if (wallet > 0) summary.push({ label: "Paid from D2H wallet", amount: -wallet });
+  if (wallet > 0) summary.push({ label: "Paid from Direct2Hub wallet", amount: -wallet });
   return {
     rows: (quote ? quote.items : order.items).map(toRow),
     summary,

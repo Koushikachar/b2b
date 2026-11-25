@@ -11,11 +11,14 @@ export async function SearchMegaMenuSection() {
   const categories = await getCachedMegaMenuCategories();
   if (categories.length === 0) return null;
   return (
-    <SearchMegaMenu
-      categories={categories}
-      trending={TRENDING_SEARCHES}
-      showCategoryChips={false}
-      showCategoryList={false}
-    />
+    // data-hero-search: the header and phone search bars hide while this is on screen.
+    <div data-hero-search>
+      <SearchMegaMenu
+        categories={categories}
+        trending={TRENDING_SEARCHES}
+        showCategoryChips={false}
+        showCategoryList={false}
+      />
+    </div>
   );
 }
