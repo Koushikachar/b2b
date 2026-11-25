@@ -47,3 +47,39 @@ jobs:
       # (dev-only elliptic, no fix published) is accepted in SECURITY.md (S-6).
       - name: Dependency audit
         run: pnpm audit --audit-level high
+
+  # The image-search checks the main job skips: a production build (so the
+  # deployed-function trace checks in tests/image-embeddings.test.ts run) and
+  # real CLIP inference (downloads the ~89 MB model). Runs alongside `check`.
+  build-and-image-model:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      # Placeholders only: CI never receives real keys. The build doesn't need a
+      # reachable database (failed data fetches are logged and pages fall back).
+      NEXT_PUBLIC_SUPABASE_URL: http://127.0.0.1:54321
+      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ci-placeholder
+      SUPABASE_SERVICE_ROLE_KEY: ci-placeholder
+      NEXT_PUBLIC_APP_URL: https://direct2hub.in
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 12.21.0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: Production build
+        run: pnpm build
+
+      - name: Image search tests (deployed-function trace + real CLIP model)
+        run: pnpm exec vitest run tests/image-embeddings.test.ts
+        env:
+          IMAGE_SEARCH_MODEL_TESTS: "1"
