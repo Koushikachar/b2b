@@ -16,6 +16,10 @@ jobs:
           command_timeout: 30m
           script: |
             set -e
+            # onnxruntime-node's install script otherwise downloads NVIDIA CUDA
+            # GPU libraries (hundreds of MB) on Linux; this server is CPU-only,
+            # and that download is what made deploys hang until the timeout.
+            export ONNXRUNTIME_NODE_INSTALL=skip
             cd /var/www/app
             git pull origin master
             pnpm install
