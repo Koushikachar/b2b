@@ -1,5 +1,7 @@
 FROM node:22-bookworm-slim AS deps
 WORKDIR /app
+# CPU-only: skip onnxruntime-node's CUDA GPU download (hundreds of MB).
+ENV ONNXRUNTIME_NODE_INSTALL=skip
 COPY package.json package-lock.json ./
 RUN npm ci --omit=dev --no-audit --no-fund
 

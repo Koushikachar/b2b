@@ -11,6 +11,11 @@ on:
 permissions:
   contents: read
 
+env:
+  # CPU-only, like the production server: skip onnxruntime-node's CUDA GPU
+  # download, so the real-CLIP test also proves photo search works without it.
+  ONNXRUNTIME_NODE_INSTALL: skip
+
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
