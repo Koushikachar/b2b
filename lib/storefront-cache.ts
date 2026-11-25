@@ -152,6 +152,7 @@ export async function getCachedHotSellingProducts(storeId?: string | null) {
 export async function getCachedRecommendedProducts(
   categoryIds: string[],
   storeId: string | null = null,
+  limit = 8,
 ) {
   const normalized = [...new Set(categoryIds)].sort()
   const key = normalized.join(",") || "all"
@@ -160,10 +161,10 @@ export async function getCachedRecommendedProducts(
       getRecommendedProducts(
         makePublicClient() as unknown as AnyClient,
         normalized,
-        8,
+        limit,
         storeId,
       ),
-    ["recommended", key, storeId ?? "all-stores"],
+    ["recommended", key, storeId ?? "all-stores", String(limit)],
     { revalidate: 120, tags: ["products", "prices", "home"] },
   )()
 }

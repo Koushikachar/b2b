@@ -2,7 +2,9 @@
 
 import { useActionState, useState } from "react";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 import Link from "next/link";
+import { publicTransformedImageUrl } from "@/lib/storage";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { PlusSignIcon, Wallet01Icon } from "@hugeicons/core-free-icons";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -74,12 +76,36 @@ export function CheckoutClient({
               <p className="text-sm font-semibold">Items</p>
               <Badge variant="secondary">{group.lines.length} item{group.lines.length === 1 ? "" : "s"}</Badge>
             </div>
-            <ul className="mt-3 flex flex-col gap-2">
+            <ul className="mt-3 flex flex-col divide-y divide-border">
               {group.lines.map((line) => (
-                <li key={line.cartItemId} className="flex items-start justify-between gap-3 text-sm">
-                  <div className="min-w-0">
-                    <p className="truncate font-medium">{line.title}</p>
-                    <p className="text-xs text-muted-foreground">
+                <li key={line.cartItemId} className="flex items-center gap-3 py-2.5 text-sm first:pt-0 last:pb-0">
+                  <Link
+                    href={`/products/${line.productId}`}
+                    aria-label={`View ${line.title}`}
+                    className="press relative size-16 shrink-0 overflow-hidden rounded-md border border-border bg-white"
+                  >
+                    {line.imagePath ? (
+                      <Image
+                        src={publicTransformedImageUrl("product_images", line.imagePath, { width: 160, height: 160 })}
+                        alt=""
+                        fill
+                        sizes="64px"
+                        className="object-contain"
+                      />
+                    ) : (
+                      <span className="flex size-full items-center justify-center text-[10px] text-muted-foreground">
+                        No image
+                      </span>
+                    )}
+                  </Link>
+                  <div className="min-w-0 flex-1">
+                    <Link
+                      href={`/products/${line.productId}`}
+                      className="line-clamp-2 leading-snug font-medium hover:text-primary"
+                    >
+                      {line.title}
+                    </Link>
+                    <p className="mt-0.5 text-xs text-muted-foreground tabular-nums">
                       {line.quantity} {line.unit} × {formatRupees(line.unitPrice)}
                     </p>
                   </div>
@@ -203,7 +229,7 @@ export function CheckoutClient({
           </div>
           {walletUse > 0 ? (
             <div className="mt-1.5 flex items-center justify-between text-sm">
-              <span className="text-muted-foreground">D2H wallet</span>
+              <span className="text-muted-foreground">Direct2Hub wallet</span>
               <span className="font-bold text-success tabular-nums">−{formatRupees(walletUse)}</span>
             </div>
           ) : null}
@@ -224,7 +250,7 @@ export function CheckoutClient({
               <span className="min-w-0">
                 <span className="flex items-center gap-1 font-semibold">
                   <HugeiconsIcon icon={Wallet01Icon} strokeWidth={2} className="size-4 text-primary" />
-                  Use D2H wallet ({formatRupees(walletBalance)})
+                  Use Direct2Hub wallet ({formatRupees(walletBalance)})
                 </span>
                 <span className="block text-xs text-muted-foreground">Optional — keep it for later if you like.</span>
               </span>

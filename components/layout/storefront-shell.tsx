@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation"
 import { StorefrontHeader } from "@/components/layout/storefront-header"
 import { StorefrontFooter } from "@/components/layout/storefront-footer"
 import { StorefrontBottomNav } from "@/components/layout/storefront-bottom-nav"
+import { MobileSearchBar } from "@/components/layout/mobile-search-bar"
 import { StoreTabs } from "@/components/storefront/store-tabs"
 import { StorefrontSession } from "@/components/storefront/storefront-session"
 import { SignupBonus } from "@/components/storefront/signup-bonus"
@@ -51,6 +52,7 @@ export function StorefrontShell({
         megaCategories={megaCategories}
         cartCount={cartCount}
       />
+      <MobileSearchBar categories={megaCategories ?? []} />
       {/* Light brand tint on the side margins (all screen sizes), fading to the
           page background toward the centre so content stays clean. */}
       {/* pb-8: breathing room between the last product row and the footer. */}

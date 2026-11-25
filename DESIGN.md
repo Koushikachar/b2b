@@ -135,9 +135,13 @@ Dark mode: navy-tinted neutral darks (cool hue, no warm cast), same orange prima
 ### Storefront header (`components/layout/storefront-header.tsx`)
 
 One row on desktop: logo, nav links, and search + cart + account actions. The
-search action is an icon that opens the [top search overlay](#top-search-overlay)
-instead of rendering a full-width search tier in the header. On mobile the header is hidden entirely (`hidden lg:block`): navigation relies
-on the bottom nav and the homepage search hero, matching the mobile mockup. The
+search action is a field-style button (`StorefrontSearchOverlay variant="field"`)
+that is always visible in the sticky header, on every page including the
+homepage, and opens the [top search overlay](#top-search-overlay). On mobile the
+header is hidden (`hidden lg:block`): navigation relies on the bottom nav, and
+`MobileSearchBar` keeps the same search field pinned to the top while scrolling
+(on the homepage it slides in only after the hero search scrolls away, so two
+search boxes never show at once). The
 desktop row keeps the menu + logo and hides the mobile cart because the bottom
 navigation covers those destinations.
 The mobile app bar is `h-(--storefront-header-height)` with `pt-(--safe-area-top)`

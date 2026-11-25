@@ -52,11 +52,11 @@ const nextConfig: NextConfig = {
   },
   experimental: {
     serverActions: {
-      // Match Vercel's hard 4.5 MB request cap (it returns 413 above it, and
-      // this setting cannot raise it), so local dev fails the same way prod
-      // would. Image uploads are shrunk in the browser to stay under it
-      // (lib/shrink-image.ts); per-file rules are enforced in each action.
-      bodySizeLimit: "4.5mb",
+      // Self-hosted (nginx): up to 8 high-quality product photos per save
+      // (lib/shrink-image.ts budgets 1.8 MB each); per-file rules are enforced
+      // in each action. nginx's client_max_body_size must be at least this.
+      // (On Vercel this could not exceed its hard 4.5 MB request cap.)
+      bodySizeLimit: "20mb",
     },
     // Dev-memory fix (8 GB RAM machines were swapping): several dependencies
     // ship a single barrel that re-exports thousands of modules — notably

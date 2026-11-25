@@ -14,17 +14,17 @@ export type OptimizedImage = {
   height: number;
 };
 
-const DEFAULT_MAX_DIMENSION = 1600;
 // Stored originals are a master copy: shoppers get next/image's resized,
 // re-encoded variants per screen, so a bigger original costs no page speed.
-// The old 100 KB target forced ~800px / q50 files that looked blurry on the
-// product page (shown up to 720px wide, 1440px on 2x screens).
-const DEFAULT_TARGET_BYTES = 400 * 1024;
+// 2560px covers zoom and 4K screens; above that the gallery (720px, 1440px on
+// 2x screens) can't show the extra detail, so it would only cost storage.
+const DEFAULT_MAX_DIMENSION = 2560;
+const DEFAULT_TARGET_BYTES = 900 * 1024;
 
 /**
  * Compress an uploaded image to (at most) `targetBytes` while keeping it
  * sharp. Tries high quality first and never goes below 85% of the size or
- * quality 76; returns the first result that fits, otherwise the smallest.
+ * quality 84; returns the first result that fits, otherwise the smallest.
  *
  * Server-only: imports `sharp`, so this module must never be imported by
  * client code.
@@ -40,7 +40,7 @@ export async function optimizeImageUpload(
   const input = Buffer.from(await file.arrayBuffer());
 
   const dimensionSteps = [maxDimension, Math.round(maxDimension * 0.85)];
-  const qualitySteps = [88, 82, 76];
+  const qualitySteps = [92, 88, 84];
 
   let best: { buffer: Buffer; width: number; height: number } | null = null;
 
@@ -54,7 +54,8 @@ export async function optimizeImageUpload(
       // decoded a second time just to read its dimensions.
       const { data: buffer, info } =
         format === "webp"
-          ? await pipeline.webp({ quality }).toBuffer({ resolveWithObject: true })
+          ? // smartSubsample keeps colour edges (labels, logos) crisp.
+            await pipeline.webp({ quality, smartSubsample: true, effort: 5 }).toBuffer({ resolveWithObject: true })
           : await pipeline
               .jpeg({ quality, progressive: true, mozjpeg: true })
               .toBuffer({ resolveWithObject: true });

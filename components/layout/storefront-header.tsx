@@ -6,6 +6,7 @@ import { dashboardHref, navLinksFor } from "@/lib/nav"
 import { Logo } from "@/components/layout/logo"
 import { MobileNav } from "@/components/layout/mobile-nav"
 import { StorefrontSearchOverlay } from "@/components/layout/storefront-search-overlay"
+import { useHeroSearchVisible } from "@/components/layout/use-hero-search"
 import { CartIconLink } from "@/components/storefront/cart-icon-link"
 import type { MegaMenuCategory } from "@/components/storefront/search-mega-menu"
 import { Button } from "@/components/ui/button"
@@ -33,6 +34,8 @@ export function StorefrontHeader({
   // Remount the overlay on navigation so an open panel can never stay over the
   // next route/query without an extra state-sync effect.
   const routeKey = `${pathname}?${searchParams.toString()}`
+  const heroSearch = useHeroSearchVisible()
+  const showSearch = pathname !== "/" || heroSearch === false
 
   return (
     <header
@@ -75,13 +78,23 @@ export function StorefrontHeader({
 
           {/* Right actions (desktop; mobile uses the bottom navigation) */}
           <div className="ml-auto hidden shrink-0 items-center gap-2 lg:flex">
-            {/* The homepage hero already has the full search bar. */}
-            {pathname !== "/" ? (
+            {/* Sticky header search, so search never needs a scroll back up. It
+                fades out while the homepage hero search is on screen (no two
+                search boxes at once) but keeps its space so nothing shifts. */}
+            <div
+              aria-hidden={!showSearch}
+              inert={!showSearch}
+              className={cn(
+                "w-72 transition-opacity duration-200 xl:w-80",
+                !showSearch && "pointer-events-none opacity-0",
+              )}
+            >
               <StorefrontSearchOverlay
                 key={routeKey}
                 categories={megaCategories}
+                variant="field"
               />
-            ) : null}
+            </div>
             <CartIconLink count={cartCount} />
             {user && dashboardHref(user.user_type, user.isStaff) !== "/" ? (
               <Link

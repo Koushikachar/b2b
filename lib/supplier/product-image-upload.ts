@@ -24,7 +24,7 @@ export async function uploadProductImage(
   let contentType = file.type || "application/octet-stream";
   let extension = safeName.includes(".") ? safeName.split(".").pop()! : "bin";
   try {
-    // Defaults: high-quality 1600px master (see lib/image-optimize.ts).
+    // Defaults: high-quality 2560px master (see lib/image-optimize.ts).
     const optimized = await optimizeImageUpload(file);
     body = optimized.buffer;
     contentType = optimized.contentType;

@@ -1,5 +1,8 @@
+import { Suspense } from "react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { getBuyAgainProductIds } from "@/lib/buyer/buy-again";
+import { RecommendedProductsSection } from "@/components/storefront/home-recommended";
 import type { Metadata } from "next";
 import { createClient } from "@/lib/supabase/server";
 import { getSessionUser } from "@/lib/auth/session";
@@ -33,7 +36,12 @@ export default async function CheckoutPage() {
     getWallet(supabase, user.id, 0),
   ]);
 
+  const cartProductIds = [
+    ...new Set(preview.groups.flatMap((group) => group.lines.map((line) => line.productId))),
+  ];
+
   return (
+    <>
     <div className="mx-auto w-full max-w-7xl px-4 py-5">
       <Breadcrumbs
         items={[
@@ -70,5 +78,42 @@ export default async function CheckoutPage() {
         </div>
       )}
     </div>
+    {/* Streams in after checkout renders; never delays placing the order. */}
+    <Suspense fallback={null}>
+      <CheckoutRecommendations buyerId={user.id} cartProductIds={cartProductIds} />
+    </Suspense>
+    </>
+  );
+}
+
+/** "You may also need": categories of the cart and past orders, minus what's in the cart. */
+async function CheckoutRecommendations({
+  buyerId,
+  cartProductIds,
+}: {
+  buyerId: string;
+  cartProductIds: string[];
+}) {
+  const supabase = await createClient();
+  const pastIds = await getBuyAgainProductIds(supabase, buyerId).catch(() => [] as string[]);
+  const ids = [...new Set([...cartProductIds, ...pastIds])];
+  const { data } = ids.length
+    ? await supabase.from("products").select("category_id").in("id", ids)
+    : { data: [] as { category_id: string | null }[] };
+  const categoryIds = [
+    ...new Set((data ?? []).map((row) => row.category_id).filter((id): id is string => Boolean(id))),
+  ];
+
+  return (
+    <RecommendedProductsSection
+      categoryIds={categoryIds}
+      excludeIds={cartProductIds}
+      title="You may also need"
+      subtitle={
+        categoryIds.length > 0
+          ? "Based on what you're ordering and your past orders"
+          : "Popular with other buyers"
+      }
+    />
   );
 }

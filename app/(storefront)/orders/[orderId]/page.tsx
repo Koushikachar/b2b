@@ -337,7 +337,7 @@ export default async function BuyerOrderPage({
             ) : null}
             {gst > 0 ? <Row label="GST" value={formatRupees(gst)} /> : null}
             {walletUsed > 0 ? (
-              <Row label="Paid from D2H wallet" value={`− ${formatRupees(walletUsed)}`} />
+              <Row label="Paid from Direct2Hub wallet" value={`− ${formatRupees(walletUsed)}`} />
             ) : null}
             <div className="flex items-center justify-between border-t border-border pt-2">
               <span className="font-medium">Total to pay</span>
