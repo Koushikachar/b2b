@@ -44,7 +44,7 @@ const SERVICES: Service[] = [
     key: "fbd",
     icon: PackageDeliveredIcon,
     label: "FBD",
-    hint: "Fulfilled by D2H",
+    hint: "Fulfilled",
     title: "Fulfilled by Direct2Hub",
     subtitle: "Order Fulfilment Service",
     intro: {
