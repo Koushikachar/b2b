@@ -38,14 +38,15 @@ export default async function StoresPage() {
           className="relative flex items-center gap-4 overflow-hidden rounded-2xl border border-dashed border-border bg-card p-4"
         >
           <Image src="/stores/d2h_select_mobile.jpg" alt="" width={89} height={56} className="h-auto w-20 shrink-0 rounded-lg object-contain opacity-70 grayscale sm:w-24" />
+          {/* Badge sits above the name so the text gets the full width on small phones. */}
           <div className="min-w-0 flex-1">
+            <span className="mb-1 inline-flex items-center gap-1 rounded-md border border-border bg-muted px-2 py-1 text-xs font-bold tracking-wide text-muted-foreground uppercase">
+              <HugeiconsIcon icon={Clock01Icon} strokeWidth={2} className="size-3.5" />
+              Soon
+            </span>
             <h2 className="text-lg font-extrabold tracking-tight text-foreground/80">D2H Select</h2>
             <p className="text-sm text-muted-foreground">Winning products, hot sellers and Under ₹9–₹99 deals.</p>
           </div>
-          <span className="inline-flex shrink-0 items-center gap-1 rounded-md border border-border bg-muted px-2 py-1 text-xs font-bold tracking-wide text-muted-foreground uppercase">
-            <HugeiconsIcon icon={Clock01Icon} strokeWidth={2} className="size-3.5" />
-            Soon
-          </span>
         </div>
       </div>
     </div>

@@ -69,7 +69,8 @@ export function CartGroups({
 
   return (
     <div className="mt-4 grid gap-5 lg:grid-cols-[minmax(0,1fr)_360px]">
-      <div className="flex flex-col gap-5">
+      {/* min-w-0: a long product name must not stretch the column past the phone screen. */}
+      <div className="flex min-w-0 flex-col gap-5">
         {unavailableCount > 0 && (
           <p className="rounded-md border border-border bg-muted/50 px-3 py-2 text-xs text-muted-foreground">
             {unavailableCount} item{unavailableCount > 1 ? "s were" : " was"}{" "}
@@ -109,7 +110,7 @@ export function CartGroups({
                     <div className="min-w-0 flex-1">
                       <Link
                         href={`/products/${line.productId}`}
-                        className="block truncate text-sm font-semibold hover:text-primary"
+                        className="line-clamp-2 text-sm font-semibold hover:text-primary"
                       >
                         {line.title}
                       </Link>

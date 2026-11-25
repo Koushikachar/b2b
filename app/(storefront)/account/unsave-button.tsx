@@ -2,23 +2,29 @@
 
 import { useRouter } from "next/navigation";
 import { useFormStatus } from "react-dom";
+import { HugeiconsIcon } from "@hugeicons/react";
+import { HeartIcon } from "@hugeicons/core-free-icons";
 import { Button } from "@/components/ui/button";
+import { glassIconClass } from "@/components/storefront/glass";
+import { cn } from "@/lib/utils";
 import { unsaveProduct } from "@/lib/buyer/actions";
 
 function UnsaveSubmit({ title }: { title: string }) {
   const { pending } = useFormStatus();
 
+  // Filled heart on the photo: one tap removes it from the wishlist.
   return (
     <Button
       type="submit"
-      variant="outline"
-      size="sm"
+      variant="ghost"
+      size="icon"
       disabled={pending}
       aria-busy={pending}
-      className="h-7 rounded-sm bg-card/90 text-xs shadow-sm"
-      aria-label={`Remove ${title} from saved`}
+      className={cn(glassIconClass, "size-9", pending && "opacity-50")}
+      aria-label={`Remove ${title} from wishlist`}
+      title="Remove from wishlist"
     >
-      {pending ? "Removing…" : "Remove"}
+      <HugeiconsIcon icon={HeartIcon} strokeWidth={2} className="size-5 fill-primary text-primary" />
     </Button>
   );
 }

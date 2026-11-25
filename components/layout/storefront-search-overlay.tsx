@@ -10,6 +10,7 @@ import {
   type MegaMenuCategory,
 } from "@/components/storefront/search-mega-menu"
 import { TRENDING_SEARCHES } from "@/lib/search-suggest"
+import { glassIconClass } from "@/components/storefront/glass"
 
 /**
  * Desktop search entry point.
@@ -24,8 +25,11 @@ export function StorefrontSearchOverlay({
   variant = "icon",
 }: {
   categories: MegaMenuCategory[]
-  /** "field": an always-visible search-box button (sticky header / mobile bar). */
-  variant?: "icon" | "field"
+  /**
+   * "field": search-box button (sticky header / homepage phone bar).
+   * "glass": frosted 40px icon floating over the page (phones).
+   */
+  variant?: "icon" | "field" | "glass"
 }) {
   const [open, setOpen] = useState(false)
   const triggerRef = useRef<HTMLButtonElement>(null)
@@ -73,8 +77,12 @@ export function StorefrontSearchOverlay({
             <Button
               variant="outline"
               aria-label="Search products"
-              className="h-10 w-full justify-start gap-2 bg-card px-3 font-normal text-muted-foreground hover:text-foreground"
+              // Fades while the panel is open: its own input takes over, so
+              // there is only ever one search box on screen.
+              className="h-10 w-full justify-start gap-2 bg-card px-3 font-normal text-muted-foreground transition-opacity hover:text-foreground data-[popup-open]:opacity-0"
             />
+          ) : variant === "glass" ? (
+            <Button variant="ghost" size="icon" aria-label="Search products" className={glassIconClass} />
           ) : (
             <Button
               variant="ghost"
@@ -118,6 +126,7 @@ export function StorefrontSearchOverlay({
             autoFocus
             showCategoryList={false}
             showCategoryChips={false}
+            compact
           />
         </DialogPrimitive.Popup>
       </DialogPrimitive.Portal>

@@ -50,6 +50,7 @@ export function SearchMegaMenu({
   autoFocus = false,
   showCategoryChips = true,
   showCategoryList = true,
+  compact = false,
 }: {
   categories: MegaMenuCategory[]
   activeSlug?: string
@@ -70,6 +71,11 @@ export function SearchMegaMenu({
    * section that follows it.
    */
   showCategoryList?: boolean
+  /**
+   * Inside the header search panel: no logo, a narrower centred column, and
+   * suggestions in the page flow so the panel grows instead of clipping them.
+   */
+  compact?: boolean
 }) {
   const initial =
     categories.find((c) => c.slug === activeSlug) ?? categories[0] ?? null
@@ -101,10 +107,16 @@ export function SearchMegaMenu({
   const hasMore = categories.length > visible.length
 
   return (
-    <div className="mx-auto w-full max-w-7xl px-4 pt-1 pb-1">
+    <div className={compact ? "mx-auto w-full max-w-3xl px-4 py-3" : "mx-auto w-full max-w-7xl px-4 pt-1 pb-1"}>
       {/* One big panel holding every feature (visual only) */}
-      <div className="flex flex-col rounded-lg border border-border bg-card max-sm:rounded-none max-sm:border-0 max-sm:bg-transparent">
-        <div className="flex min-w-0 flex-col px-4 py-3 max-sm:px-0 max-sm:py-0 sm:px-5 sm:py-3 lg:pb-0">
+      <div
+        className={
+          compact
+            ? "flex flex-col"
+            : "flex flex-col rounded-lg border border-border bg-card max-sm:rounded-none max-sm:border-0 max-sm:bg-transparent"
+        }
+      >
+        <div className={compact ? "flex min-w-0 flex-col" : "flex min-w-0 flex-col px-4 py-3 max-sm:px-0 max-sm:py-0 sm:px-5 sm:py-3 lg:pb-0"}>
           {/* Large search bar */}
           <div
             className="relative flex items-center gap-2.5 min-w-0"
@@ -116,7 +128,7 @@ export function SearchMegaMenu({
           >
             {/* Same height as the search box (h-12), so the mark fills the row
                 without overflowing it. */}
-            <Logo className="size-12 shrink-0 rounded-md object-contain" />
+            {compact ? null : <Logo className="size-12 shrink-0 rounded-md object-contain" />}
             {/* The dropdowns are positioned against this box, so they line up
                 with the search field instead of starting under the logo. */}
             <div className="relative min-w-0 flex-1">
@@ -184,6 +196,7 @@ export function SearchMegaMenu({
                 categories={liveCategories}
                 listId={listId}
                 variant="hero"
+                inline={compact}
               />
             )}
             {showFallbackDropdown && (

@@ -86,7 +86,7 @@ export default async function CheckoutPage() {
   );
 }
 
-/** "You may also need": categories of the cart and past orders, minus what's in the cart. */
+/** "You might like": categories of the cart and past orders, minus what's in the cart. */
 async function CheckoutRecommendations({
   buyerId,
   cartProductIds,
@@ -108,7 +108,7 @@ async function CheckoutRecommendations({
     <RecommendedProductsSection
       categoryIds={categoryIds}
       excludeIds={cartProductIds}
-      title="You may also need"
+      title="You might like"
       subtitle={
         categoryIds.length > 0
           ? "Based on what you're ordering and your past orders"

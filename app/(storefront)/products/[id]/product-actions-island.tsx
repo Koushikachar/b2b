@@ -40,7 +40,6 @@ export async function ProductActionsIsland({
 }) {
   const supabase = await createClient();
   const user = await getSessionUser(supabase);
-  const saved = user ? await isProductSaved(supabase, user.id, productId) : false;
 
   // Per-user write — never block the cached PDP body on it. Runs after the
   // response starts streaming; failures only log.
@@ -88,7 +87,14 @@ export async function ProductActionsIsland({
           signedIn={!!user}
         />
       )}
-      <SaveButton productId={productId} saved={saved} />
     </div>
   );
+}
+
+/** Wishlist heart for the product page's top row (per-user, streams in on its own). */
+export async function ProductWishlistIcon({ productId }: { productId: string }) {
+  const supabase = await createClient();
+  const user = await getSessionUser(supabase);
+  const saved = user ? await isProductSaved(supabase, user.id, productId) : false;
+  return <SaveButton productId={productId} saved={saved} />;
 }

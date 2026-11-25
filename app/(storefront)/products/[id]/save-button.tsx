@@ -7,6 +7,7 @@ import { HeartIcon } from "@hugeicons/core-free-icons";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/components/ui/toast";
 import { saveProduct, unsaveProduct } from "@/lib/buyer/actions";
+import { glassIconClass } from "@/components/storefront/glass";
 
 /**
  * Wishlist heart. Optimistic: flips the moment it's tapped, then the server
@@ -41,23 +42,24 @@ export function SaveButton({
     });
   };
 
+  // Heart icon in the product page's top row (next to Back and search).
   return (
     <Button
       type="button"
-      variant="outline"
-      size="lg"
+      variant="ghost"
+      size="icon"
       aria-pressed={shown}
       aria-busy={pending}
+      aria-label={shown ? "Remove from wishlist" : "Add to wishlist"}
+      title={shown ? "In your wishlist" : "Add to wishlist"}
       onClick={toggle}
-      className="h-11 w-full"
+      className={glassIconClass}
     >
       <HugeiconsIcon
         icon={HeartIcon}
         strokeWidth={2}
-        data-icon="inline-start"
-        className={shown ? "fill-primary text-primary" : undefined}
+        className={shown ? "size-5 fill-primary text-primary" : "size-5"}
       />
-      {shown ? "In your wishlist" : "Add to wishlist"}
     </Button>
   );
 }
