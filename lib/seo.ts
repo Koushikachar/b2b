@@ -150,7 +150,7 @@ export function siteJsonLd(siteUrl: string) {
         name: COMPANY.brand,
         legalName: COMPANY.legalName,
         url: siteUrl,
-        logo: `${siteUrl}/logo.jpg`,
+        logo: `${siteUrl}/logo.png`,
         email: COMPANY.supportEmail,
         founder: { "@type": "Person", name: COMPANY.founder },
         address: {

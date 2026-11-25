@@ -59,6 +59,7 @@ visitor on either domain stays on that domain. Supabase only accepts them if the
 | `NEXT_PUBLIC_SUPPORT_EMAIL` | public | `lib/site.ts` → Contact page, account-deletion email link, Organization JSON-LD | optional | channel hidden; deletion link goes to `/account/contact` |
 | `NEXT_PUBLIC_SUPPORT_PHONE` | public | `lib/site.ts` | optional | channel hidden |
 | `NEXT_PUBLIC_SUPPORT_WHATSAPP` | public | `lib/site.ts` | optional | channel hidden |
+| `GOOGLE_SITE_VERIFICATION` | public (it is printed in the page head) | `app/layout.tsx`: `<meta name="google-site-verification">` | to verify the site in Google Search Console with the "HTML tag" method; set only the `content` value, then rebuild | no tag; verify with the DNS method instead |
 | `NEXT_PUBLIC_GA_ID` | public | `components/layout/analytics-consent.tsx` (loads only after the visitor consents) | optional | no analytics and no consent banner |
 
 ### Image search (CLIP inference service)
@@ -109,8 +110,11 @@ read by any code (the test pay page and WhatsApp alerts were removed). Don't set
    original because every page's canonical link uses `NEXT_PUBLIC_APP_URL`.
 4. **Supabase → Authentication → URL Configuration:** Site URL `https://direct2hub.in`; Redirect
    URLs `https://direct2hub.in/**`, `https://direct2hub.com/**`, `http://localhost:3000/**`.
-5. **Image search:** not hosted. Leave `IMAGE_SEARCH_SERVICE_URL` unset on Vercel; photo search
-   then shows "not configured" and everything else works.
+5. **Image search:** on our own server it runs next to the app under pm2 as `image-search`
+   (started by `.github/workflows/deploy.yml`, local only on `127.0.0.1:8000`). In
+   `/var/www/app/.env` set `IMAGE_SEARCH_SERVICE_URL=http://127.0.0.1:8000` and a long random
+   `IMAGE_SEARCH_SERVICE_TOKEN` (both the app and the service read this one file). Needs ~1 GB
+   free RAM. Without these two values photo search shows "not configured".
 6. **After deploy:** open `/`, a product, `/robots.txt`, `/sitemap.xml`, `/llms.txt` on both
    domains, sign in on each, then submit `https://direct2hub.in/sitemap.xml` in Google Search Console.
 

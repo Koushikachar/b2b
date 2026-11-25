@@ -30,6 +30,10 @@ export const metadata: Metadata = {
     locale: "en_IN",
   },
   twitter: { card: "summary_large_image" },
+  // Google Search Console ownership check (HTML tag method): only the content value.
+  ...(process.env.GOOGLE_SITE_VERIFICATION
+    ? { verification: { google: process.env.GOOGLE_SITE_VERIFICATION } }
+    : {}),
   formatDetection: { telephone: false },
   robots: {
     index: true,
