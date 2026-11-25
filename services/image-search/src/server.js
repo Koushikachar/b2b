@@ -224,7 +224,10 @@ const server = http.createServer(async (req, res) => {
   }
 });
 
-server.listen(PORT, () => console.info(`[inference] listening on :${PORT} model=${MODEL}`));
+// HOST=127.0.0.1 when it runs next to the app on one server (never exposed to the internet);
+// the default (all interfaces) suits a container.
+const HOST = process.env.HOST ?? "0.0.0.0";
+server.listen(PORT, HOST, () => console.info(`[inference] listening on ${HOST}:${PORT} model=${MODEL}`));
 
 // Warm the model at boot without blocking listen; failures retry lazily.
 loadModel().catch((err) => console.error(`[inference] startup load failed, will retry on first request: ${err?.message ?? err}`));

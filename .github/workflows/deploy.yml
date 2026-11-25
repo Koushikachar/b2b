@@ -21,3 +21,15 @@ jobs:
             pnpm install
             pnpm run build
             pm2 restart app
+
+            # Photo search (CLIP) service on the same server, local only: the app
+            # calls it at http://127.0.0.1:8000 (IMAGE_SEARCH_SERVICE_URL in .env).
+            # It reads IMAGE_SEARCH_SERVICE_TOKEN from the same /var/www/app/.env.
+            cd /var/www/app/services/image-search
+            npm ci --omit=dev --no-audit --no-fund
+            if pm2 describe image-search > /dev/null 2>&1; then
+              HOST=127.0.0.1 pm2 restart image-search --update-env
+            else
+              HOST=127.0.0.1 pm2 start src/server.js --name image-search --node-args="--env-file=/var/www/app/.env"
+            fi
+            pm2 save

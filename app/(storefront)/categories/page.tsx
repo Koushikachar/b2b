@@ -31,15 +31,16 @@ const CATEGORY_GRID = "grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-4"
 const CATEGORY_IMAGE_SIZES =
   "(min-width: 1280px) 25vw, (min-width: 768px) 33vw, 50vw"
 
+const CATEGORIES_DESCRIPTION =
+  "Shop wholesale by category: car accessories, kitchen & dining, home essentials, beauty & personal care, travel, tools and more, from verified Indian suppliers."
+
 export const metadata: Metadata = {
-  title: "Browse Categories",
-  description:
-    "Explore wholesale categories — textiles, electronics, chemicals, packaging, machinery and more from verified Indian suppliers.",
+  title: "Wholesale Product Categories",
+  description: CATEGORIES_DESCRIPTION,
   alternates: { canonical: "/categories" },
   openGraph: {
-    title: "Browse Categories",
-    description:
-      "Explore wholesale categories — textiles, electronics, chemicals, packaging, machinery and more from verified Indian suppliers.",
+    title: "Wholesale Product Categories",
+    description: CATEGORIES_DESCRIPTION,
     url: "/categories",
   },
 }
