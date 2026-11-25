@@ -201,7 +201,8 @@ export function CartLineControls({
           ) : (
             <HugeiconsIcon icon={Delete02Icon} strokeWidth={2} data-icon="inline-start" />
           )}
-          Remove
+          {/* Icon only on phones so it fits beside the stepper. */}
+          <span className="max-sm:sr-only">Remove</span>
         </Button>
       </div>
       {error && (

@@ -22,7 +22,7 @@ import { ProductDetailTabs } from "@/components/storefront/product-content-tabs"
 import { ExpandableRichText } from "@/components/storefront/expandable-rich-text"
 import { SectionHeader } from "@/components/storefront/section-header"
 import { Skeleton } from "@/components/ui/skeleton"
-import { ProductActionsIsland } from "./product-actions-island"
+import { ProductActionsIsland, ProductWishlistIcon } from "./product-actions-island"
 import { ProductHighlights } from "./product-highlights"
 import { ProductServiceOptions } from "./product-service-options"
 import { ProductStoreCard } from "./product-store-card"
@@ -161,7 +161,14 @@ export function ProductDetail({ product }: { product: Product }) {
 
   return (
     <div className="mx-auto w-full max-w-7xl px-4 py-4 sm:py-5">
-      <ProductBackButton />
+      <ProductBackButton
+        title={product.title}
+        actions={
+          <Suspense fallback={<span className="size-10" aria-hidden />}>
+            <ProductWishlistIcon productId={product.id} />
+          </Suspense>
+        }
+      />
 
       <div className="mt-3 grid grid-cols-1 gap-6 md:grid-cols-[minmax(0,1fr)_minmax(340px,420px)] md:gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(360px,440px)] lg:gap-8">
         {/* Product imagery */}

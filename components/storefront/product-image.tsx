@@ -45,8 +45,9 @@ export function ProductImage({
       src={src}
       alt={alt}
       fill
-      // Product photos: high quality (allowed in next.config `images.qualities`).
-      quality={90}
+      // AVIF q75 (allowed in next.config `images.qualities`): sharp from the 2560px
+      // masters at a fraction of q90's size.
+      quality={75}
       unoptimized={unoptimized}
       loading={priority ? "eager" : undefined}
       sizes={sizes}

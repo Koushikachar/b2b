@@ -77,8 +77,9 @@ export function ProductGallery({
                         alt={img.alt ?? title}
                         fill
                         priority={i === 0}
-                        // The large product photo: keep detail (allowed in next.config).
-                        quality={90}
+                        // The large product photo. AVIF q75 from a 2560px master: ~50 KB at 1080px, ~70 KB at
+                        // 1440px, visually the same as q90 (~80/115 KB).
+                        quality={75}
                         sizes="(min-width: 1024px) 720px, 100vw"
                         className="object-contain"
                       />
