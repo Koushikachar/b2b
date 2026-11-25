@@ -3,7 +3,10 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 // AUTH.md A-2 and the "member cannot grant themselves admin" acceptance test.
 // Local dev stack only (the standard local demo keys), never the remote project.
-const URL = "http://127.0.0.1:54421";
+// Local stack from `supabase start` only (supabase/config.toml api.port = 54321).
+// Deliberately not configurable: these tests write and delete data with the
+// service role, so they must never be pointed at the live project.
+const URL = "http://127.0.0.1:54321";
 const ANON_KEY =
   "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0";
 const SERVICE_ROLE_KEY =
