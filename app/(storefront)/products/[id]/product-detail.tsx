@@ -399,9 +399,9 @@ export async function RelatedProductsSection({
 
   return (
     <div className="mx-auto mt-6 w-full max-w-7xl px-4">
-      <SectionHeader title="Related Products" subtitle="More from this category" />
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
-        {related.slice(0, 8).map((product) => (
+      <SectionHeader title="You may also like" subtitle="From this category first, then more picks" />
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
+        {related.map((product) => (
           <ProductCard key={product.id} product={product as ProductCardData} />
         ))}
       </div>

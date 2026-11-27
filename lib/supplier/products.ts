@@ -176,6 +176,11 @@ const optionalPositiveNumber = (message: string) =>
 export const productSchema = z.object({
   title: z.string().trim().min(10, "Title needs at least 10 characters.").max(140),
   category_id: z.string().uuid("Pick a category."),
+  // Optional second category (the product shows in both).
+  secondary_category_id: z.preprocess(
+    emptyToNull,
+    z.string().uuid("Pick a valid second category.").nullable().default(null),
+  ),
   seller_sku: optionalSku,
   hsn_code: z
     .preprocess((v) => (typeof v === "string" ? v : ""), z.string().trim())

@@ -19,6 +19,7 @@ export default async function ProfilePage() {
           fullName={profile.fullName ?? ""}
           phone={profile.phone ?? ""}
           phoneVerified={profile.phoneVerified}
+          businessType={profile.businessType}
           avatarUrl={
             profile.avatarPath
               ? publicTransformedImageUrl("avatars", profile.avatarPath, { width: 224, height: 224 })

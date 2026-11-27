@@ -19,8 +19,8 @@ type StoreTab = {
 
 /** The store brands inside Direct2Hub. Only Core is live; the rest are "Soon". */
 const STORE_TABS: StoreTab[] = [
-  { id: "core", name: "Core", fullName: "D2H Core", icon: { src: "/stores/store-core.webp", width: 118 }, href: "/" },
-  { id: "select", name: "Select", fullName: "D2H Select", icon: { src: "/stores/store-select.webp", width: 179 }, href: null },
+  { id: "core", name: "Core", fullName: "Direct2Hub Core", icon: { src: "/stores/store-core.webp", width: 118 }, href: "/" },
+  { id: "select", name: "Select", fullName: "Direct2Hub Select", icon: { src: "/stores/store-select.webp", width: 179 }, href: null },
   { id: "package", name: "Package", fullName: "Ecom Package", icon: { src: "/stores/store-package.webp", width: 122 }, href: null },
   { id: "dropship", name: "Dropship", fullName: "Dropship", icon: { src: "/stores/store-dropship.webp", width: 190 }, href: null },
 ]

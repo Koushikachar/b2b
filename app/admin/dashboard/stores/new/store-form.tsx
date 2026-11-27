@@ -26,7 +26,7 @@ export function NewStoreForm() {
             name="name"
             required
             minLength={2}
-            placeholder="e.g. D2H Select"
+            placeholder="e.g. Select"
           />
         </Field>
         <Field>

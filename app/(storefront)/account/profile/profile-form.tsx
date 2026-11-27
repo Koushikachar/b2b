@@ -8,6 +8,8 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
+import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select"
+import { BUSINESS_TYPES } from "@/lib/buyer/business-type"
 import { Spinner } from "@/components/ui/spinner"
 import { toast } from "@/components/ui/toast"
 import {
@@ -29,11 +31,13 @@ export function ProfileForm({
   fullName,
   phone,
   phoneVerified,
+  businessType,
   avatarUrl,
 }: {
   fullName: string
   phone: string
   phoneVerified: boolean
+  businessType: string | null
   avatarUrl: string | null
 }) {
   const [state, action, pending] = useActionState(updateProfile, initial)
@@ -126,6 +130,16 @@ export function ProfileForm({
           ) : (
             <FieldDescription>Changing your number marks it as not verified until our team confirms it.</FieldDescription>
           )}
+        </Field>
+        <Field data-invalid={Boolean(errors.businessType) || undefined}>
+          <FieldLabel htmlFor="businessType">What describes you best</FieldLabel>
+          <NativeSelect id="businessType" name="businessType" defaultValue={businessType ?? ""} aria-invalid={Boolean(errors.businessType) || undefined}>
+            <NativeSelectOption value="" disabled>Choose one</NativeSelectOption>
+            {BUSINESS_TYPES.map((type) => (
+              <NativeSelectOption key={type.value} value={type.value}>{type.label}</NativeSelectOption>
+            ))}
+          </NativeSelect>
+          {errors.businessType ? <FieldError>{errors.businessType}</FieldError> : null}
         </Field>
       </FieldGroup>
 

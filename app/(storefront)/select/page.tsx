@@ -12,10 +12,10 @@ import {
 } from "@/components/storefront/skeletons"
 
 export const metadata: Metadata = {
-  title: "D2H Select — Curated wholesale picks",
+  title: "Direct2Hub Select — Curated wholesale picks",
   description: "Curated winning products, hot selling items and price-based deals from verified suppliers.",
   alternates: { canonical: "/select" },
-  openGraph: { title: "D2H Select", url: "/select" },
+  openGraph: { title: "Direct2Hub Select", url: "/select" },
 }
 
 export default async function SelectPage() {
@@ -24,7 +24,7 @@ export default async function SelectPage() {
 
   return (
     <div className="min-h-full bg-white">
-      <h1 className="sr-only">D2H Select — curated wholesale picks</h1>
+      <h1 className="sr-only">Direct2Hub Select — curated wholesale picks</h1>
 
       <Suspense fallback={<PromotionalCollectionsSkeleton />}>
         <SelectPromotionalCollections />

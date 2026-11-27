@@ -14,6 +14,7 @@ import { TopCategoriesSection } from "@/components/storefront/home-categories"
 import { RecentlyViewedSection } from "@/components/storefront/home-recently-viewed"
 import { FrequentlyBoughtSection } from "@/components/storefront/frequently-bought"
 import { RecommendedProductsSection } from "@/components/storefront/home-recommended"
+import { HomeShowcaseSection } from "@/components/storefront/home-showcase"
 import {
   CatalogueSkeleton,
   HomeHeroSkeleton,
@@ -98,6 +99,11 @@ export default async function HomePage({
 
       <Suspense fallback={<TopCategoriesSkeleton />}>
         <TopCategoriesSection />
+      </Suspense>
+
+      {/* Winning / Hot selling / Trending: hidden while no product is flagged. */}
+      <Suspense fallback={null}>
+        <HomeShowcaseSection storeId={coreStoreId} />
       </Suspense>
 
       <Suspense fallback={<RecentRailSkeleton />}>

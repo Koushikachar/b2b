@@ -1,7 +1,8 @@
 "use client"
 
-import type { ReactNode } from "react"
+import { useCallback, useState, type ReactNode } from "react"
 import { usePathname } from "next/navigation"
+import { BusinessTypePrompt } from "@/components/storefront/business-type-prompt"
 import { StorefrontHeader } from "@/components/layout/storefront-header"
 import { StorefrontFooter } from "@/components/layout/storefront-footer"
 import { StorefrontBottomNav } from "@/components/layout/storefront-bottom-nav"
@@ -12,7 +13,7 @@ import { SignupBonus } from "@/components/storefront/signup-bonus"
 import type { MegaMenuCategory } from "@/components/storefront/search-mega-menu"
 
 
-type User = { email: string; user_type: string; isStaff?: boolean } | null
+type User = { email: string; user_type: string; isStaff?: boolean; businessType?: string | null } | null
 type NavCategory = { slug: string; name: string }
 
 export function StorefrontShell({
@@ -32,6 +33,11 @@ export function StorefrontShell({
   // Product detail pages own a sticky buy bar, so the bottom nav (and its
   // reserved padding) is hidden there.
   const hideBottomNav = /^\/products\/[^/]+$/.test(pathname ?? "")
+  // The one-time "what describes you" question waits for the signup popup.
+  const [bonusSettled, setBonusSettled] = useState(false)
+  const onBonusSettled = useCallback(() => setBonusSettled(true), [])
+  const askBusinessType =
+    bonusSettled && user?.user_type === "buyer" && !user.isStaff && !user.businessType
 
   return (
     <div
@@ -42,7 +48,8 @@ export function StorefrontShell({
       }
     >
       <StorefrontSession />
-      {user ? <SignupBonus accountKey={user.email} /> : null}
+      {user ? <SignupBonus accountKey={user.email} onSettled={onBonusSettled} /> : null}
+      {askBusinessType ? <BusinessTypePrompt /> : null}
       {pathname === "/" || pathname === "/select" || pathname?.startsWith("/select/") ? (
         <StoreTabs />
       ) : null}

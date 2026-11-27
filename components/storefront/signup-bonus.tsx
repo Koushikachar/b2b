@@ -39,7 +39,14 @@ function claimOnce(accountKey: string) {
  * remembered per browser session to avoid a call on every page; a failed one
  * retries on the next page.
  */
-export function SignupBonus({ accountKey }: { accountKey: string }) {
+export function SignupBonus({
+  accountKey,
+  onSettled,
+}: {
+  accountKey: string
+  /** Called once no celebration is showing (none due, or it was closed). */
+  onSettled?: () => void
+}) {
   const router = useRouter()
   const reduceMotion = useReducedMotion()
   const [amount, setAmount] = useState(0)
@@ -49,7 +56,10 @@ export function SignupBonus({ accountKey }: { accountKey: string }) {
     // ignore keys saved by the earlier per-session check.
     const storageKey = `d2h-signup-bonus-v2:${accountKey}`
     try {
-      if (sessionStorage.getItem(storageKey)) return
+      if (sessionStorage.getItem(storageKey)) {
+        onSettled?.()
+        return
+      }
     } catch {
       // Storage blocked (private mode): the server call is idempotent anyway.
     }
@@ -57,6 +67,7 @@ export function SignupBonus({ accountKey }: { accountKey: string }) {
       .then((result) => {
         if (result.status === "error") {
           claims.delete(accountKey) // let the next page retry
+          onSettled?.()
           return
         }
         try {
@@ -65,12 +76,20 @@ export function SignupBonus({ accountKey }: { accountKey: string }) {
         if (result.status === "credited") {
           setAmount(result.amount)
           router.refresh() // wallet balance on the current page
+        } else {
+          onSettled?.()
         }
       })
-      .catch(() => claims.delete(accountKey))
-  }, [accountKey, router])
+      .catch(() => {
+        claims.delete(accountKey)
+        onSettled?.()
+      })
+  }, [accountKey, router, onSettled])
 
-  const close = () => setAmount(0)
+  const close = () => {
+    setAmount(0)
+    onSettled?.()
+  }
 
   return (
     <Dialog open={amount > 0} onOpenChange={(open) => (open ? null : close())}>

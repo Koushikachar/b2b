@@ -63,6 +63,7 @@ export function canTransitionPaymentStatus(from: PaymentStatus, to: PaymentStatu
 export const SUPPLIER_ORDER_ACTIONS = [
   "accept",
   "reject",
+  "cancel",
   "mark_payment_pending",
   "mark_payment_not_received",
   "mark_paid",
@@ -87,7 +88,8 @@ export function availableSupplierActions(
     actions.push("accept", "reject");
   }
   if (status === "confirmed" || status === "processing") {
-    actions.push("start_processing");
+    // Cancel any time until it ships (the DB allows nothing after that).
+    actions.push("start_processing", "cancel");
   }
   if (status === "processing") {
     actions.push("record_shipment");

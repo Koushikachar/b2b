@@ -8,7 +8,7 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 
 /** Invoice PDF for one of the signed-in supplier's own orders. */
 export async function GET(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ orderId: string }> },
 ) {
   const { orderId } = await params;
@@ -27,5 +27,7 @@ export async function GET(
     return new Response("Not found", { status: 404 });
   }
 
-  return orderInvoiceResponse(supabase, orderId, { supplierId: ctx.companyId });
+  // ?download=1 saves the file; otherwise it opens in the browser to view.
+  const download = new URL(request.url).searchParams.get("download") === "1";
+  return orderInvoiceResponse(supabase, orderId, { supplierId: ctx.companyId }, download);
 }

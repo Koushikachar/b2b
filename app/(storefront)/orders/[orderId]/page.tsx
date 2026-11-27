@@ -35,7 +35,9 @@ import {
 } from "@/lib/orders/quotation";
 import type { DeliverySnapshot } from "@/lib/orders/delivery";
 import { d2hWhatsappLink } from "@/lib/orders/whatsapp-link";
+import { canBuyerCancel } from "@/lib/orders/cancel";
 import { BuyerOrderFlow } from "./buyer-order-flow";
+import { CancelOrderButton } from "./cancel-order-button";
 
 export const metadata: Metadata = { title: "Order details" };
 
@@ -230,6 +232,16 @@ export default async function BuyerOrderPage({
 
       <OrderLiveRefresh orderId={orderRow.id} />
       <BuyerOrderFlow status={status} paid={paid} cancelledReason={orderRow.rejection_reason} />
+
+      {canBuyerCancel(status) ? (
+        <Card className="flex-row! flex-wrap items-center justify-between gap-3 rounded-lg p-4">
+          <div className="min-w-0">
+            <p className="text-sm font-semibold">Need to cancel?</p>
+            <p className="text-xs text-muted-foreground">Free until your order ships. Wallet credit goes back to your wallet.</p>
+          </div>
+          <CancelOrderButton orderId={orderRow.id} />
+        </Card>
+      ) : null}
 
       {/* Shipment ----------------------------------------------------------------- */}
       {hasShipment ? (

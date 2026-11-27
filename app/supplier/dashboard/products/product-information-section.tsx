@@ -181,6 +181,19 @@ export function ProductInformationSection({
             </NativeSelect>
             {categoryError ? <FieldError>{categoryError}</FieldError> : errorFor("category_id")}
           </Field>
+          <Field>
+            <FieldLabel htmlFor="secondary_category_id">Second category (optional)</FieldLabel>
+            <NativeSelect id="secondary_category_id" name="secondary_category_id" value={v("secondary_category_id")} onChange={(e) => onValueChange("secondary_category_id", e.target.value)}>
+              <NativeSelectOption value="">None</NativeSelectOption>
+              {categories
+                .filter((c) => c.id !== v("category_id"))
+                .map((c) => (
+                  <NativeSelectOption key={c.id} value={c.id}>{c.name}</NativeSelectOption>
+                ))}
+            </NativeSelect>
+            <FieldDescription>The product also shows in this category.</FieldDescription>
+            {errorFor("secondary_category_id")}
+          </Field>
         </FieldGroup>
       </FieldSet>
       <FieldSet>

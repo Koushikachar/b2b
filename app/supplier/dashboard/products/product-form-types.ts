@@ -22,6 +22,7 @@ export type ExistingProduct = {
   id: string;
   title: string;
   category_id: string;
+  secondary_category_id: string | null;
   seller_sku: string;
   hsn_code: string | null;
   gst_rate: number | null;

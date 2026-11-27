@@ -8,6 +8,7 @@ import { getAuthUser } from "@/lib/auth/session";
 import { buildAuthCallbackUrl } from "@/lib/auth/origin";
 import { sniffImageType } from "@/lib/storage";
 import { isValidUserPhone, normalizeUserPhone } from "@/lib/user-phone";
+import { isBusinessType } from "@/lib/buyer/business-type";
 
 export type AccountFormState = {
   ok: boolean;
@@ -46,6 +47,10 @@ const profileSchema = z.object({
     .string()
     .trim()
     .refine((v) => v === "" || isValidUserPhone(v), "Enter a valid 10-digit Indian mobile number."),
+  // "What describes you best" (also asked once after login); blank = unchanged.
+  businessType: z
+    .string()
+    .refine((v) => v === "" || isBusinessType(v), "Choose an option from the list."),
 });
 
 export async function updateProfile(
@@ -55,6 +60,7 @@ export async function updateProfile(
   const parsed = profileSchema.safeParse({
     fullName: formData.get("fullName") ?? "",
     phone: formData.get("phone") ?? "",
+    businessType: formData.get("businessType") ?? "",
   });
   if (!parsed.success) {
     return { ok: false, message: "Check the highlighted fields.", fieldErrors: firstErrors(parsed.error) };
@@ -100,6 +106,7 @@ export async function updateProfile(
   const phone = parsed.data.phone ? normalizeUserPhone(parsed.data.phone) : null;
   const update: Record<string, unknown> = { full_name: parsed.data.fullName, phone };
   if (avatarPath !== undefined) update.avatar_path = avatarPath;
+  if (parsed.data.businessType) update.business_type = parsed.data.businessType;
 
   const { error } = await supabase.from("profiles").update(update).eq("id", user.id);
   if (error) {

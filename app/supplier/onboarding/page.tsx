@@ -83,7 +83,7 @@ export default async function OnboardingPage() {
         <CardContent className="flex flex-col gap-4">
           <p className="text-sm text-muted-foreground">
             Once linked, use the store switcher in the dashboard to move
-            between stores. D2H Core is fully available; the other stores show
+            between stores. Core is fully available; the other stores show
             a &ldquo;Coming soon&rdquo; state until their dashboards are ready.
           </p>
           <OnboardingFormAction />

@@ -144,7 +144,7 @@ describe("renderInvoicePdf", () => {
     const bytes = await renderInvoicePdf(buildInvoiceModel(order, null), {
       reference: order.reference,
       createdAt: order.createdAt,
-      storeName: "D2H Core",
+      storeName: "Direct2Hub Core",
       delivery: order.delivery,
     });
     const doc = await PDFDocument.load(bytes);
@@ -155,7 +155,7 @@ describe("renderInvoicePdf", () => {
   it("embeds the bundled D2H logo", async () => {
     const bytes = await renderInvoicePdf(
       buildInvoiceModel(order, null),
-      { reference: order.reference, createdAt: order.createdAt, storeName: "D2H Core", delivery: order.delivery },
+      { reference: order.reference, createdAt: order.createdAt, storeName: "Direct2Hub Core", delivery: order.delivery },
       { bytes: Buffer.from(INVOICE_LOGO_PNG_BASE64, "base64"), type: "png" },
     );
     expect((await PDFDocument.load(bytes)).getPageCount()).toBe(1);
@@ -173,7 +173,7 @@ describe("renderInvoicePdf", () => {
     const bytes = await renderInvoicePdf(buildInvoiceModel({ ...order, items }, null), {
       reference: order.reference,
       createdAt: order.createdAt,
-      storeName: "D2H Core",
+      storeName: "Direct2Hub Core",
       delivery: order.delivery,
     });
     expect((await PDFDocument.load(bytes)).getPageCount()).toBeGreaterThan(1);
@@ -183,7 +183,7 @@ describe("renderInvoicePdf", () => {
     const bytes = await renderInvoicePdf(buildInvoiceModel(order, null), {
       reference: order.reference,
       createdAt: order.createdAt,
-      storeName: "D2H Core",
+      storeName: "Direct2Hub Core",
       delivery: { ...order.delivery!, fullName: "कौशिक ₹ Koushik" },
     });
     expect((await PDFDocument.load(bytes)).getPageCount()).toBe(1);

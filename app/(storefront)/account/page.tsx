@@ -17,12 +17,14 @@ import {
   PencilEdit02Icon,
   SecurityCheckIcon,
   Share08Icon,
+  Store01Icon,
   File01Icon,
   Clock01Icon,
   Wallet01Icon,
 } from "@hugeicons/core-free-icons"
 import { createClient } from "@/lib/supabase/server"
 import { getSessionUser } from "@/lib/auth/session"
+import { BUSINESS_TYPES } from "@/lib/buyer/business-type"
 import { dashboardHref } from "@/lib/nav"
 import { SITE_URL } from "@/lib/site"
 import {
@@ -99,6 +101,7 @@ export default async function AccountPage({
     getWallet(supabase, user.id, 0),
   ])
   const name = displayName(profile)
+  const businessLabel = BUSINESS_TYPES.find((type) => type.value === profile.businessType)?.label ?? null
   const workspace = dashboardHref(user.user_type, user.isStaff)
 
   return (
@@ -142,6 +145,16 @@ export default async function AccountPage({
               <p className="mt-1 flex items-center gap-2 text-sm text-muted-foreground">
                 <HugeiconsIcon icon={Mail01Icon} strokeWidth={2} className="size-4 shrink-0" />
                 <span className="truncate">{profile.email}</span>
+              </p>
+              <p className="mt-1 flex items-center gap-2 text-sm text-muted-foreground">
+                <HugeiconsIcon icon={Store01Icon} strokeWidth={2} className="size-4 shrink-0" />
+                {businessLabel ? (
+                  <span className="truncate">{businessLabel}</span>
+                ) : (
+                  <Link href="/account/profile" className="font-medium text-primary hover:underline">
+                    Tell us what describes you
+                  </Link>
+                )}
               </p>
             </div>
             <Link

@@ -93,6 +93,10 @@ export function StorefrontFooter({ user }: { user: FooterUser }) {
           <Link href="/privacy" className="hover:text-white">Privacy Policy</Link>
           <Link href="/terms" className="hover:text-white">Terms &amp; Conditions</Link>
           <Link href="/contact" className="hover:text-white">Contact</Link>
+          {/* Direct2Hub's own inventory app. */}
+          <a href="https://superpi.space" target="_blank" rel="noopener" className="hover:text-white">
+            Superpi — inventory app
+          </a>
         </nav>
       </div>
     </footer>
