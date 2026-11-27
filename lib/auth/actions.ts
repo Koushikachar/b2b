@@ -1,6 +1,7 @@
 "use server";
 
 import { headers } from "next/headers";
+import { canReceiveEmail } from "@/lib/auth/email-deliverable";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
@@ -36,6 +37,12 @@ export async function requestOtp(
 
   if (!parsed.success) {
     return { ok: false, message: parsed.error.issues[0]?.message ?? "Invalid email." };
+  }
+
+  // Codes sent to typos or fake domains bounce, and a high bounce rate gets
+  // the project's email restricted by Supabase: check the domain first.
+  if (!(await canReceiveEmail(parsed.data.email))) {
+    return { ok: false, message: "We can't send email to that address. Check the spelling (for example gmail.com)." };
   }
 
   const supabase = await createClient();

@@ -19,10 +19,26 @@ const SECURITY_HEADERS = [
   { key: "Cross-Origin-Opener-Policy", value: "same-origin" },
 ]
 
+/**
+ * Private areas: kept out of search with a noindex header rather than a
+ * robots.txt block. Google can index a robots-blocked URL it finds through a
+ * link (Search Console: "Indexed, though blocked by robots.txt") because the
+ * block stops it seeing any noindex; crawlable + noindex removes them.
+ * They stay private regardless: every one requires sign-in.
+ */
+export const PRIVATE_PREFIXES = ["/account", "/cart", "/checkout", "/orders", "/auth", "/supplier", "/admin", "/api"]
+const NOINDEX = [{ key: "X-Robots-Tag", value: "noindex, nofollow" }]
+
 const nextConfig: NextConfig = {
   poweredByHeader: false,
   async headers() {
-    return [{ source: "/:path*", headers: SECURITY_HEADERS }]
+    return [
+      { source: "/:path*", headers: SECURITY_HEADERS },
+      ...PRIVATE_PREFIXES.flatMap((prefix) => [
+        { source: prefix, headers: NOINDEX },
+        { source: `${prefix}/:path*`, headers: NOINDEX },
+      ]),
+    ]
   },
   images: {
     // Image optimization enabled: AVIF/WebP conversion + auto-resizing via

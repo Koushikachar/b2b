@@ -9,6 +9,7 @@ import { buildAuthCallbackUrl } from "@/lib/auth/origin";
 import { sniffImageType } from "@/lib/storage";
 import { isValidUserPhone, normalizeUserPhone } from "@/lib/user-phone";
 import { isBusinessType } from "@/lib/buyer/business-type";
+import { canReceiveEmail } from "@/lib/auth/email-deliverable";
 
 export type AccountFormState = {
   ok: boolean;
@@ -143,6 +144,10 @@ export async function requestEmailChange(
   if (!user) return { ok: false, message: "Your session expired. Sign in again." };
   if (parsed.data.email.toLowerCase() === user.email.toLowerCase()) {
     return { ok: false, message: "That is already your email address." };
+  }
+  // The confirmation email must not bounce (see lib/auth/email-deliverable).
+  if (!(await canReceiveEmail(parsed.data.email))) {
+    return { ok: false, message: "We can't send email to that address. Check the spelling (for example gmail.com).", fieldErrors: { email: "We can't send email to that address. Check the spelling (for example gmail.com)." } };
   }
 
   const emailRedirectTo = buildAuthCallbackUrl(await headers(), "/account/profile") ?? undefined;

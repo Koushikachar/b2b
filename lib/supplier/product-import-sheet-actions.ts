@@ -463,6 +463,10 @@ export async function importProductImages(
 
 /** One cache refresh for the whole import, after every batch has finished. */
 export async function finishProductImport(published: number): Promise<void> {
+  // A public endpoint like every server action: only a verified supplier may
+  // flush the catalogue cache (otherwise anyone could force full rebuilds).
+  const { supabase, user } = await requireUser();
+  if (!(await getVerifiedSupplierId(supabase, user.id))) return;
   revalidatePath(SUPPLIER_PRODUCTS_PATH);
   // Only published rows changed the storefront.
   if (published > 0) refreshCatalogue();

@@ -27,7 +27,12 @@ jobs:
             # Server Actions (created once, never leaves this server) and a
             # per-commit deployment id so stale tabs reload instead of erroring.
             grep -q '^NEXT_SERVER_ACTIONS_ENCRYPTION_KEY=' .env || printf '\nNEXT_SERVER_ACTIONS_ENCRYPTION_KEY=%s\n' "$(openssl rand -base64 32)" >> .env
-            export NEXT_DEPLOYMENT_ID=$(git rev-parse --short HEAD)
+            # The deployment id must reach BOTH the build and the running server
+            # (next start reads .env). Exporting it only for the build left the
+            # server without it, so every page lacked the id and each click did a
+            # full reload. sed -i keeps .env's permissions.
+            sed -i '/^NEXT_DEPLOYMENT_ID=/d' .env
+            printf '\nNEXT_DEPLOYMENT_ID=%s\n' "$(git rev-parse --short HEAD)" >> .env
             pnpm run build
             pm2 restart app
 
