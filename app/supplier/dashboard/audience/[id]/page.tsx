@@ -28,6 +28,7 @@ import { orderAmount } from "@/lib/orders/quotation";
 import { KpiStat } from "@/components/dashboard/kpi-stat";
 import { StatusBadge } from "@/components/dashboard/status-badge";
 import { getCustomerDetail } from "@/lib/supplier/customer-queries";
+import { BuyerDetailsCard, type BuyerDetails } from "@/components/dashboard/buyer-details-card";
 
 const BASE = "/supplier/dashboard/audience";
 
@@ -64,6 +65,17 @@ export default async function CustomerDetailPage({
   if (!loadError && !detail) {
     notFound();
   }
+
+  // GSTIN and "what describes you": read through one of their orders with this
+  // company (order_buyer_details only covers this supplier's own orders).
+  const latestOrderId = detail?.orders[0]?.id;
+  const { data: buyerDetails } = latestOrderId
+    ? await supabase
+        .from("order_buyer_details")
+        .select("full_name, phone, gstin, gst_business_name, gst_address, no_gstin, business_type")
+        .eq("order_id", latestOrderId)
+        .maybeSingle()
+    : { data: null };
 
   return (
     <div className="flex w-full flex-col gap-4">
@@ -138,6 +150,8 @@ export default async function CustomerDetailPage({
             </Card>
           </div>
 
+          <BuyerDetailsCard details={(buyerDetails ?? null) as BuyerDetails | null} />
+
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-7">
             <Card className="!gap-0 !pb-0 lg:col-span-4">
               <CardHeader className="border-b border-border">
@@ -162,7 +176,7 @@ export default async function CustomerDetailPage({
                     <TableBody>
                       {detail.orders.map((order) => (
                         <TableRow key={order.id}>
-                          <TableCell className="font-mono text-xs">#{order.id.slice(0, 8)}</TableCell>
+                          <TableCell className="text-xs font-semibold tabular-nums">{order.reference}</TableCell>
                           <TableCell className="hidden whitespace-nowrap text-muted-foreground sm:table-cell">
                             {formatDateMed(order.created_at)}
                           </TableCell>

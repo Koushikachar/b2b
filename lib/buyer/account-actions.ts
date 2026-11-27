@@ -219,6 +219,8 @@ export async function saveGstDetails(
       gstin: parsed.data.gstin,
       gst_business_name: parsed.data.businessName,
       gst_address: parsed.data.address,
+      // Having a GSTIN replaces an earlier "I don't have a GST number".
+      no_gstin: false,
     })
     .eq("id", user.id);
   if (error) {
@@ -228,6 +230,24 @@ export async function saveGstDetails(
 
   revalidateAccount("/account/gst");
   return { ok: true, message: "GST details saved. They will be used on your invoices." };
+}
+
+/**
+ * "I don't have a GST number": stop asking at checkout. Orders and invoices
+ * then go out without a buyer GSTIN; adding one later clears this.
+ */
+export async function declareNoGstin(): Promise<AccountFormState> {
+  const supabase = await createClient();
+  const user = await getAuthUser(supabase);
+  if (!user) return { ok: false, message: "Your session expired. Sign in again." };
+  const { error } = await supabase.from("profiles").update({ no_gstin: true }).eq("id", user.id);
+  if (error) {
+    console.error("declareNoGstin failed:", error.code);
+    return { ok: false, message: "Could not save that. Please try again." };
+  }
+  revalidateAccount("/account/gst");
+  revalidatePath("/checkout");
+  return { ok: true, message: "Noted: no GST number. You can add one any time." };
 }
 
 // ---------------------------------------------------------------------------

@@ -609,7 +609,7 @@ export default async function SupplierOverviewPage({
                       <TableCell>
                         <Link
                           href={`/supplier/dashboard/orders/${order.id}`}
-                          className="font-mono text-xs font-semibold hover:text-primary hover:underline"
+                          className="text-sm font-semibold tracking-tight tabular-nums hover:text-primary hover:underline"
                         >
                           {order.reference}
                         </Link>

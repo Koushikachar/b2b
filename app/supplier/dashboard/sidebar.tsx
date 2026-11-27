@@ -15,6 +15,7 @@ import {
   Package01Icon,
   PaintBrush01Icon,
   PercentIcon,
+  Sorting01Icon,
   PuzzleIcon,
   SettingsIcon,
   ShoppingCart01Icon,
@@ -196,10 +197,11 @@ export function SupplierSidebar({
   const addProductActive = pathname === "/supplier/dashboard/products/new"
   const importActive = pathname === "/supplier/dashboard/products/import"
   const marginActive = pathname === "/supplier/dashboard/products/margin"
+  const arrangeActive = pathname === "/supplier/dashboard/products/arrange"
   const productEditActive =
     pathname.startsWith("/supplier/dashboard/products/") && isEdit(pathname)
   const productsActive =
-    productsListActive || addProductActive || importActive || productEditActive || marginActive
+    productsListActive || addProductActive || importActive || productEditActive || marginActive || arrangeActive
   const businessActive = pathname.startsWith("/supplier/dashboard/business")
   const teamActive = pathname.startsWith("/supplier/dashboard/team")
   const settingsActive = businessActive || teamActive
@@ -320,6 +322,7 @@ export function SupplierSidebar({
                 { href: "/supplier/dashboard/products", label: "All products", icon: Package01Icon, active: productsListActive },
                 { href: "/supplier/dashboard/products/new", label: "Add product", icon: Add01Icon, active: addProductActive },
                 { href: "/supplier/dashboard/products/import", label: "Import products", icon: Upload01Icon, active: importActive },
+                { href: "/supplier/dashboard/products/arrange", label: "Arrange home page", icon: Sorting01Icon, active: arrangeActive },
                 ...(isStaff
                   ? []
                   : [{ href: "/supplier/dashboard/products/margin", label: "Margin", icon: PercentIcon, active: marginActive }]),

@@ -3,6 +3,7 @@ import { requireAccount } from "@/lib/buyer/account-session"
 import { getBuyerProfile } from "@/lib/buyer/account-queries"
 import { AccountPage, AccountPageHeader } from "@/components/account/account-page-header"
 import { GstForm } from "./gst-form"
+import { NoGstinChoice } from "./no-gstin-choice"
 
 export const metadata: Metadata = { title: "GST details", robots: { index: false } }
 
@@ -20,6 +21,7 @@ export default async function GstPage() {
         businessName={profile.gstBusinessName ?? ""}
         address={profile.gstAddress ?? ""}
       />
+      {profile.gstin ? null : <NoGstinChoice noGstin={profile.noGstin} />}
     </AccountPage>
   )
 }

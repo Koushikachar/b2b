@@ -154,7 +154,7 @@ async function BuyerOrdersSection({
                     <HugeiconsIcon icon={Package01Icon} strokeWidth={1.8} />
                   </span>
                   <span className="min-w-0">
-                    <span className="block truncate font-mono text-sm font-semibold">
+                    <span className="block truncate text-sm font-semibold tracking-tight tabular-nums">
                       {order.reference}
                     </span>
                     <span className="block truncate text-xs text-muted-foreground">

@@ -635,7 +635,8 @@ export function Catalogue({
           imageToken: undefined,
           sort: hasImageSearch ? "newest" : filters.sort,
         }),
-        { scroll: false },
+        // Leaving for another page (e.g. Under ₹X → home) starts at its top.
+        { scroll: Boolean(priceExitPath && priceExitPath !== basePath) },
       ),
     )
   }
@@ -776,17 +777,27 @@ export function Catalogue({
                 <span aria-hidden>×</span>
               </SoftLink>
             ) : null}
-            {activeFilters.map((filter) => (
-              <SoftLink
-                key={filter.key}
-                href={buildCatalogueUrl(filter.path ?? basePath, filters, filter.overrides)}
-                aria-label={`Remove ${filter.label} filter`}
-                className="inline-flex items-center gap-1 rounded-sm border border-border bg-card px-2 py-0.5 text-xs font-medium text-foreground hover:bg-muted"
-              >
-                {filter.label}
-                <span aria-hidden>×</span>
-              </SoftLink>
-            ))}
+            {activeFilters.map((filter) => {
+              const chip = {
+                href: buildCatalogueUrl(filter.path ?? basePath, filters, filter.overrides),
+                "aria-label": `Remove ${filter.label} filter`,
+                className:
+                  "inline-flex items-center gap-1 rounded-sm border border-border bg-card px-2 py-0.5 text-xs font-medium text-foreground hover:bg-muted",
+                children: (
+                  <>
+                    {filter.label}
+                    <span aria-hidden>×</span>
+                  </>
+                ),
+              }
+              // Leaving for another page (Under ₹X → home) is a normal navigation
+              // that starts at the top; filters on this page update in place.
+              return filter.path && filter.path !== basePath ? (
+                <Link key={filter.key} {...chip} />
+              ) : (
+                <SoftLink key={filter.key} {...chip} />
+              )
+            })}
             <button
               type="button"
               onClick={clearAll}

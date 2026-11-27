@@ -121,7 +121,7 @@ export function SupplierOrdersTable({
                     <TableCell>
                       <Link
                         href={`${basePath}/${order.id}`}
-                        className="font-mono text-xs font-semibold text-foreground underline-offset-2 hover:text-primary hover:underline"
+                        className="text-sm font-semibold tracking-tight text-foreground tabular-nums underline-offset-2 hover:text-primary hover:underline"
                       >
                         {order.reference}
                       </Link>
@@ -178,7 +178,7 @@ export function SupplierOrdersTable({
                 >
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0">
-                      <p className="font-mono text-sm font-semibold">
+                      <p className="text-sm font-semibold tracking-tight tabular-nums">
                         {order.reference}
                       </p>
                       <p className="truncate text-xs text-muted-foreground">

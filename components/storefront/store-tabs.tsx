@@ -71,16 +71,13 @@ export function StoreTabs() {
   return (
     <nav aria-label="Stores inside Direct2Hub" className="store-tabs border-b border-border">
       <span aria-hidden className="store-tabs-blob -top-40 left-[5%] size-80 bg-brand-200" />
-      <span aria-hidden className="store-tabs-blob -bottom-36 left-[45%] size-64 bg-brand-100 [animation-delay:-5s]" />
-      <span aria-hidden className="store-tabs-blob -top-32 right-[4%] size-56 bg-brand-300 [animation-delay:-9s]" />
+      <span aria-hidden className="store-tabs-blob -bottom-36 left-[45%] size-64 bg-brand-100" />
+      <span aria-hidden className="store-tabs-blob -top-32 right-[4%] size-56 bg-brand-300" />
       <ul className="mx-auto grid w-full max-w-7xl grid-cols-4 gap-2 px-4 py-2.5 sm:gap-3 sm:py-3">
         {STORE_TABS.map((tab, i) => {
           const active = isActiveTab(tab, pathname)
-          // Rise-in stagger, and the idle light sweep crossing cards in turn (all screens).
-          const style = {
-            animationDelay: RISE_DELAY[i],
-            "--store-tab-sweep-delay": `${1.2 + i * 0.35}s`,
-          } as React.CSSProperties
+          // Rise-in stagger (one-off; nothing animates while idle).
+          const style = { animationDelay: RISE_DELAY[i] } as React.CSSProperties
           return (
             <li key={tab.id} className="min-w-0">
               {tab.href ? (

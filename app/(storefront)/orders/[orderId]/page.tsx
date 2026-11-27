@@ -38,6 +38,8 @@ import { d2hWhatsappLink } from "@/lib/orders/whatsapp-link";
 import { canBuyerCancel } from "@/lib/orders/cancel";
 import { BuyerOrderFlow } from "./buyer-order-flow";
 import { CancelOrderButton } from "./cancel-order-button";
+import { ReorderButton } from "./reorder-button";
+import { canReorder } from "@/lib/orders/reorder";
 
 export const metadata: Metadata = { title: "Order details" };
 
@@ -220,7 +222,7 @@ export default async function BuyerOrderPage({
             <HugeiconsIcon icon={ArrowLeft01Icon} strokeWidth={2} />
             My Orders
           </Button>
-          <h1 className="font-mono text-lg font-bold tracking-tight md:text-xl">
+          <h1 className="text-lg font-bold tracking-tight tabular-nums md:text-xl">
             {orderRow.reference}
           </h1>
         </div>
@@ -240,6 +242,18 @@ export default async function BuyerOrderPage({
             <p className="text-xs text-muted-foreground">Free until your order ships. Wallet credit goes back to your wallet.</p>
           </div>
           <CancelOrderButton orderId={orderRow.id} />
+        </Card>
+      ) : null}
+
+      {canReorder(status) ? (
+        <Card className="flex-row! flex-wrap items-center justify-between gap-3 rounded-lg p-4">
+          <div className="min-w-0">
+            <p className="text-sm font-semibold">
+              {status === "delivered" ? "Need these again?" : "Still need these products?"}
+            </p>
+            <p className="text-xs text-muted-foreground">Adds this order&apos;s products back to your cart.</p>
+          </div>
+          <ReorderButton orderId={orderRow.id} />
         </Card>
       ) : null}
 

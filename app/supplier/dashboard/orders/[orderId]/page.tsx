@@ -40,6 +40,7 @@ import type { OrderStatus } from "@/lib/orders/lifecycle";
 import { OrderActionsPanel } from "./order-actions-panel";
 import { OrderUndoRedo } from "./order-undo-redo";
 import { orderStepHistory } from "@/lib/orders/step-history";
+import { BuyerDetailsCard, type BuyerDetails } from "@/components/dashboard/buyer-details-card";
 
 export const metadata: Metadata = { title: "Order details" };
 
@@ -170,6 +171,7 @@ export default async function SupplierOrderDetailPage({
     { data: items },
     { data: events },
     { data: quotations },
+    { data: buyerDetails },
   ] = await Promise.all([
     supabase
       .from("orders")
@@ -196,6 +198,12 @@ export default async function SupplierOrderDetailPage({
       )
       .eq("order_id", orderId)
       .order("version", { ascending: true }),
+    // Buyer name, GSTIN and "what describes you" (view limited to this company's orders).
+    supabase
+      .from("order_buyer_details")
+      .select("full_name, phone, gstin, gst_business_name, gst_address, no_gstin, business_type")
+      .eq("order_id", orderId)
+      .maybeSingle(),
   ]);
 
   if (!order) {
@@ -315,6 +323,8 @@ export default async function SupplierOrderDetailPage({
         paymentStatus={orderRow.payment_status}
         hasAcceptedQuote={acceptedQuote !== null}
       />
+
+      <BuyerDetailsCard details={(buyerDetails ?? null) as BuyerDetails | null} />
 
       <div className="grid gap-4 lg:grid-cols-2">
         {/* Buyer + delivery ------------------------------------------------------ */}

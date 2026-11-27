@@ -3,6 +3,7 @@
 import { useCallback, useState, type ReactNode } from "react"
 import { usePathname } from "next/navigation"
 import { BusinessTypePrompt } from "@/components/storefront/business-type-prompt"
+import { useLiveCartCount } from "@/lib/cart-count-event"
 import { StorefrontHeader } from "@/components/layout/storefront-header"
 import { StorefrontFooter } from "@/components/layout/storefront-footer"
 import { StorefrontBottomNav } from "@/components/layout/storefront-bottom-nav"
@@ -30,6 +31,7 @@ export function StorefrontShell({
   children: ReactNode
 }) {
   const pathname = usePathname()
+  const liveCartCount = useLiveCartCount(cartCount)
   // Product detail pages own a sticky buy bar, so the bottom nav (and its
   // reserved padding) is hidden there.
   const hideBottomNav = /^\/products\/[^/]+$/.test(pathname ?? "")
@@ -57,7 +59,7 @@ export function StorefrontShell({
         user={user}
         categories={categories}
         megaCategories={megaCategories}
-        cartCount={cartCount}
+        cartCount={liveCartCount}
       />
       <MobileSearchBar categories={megaCategories ?? []} />
       {/* Light brand tint on the side margins (all screen sizes), fading to the
@@ -68,7 +70,7 @@ export function StorefrontShell({
       </main>
       <StorefrontFooter user={user} />
       {!hideBottomNav && (
-        <StorefrontBottomNav user={user} cartCount={cartCount} />
+        <StorefrontBottomNav user={user} cartCount={liveCartCount} />
       )}
     </div>
   )

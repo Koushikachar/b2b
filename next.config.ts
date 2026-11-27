@@ -32,6 +32,11 @@ const nextConfig: NextConfig = {
     // 75 = default; 90 = product photos (ProductImage / gallery), where a
     // second lossy pass at 75 visibly softened detail. Next 16 requires the list.
     qualities: [75, 90],
+    // Fewer candidate widths (defaults are 15 per image): each <img> srcset
+    // shrinks by about half, which was 261KB of the home page's HTML. Still
+    // covers 3x phones (390px × 3 ≈ 1170 → 1280) and full-width desktop art.
+    deviceSizes: [640, 828, 1080, 1280, 1920],
+    imageSizes: [64, 128, 256, 384],
     // Some IPv6-only networks (NAT64/DNS64) resolve *.supabase.co to
     // 64:ff9b::/96, which Next's SSRF guard treats as private, so every product
     // image 400s locally ("url" parameter is not allowed). Dev only: the
