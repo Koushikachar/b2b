@@ -1,5 +1,6 @@
 "use server";
 
+import { canReceiveEmail } from "@/lib/auth/email-deliverable";
 import { headers } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { createClient as createAnonClient } from "@supabase/supabase-js";
@@ -53,6 +54,8 @@ async function lookupCandidate(
  * built-in Supabase mailer's hourly limit) — membership is unaffected.
  */
 async function sendTeamEmail(email: string, isNewAccount: boolean): Promise<boolean> {
+  // Never mail a domain that can't receive it (bounces get the project restricted).
+  if (!(await canReceiveEmail(email))) return false;
   const appUrl = resolveAppUrl(await headers());
   if (!appUrl) return false;
   const loginUrl = `${appUrl}/auth/login?next=${encodeURIComponent("/supplier/dashboard")}`;

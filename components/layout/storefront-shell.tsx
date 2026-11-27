@@ -4,6 +4,7 @@ import { useCallback, useState, type ReactNode } from "react"
 import { usePathname } from "next/navigation"
 import { BusinessTypePrompt } from "@/components/storefront/business-type-prompt"
 import { useLiveCartCount } from "@/lib/cart-count-event"
+import { ScrollAnchorRestore } from "@/components/storefront/scroll-anchor-restore"
 import { StorefrontHeader } from "@/components/layout/storefront-header"
 import { StorefrontFooter } from "@/components/layout/storefront-footer"
 import { StorefrontBottomNav } from "@/components/layout/storefront-bottom-nav"
@@ -50,6 +51,7 @@ export function StorefrontShell({
       }
     >
       <StorefrontSession />
+      <ScrollAnchorRestore />
       {user ? <SignupBonus accountKey={user.email} onSettled={onBonusSettled} /> : null}
       {askBusinessType ? <BusinessTypePrompt /> : null}
       {pathname === "/" || pathname === "/select" || pathname?.startsWith("/select/") ? (
