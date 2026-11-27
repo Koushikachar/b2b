@@ -61,7 +61,7 @@ export default async function ComingSoonStorePage({
           <Empty>
             <EmptyTitle>Dashboard not available yet</EmptyTitle>
             <EmptyDescription>
-              The {store.name} dashboard is coming soon. Switch back to D2H
+              The {store.name} dashboard is coming soon. Switch back to
               Core from the store switcher to manage your products.
             </EmptyDescription>
           </Empty>
@@ -70,7 +70,7 @@ export default async function ComingSoonStorePage({
               render={<Link href="/supplier/dashboard" />}
               nativeButton={false}
             >
-              Back to D2H Core
+              Back to Core
             </Button>
           </div>
         </CardContent>

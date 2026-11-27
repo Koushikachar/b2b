@@ -8,6 +8,7 @@ import {
   getCategoryBySlug,
   getCategoryProductCount,
   getFeaturedSuppliers,
+  getFlaggedProducts,
   getHomeBanners,
   getHomeCategories,
   getHomeProducts,
@@ -21,6 +22,7 @@ import {
   getRelatedProducts,
   getSourceRegions,
   type ProductListParams,
+  type ShowcaseFlag,
 } from "./storefront";
 import {
   catalogueFiltersKey,
@@ -124,6 +126,16 @@ export const getCachedHomeProducts = unstable_cache(
   { revalidate: 120, tags: ["products", "prices", "home"] },
 );
 
+/** A home showcase row (winning / hot selling) for one store. */
+export async function getCachedFlaggedProducts(flag: ShowcaseFlag, storeId: string | null, limit: number) {
+  const client = makePublicClient() as unknown as AnyClient;
+  return unstable_cache(
+    async () => getFlaggedProducts(client, flag, limit, storeId),
+    ["flagged-products", flag, storeId ?? "all", String(limit)],
+    { revalidate: 120, tags: ["products", "prices", "home"] },
+  )();
+}
+
 export async function getCachedWinningProducts(storeId?: string | null) {
   const client = makePublicClient() as unknown as AnyClient;
   const key = storeId ? `select-winning-products:${storeId}` : "select-winning-products";
@@ -199,7 +211,7 @@ export const getCachedProduct = cache(
 export const getCachedRelatedProducts = unstable_cache(
   async (categoryId: string, excludeId: string) =>
     getRelatedProducts(makePublicClient() as unknown as AnyClient, categoryId, excludeId),
-  ["related"],
+  ["related-20"],
   { revalidate: 120, tags: ["products"] },
 );
 

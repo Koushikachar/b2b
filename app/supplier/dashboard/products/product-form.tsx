@@ -198,6 +198,7 @@ export function ProductForm({
       }
       set("title", product.title)
       set("category_id", product.category_id)
+      set("secondary_category_id", product.secondary_category_id)
       set("seller_sku", product.seller_sku)
       set("hsn_code", product.hsn_code)
       set("gst_rate", product.gst_rate)

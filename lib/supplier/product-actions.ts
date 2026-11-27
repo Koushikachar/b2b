@@ -276,6 +276,7 @@ export async function createProduct(
     negotiable: boolOf(formData.get("negotiable")),
     is_winning: boolOf(formData.get("is_winning")),
     is_hot_selling: boolOf(formData.get("is_hot_selling")),
+    secondary_category_id: formData.get("secondary_category_id"),
     packaging_details: formData.get("packaging_details") ?? "",
     warranty_return: formData.get("warranty_return") ?? "",
     youtube_url: formData.get("youtube_url") ?? "",
@@ -355,6 +356,11 @@ export async function createProduct(
       negotiable: parsed.data.negotiable,
       is_winning: parsed.data.is_winning,
       is_hot_selling: parsed.data.is_hot_selling,
+      // Same as the main category means "no second category".
+      secondary_category_id:
+        parsed.data.secondary_category_id !== parsed.data.category_id
+          ? parsed.data.secondary_category_id
+          : null,
       sample_available: false,
       sample_price: null,
       packaging_details: parsed.data.packaging_details?.trim() ? parsed.data.packaging_details.trim() : null,
@@ -486,6 +492,7 @@ export async function updateProduct(
     negotiable: boolOf(formData.get("negotiable")),
     is_winning: boolOf(formData.get("is_winning")),
     is_hot_selling: boolOf(formData.get("is_hot_selling")),
+    secondary_category_id: formData.get("secondary_category_id"),
     packaging_details: formData.get("packaging_details") ?? "",
     warranty_return: formData.get("warranty_return") ?? "",
     youtube_url: formData.get("youtube_url") ?? "",
@@ -556,6 +563,11 @@ const removedPaths = parseRemovedPaths(String(formData.get("removed_image_paths"
       negotiable: parsed.data.negotiable,
       is_winning: parsed.data.is_winning,
       is_hot_selling: parsed.data.is_hot_selling,
+      // Same as the main category means "no second category".
+      secondary_category_id:
+        parsed.data.secondary_category_id !== parsed.data.category_id
+          ? parsed.data.secondary_category_id
+          : null,
       packaging_details: parsed.data.packaging_details?.trim() ? parsed.data.packaging_details.trim() : null,
       warranty_return: parsed.data.warranty_return?.trim() ? parsed.data.warranty_return.trim() : null,
       youtube_url: youtubeUrl,

@@ -6,6 +6,7 @@ import { publicImageUrl } from "@/lib/storage"
 import { UNDER_TILE_PRICES, underMobileSlot, underSlot, type UnderTilePrice } from "@/lib/admin/banner-slots"
 import { PROMO_EVENT_THEMES, isPromoEventLive } from "@/lib/promotions"
 import { SoftLink } from "@/components/storefront/soft-link"
+import { DealSlider } from "@/components/storefront/deal-slider"
 
 type BannerRow = { slot: string; title: string | null; link_url: string | null; image_path: string }
 
@@ -19,6 +20,16 @@ const FILL_LINK =
 type AdminPair = { desktop?: BannerRow; mobile?: BannerRow }
 
 const hasUpload = (pair: AdminPair) => Boolean(pair.desktop || pair.mobile)
+
+/** Every deal upload as a slide: the n-th desktop image with the n-th phone image. */
+function dealPairs(banners: BannerRow[]): AdminPair[] {
+  const desktop = banners.filter((b) => b.slot === "deal")
+  const mobile = banners.filter((b) => b.slot === "deal_mobile")
+  return Array.from({ length: Math.max(desktop.length, mobile.length) }, (_, i) => ({
+    desktop: desktop[i],
+    mobile: mobile[i],
+  }))
+}
 const pairTitle = (pair: AdminPair) => pair.desktop?.title || pair.mobile?.title || null
 const pairLink = (pair: AdminPair) => pair.desktop?.link_url || pair.mobile?.link_url || null
 
@@ -31,10 +42,13 @@ const pairLink = (pair: AdminPair) => pair.desktop?.link_url || pair.mobile?.lin
  * a preload would fetch both the phone and the desktop image, while <picture>
  * downloads only the one that matches the screen (Next 16 image docs).
  */
-function AdminArt({ pair, alt, sizes }: { pair: AdminPair; alt: string; sizes: string }) {
+function AdminArt({ pair, alt, sizes, eager = true }: { pair: AdminPair; alt: string; sizes: string; eager?: boolean }) {
   const desktop = (pair.desktop ?? pair.mobile)!
   const mobile = (pair.mobile ?? pair.desktop)!
-  const common = { alt, sizes, fill: true, loading: "eager", fetchPriority: "high" } as const
+  // Later slides of the deal card load lazily; the first one is above the fold.
+  const common = eager
+    ? ({ alt, sizes, fill: true, loading: "eager", fetchPriority: "high" } as const)
+    : ({ alt, sizes, fill: true, loading: "lazy" } as const)
   const {
     props: { srcSet: desktopSet },
   } = getImageProps({ ...common, src: publicImageUrl("banners", desktop.image_path) })
@@ -102,28 +116,35 @@ const TILE_ASPECT = "aspect-square md:aspect-16/5"
 const DEAL_FRAME = ""
 
 /**
- * Deal card: the "Sign up & get ₹100" art (owner request, in place of the
- * festive deals banner). Signed-out visitors land on login/sign-up and come
- * back to their wallet; signed-in buyers go straight to the wallet.
+ * Deal card. Admin uploads (Dashboard → Banners → deal / deal_mobile) always
+ * win, and several rotate as slides: the n-th desktop upload pairs with the
+ * n-th phone upload. With none, the "Sign up & get ₹100" art shows (owner
+ * request). A slide without its own link goes to the wallet, which sends
+ * signed-out visitors through sign-up first (the deal art is the signup offer).
  *
- * The other branches (admin upload, live festival event, Diya art) are kept
- * for when the signup campaign ends: set SIGNUP_CAMPAIGN to false.
+ * The festival / Diya branches are kept for when the signup campaign ends:
+ * set SIGNUP_CAMPAIGN to false.
  */
 const SIGNUP_CAMPAIGN = true
+const SIGNUP_HREF = "/account/wallet"
 
-async function DealCard({ pair }: { pair: AdminPair }) {
-  if (SIGNUP_CAMPAIGN) {
+async function DealCard({ pairs }: { pairs: AdminPair[] }) {
+  if (pairs.length > 0) {
     return (
-      <Link href="/account/wallet" className={FILL_LINK}>
-        <ResponsiveArt name="signup" kind="card" alt="Sign up and get ₹100 in your Direct2Hub wallet" />
-      </Link>
+      <DealSlider label="Offers">
+        {pairs.map((pair, i) => (
+          <Link key={i} href={pairLink(pair) || SIGNUP_HREF} className={FILL_LINK}>
+            <AdminArt pair={pair} alt={pairTitle(pair) ?? "Sign up and get ₹100 in your Direct2Hub wallet"} sizes={DEAL_SIZES} eager={i === 0} />
+          </Link>
+        ))}
+      </DealSlider>
     )
   }
 
-  if (hasUpload(pair)) {
+  if (SIGNUP_CAMPAIGN) {
     return (
-      <Link href={pairLink(pair) || "/select"} className={FILL_LINK}>
-        <AdminArt pair={pair} alt={pairTitle(pair) ?? "Today's deal"} sizes={DEAL_SIZES} />
+      <Link href={SIGNUP_HREF} className={FILL_LINK}>
+        <ResponsiveArt name="signup" kind="card" alt="Sign up and get ₹100 in your Direct2Hub wallet" />
       </Link>
     )
   }
@@ -183,7 +204,7 @@ async function DealsRow() {
   return (
     <>
       <div className={`${FRAME} ${DEAL_FRAME}`}>
-        <DealCard pair={{ desktop: bySlot("deal"), mobile: bySlot("deal_mobile") }} />
+        <DealCard pairs={dealPairs(banners)} />
       </div>
       <ul className="grid grid-cols-2 gap-2.5 sm:gap-3">
         {UNDER_TILE_PRICES.map((price) => (

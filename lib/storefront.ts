@@ -8,6 +8,13 @@ import {
 } from "@/lib/catalogue";
 import { decodeImageResultToken } from "@/lib/ai/image-result-token";
 
+/** PostgREST filter: main or second category is one of `ids` (database uuids). */
+export function inEitherCategory(ids: string[]): string {
+  // Only uuids reach the filter string, so it can't be used to inject filters.
+  const list = ids.filter((id) => /^[0-9a-f-]{36}$/i.test(id)).join(",");
+  return `category_id.in.(${list}),secondary_category_id.in.(${list})`;
+}
+
 type StorefrontSupplier = {
   id: string;
   business_name: string;
@@ -188,12 +195,16 @@ export async function getHomeProducts(supabase: SupabaseClient, storeId?: string
   }));
 }
 
+/** Showcase flags a supplier can switch on per product. */
+export type ShowcaseFlag = "is_winning" | "is_hot_selling";
+
 /**
- * Products flagged by suppliers as "winning" (promotional). Real flag data
- * from the products table — never synthesized.
+ * Products a supplier flagged for a showcase row (winning, hot selling,
+ * …). Real flag data from the products table, never synthesized.
  */
-export async function getWinningProducts(
+export async function getFlaggedProducts(
   supabase: SupabaseClient,
+  flag: ShowcaseFlag,
   limit = 8,
   storeId?: string | null,
 ) {
@@ -204,7 +215,7 @@ export async function getWinningProducts(
     )
     .eq("status", "approved")
     .eq("is_hidden", false)
-    .eq("is_winning", true);
+    .eq(flag, true);
   if (storeId) qb = qb.eq("store_id", storeId);
   const { data } = await qb
     .order("created_at", { ascending: false })
@@ -227,44 +238,11 @@ export async function getWinningProducts(
   }));
 }
 
-/**
- * Products flagged by suppliers as "hot selling" (promotional). Real flag
- * data from the products table — never synthesized.
- */
-export async function getHotSellingProducts(
-  supabase: SupabaseClient,
-  limit = 8,
-  storeId?: string | null,
-) {
-  let qb = supabase
-    .from("products")
-    .select(
-      "id, title, unit, moq, mrp, is_out_of_stock, negotiable, created_at, supplier_id, category:category_id(name, slug), images:product_images(path, sort)",
-    )
-    .eq("status", "approved")
-    .eq("is_hidden", false)
-    .eq("is_hot_selling", true);
-  if (storeId) qb = qb.eq("store_id", storeId);
-  const { data } = await qb
-    .order("created_at", { ascending: false })
-    .limit(limit);
+export const getWinningProducts = (supabase: SupabaseClient, limit = 8, storeId?: string | null) =>
+  getFlaggedProducts(supabase, "is_winning", limit, storeId);
 
-  const products = data ?? [];
-  const ids = products.map((p) => p.id as string);
-  const [supplierMap, priceMap] = await Promise.all([
-    fetchSupplierMap(
-      supabase,
-      products.map((p) => p.supplier_id as string),
-    ),
-    fetchCustomerPriceMap(supabase, ids),
-  ]);
-
-  return products.map((p) => ({
-    ...p,
-    supplier: supplierMap.get(p.supplier_id as string) ?? null,
-    pricing: priceMap.get(p.id as string) ?? null,
-  }));
-}
+export const getHotSellingProducts = (supabase: SupabaseClient, limit = 8, storeId?: string | null) =>
+  getFlaggedProducts(supabase, "is_hot_selling", limit, storeId);
 
 /**
  * Homepage recommendations. Callers pass the categories a buyer has shown
@@ -288,7 +266,7 @@ export async function getRecommendedProducts(
       .eq("status", "approved")
       .eq("is_hidden", false);
     if (storeId) query = query.eq("store_id", storeId);
-    if (ids.length > 0) query = query.in("category_id", ids);
+    if (ids.length > 0) query = query.or(inEitherCategory(ids));
     return query.order("created_at", { ascending: false }).limit(limit);
   };
 
@@ -535,7 +513,7 @@ export async function getProducts(supabase: SupabaseClient, params: ProductListP
       .maybeSingle();
 
     if (cat) {
-      qb = qb.eq("category_id", cat.id as string);
+      qb = qb.or(inEitherCategory([cat.id as string]));
     }
   }
 
@@ -976,27 +954,42 @@ export async function getFeaturedSuppliers(supabase: SupabaseClient) {
 }
 
 // ---------------------------------------------------------------------------
-// Related products (same category)
+// Related products (same category, topped up with the newest others)
 // ---------------------------------------------------------------------------
+
+export const RELATED_LIMIT = 20;
 
 export async function getRelatedProducts(
   supabase: SupabaseClient,
   categoryId: string,
   excludeProductId: string,
 ) {
+  const select =
+    "id, title, unit, moq, mrp, is_out_of_stock, supplier_id, images:product_images(path, sort)";
   const { data } = await supabase
     .from("products")
-    .select(
-      "id, title, unit, moq, mrp, is_out_of_stock, supplier_id, images:product_images(path, sort)",
-    )
+    .select(select)
     .eq("status", "approved")
     .eq("is_hidden", false)
-    .eq("category_id", categoryId)
+    .or(inEitherCategory([categoryId]))
     .neq("id", excludeProductId)
     .order("created_at", { ascending: false })
-    .limit(8);
+    .limit(RELATED_LIMIT);
 
-  const rows = data ?? [];
+  let rows = data ?? [];
+  // Small categories: fill the section with the newest other products.
+  if (rows.length < RELATED_LIMIT) {
+    const seen = [excludeProductId, ...rows.map((p) => p.id as string)];
+    const { data: more } = await supabase
+      .from("products")
+      .select(select)
+      .eq("status", "approved")
+      .eq("is_hidden", false)
+      .not("id", "in", `(${seen.join(",")})`)
+      .order("created_at", { ascending: false })
+      .limit(RELATED_LIMIT - rows.length);
+    rows = rows.concat(more ?? []);
+  }
   const [supplierMap, priceMap] = await Promise.all([
     fetchSupplierMap(
       supabase,

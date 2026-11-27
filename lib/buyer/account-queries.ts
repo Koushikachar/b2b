@@ -17,6 +17,8 @@ export type BuyerProfile = {
   fullName: string | null;
   phone: string | null;
   phoneVerified: boolean;
+  /** Answer to "What describes you best"; null until answered. */
+  businessType: string | null;
   avatarPath: string | null;
   gstin: string | null;
   gstBusinessName: string | null;
@@ -29,6 +31,7 @@ type ProfileRow = {
   full_name: string | null;
   phone: string | null;
   phone_verified: boolean | null;
+  business_type: string | null;
   avatar_path: string | null;
   gstin: string | null;
   gst_business_name: string | null;
@@ -45,7 +48,7 @@ export async function getBuyerProfile(
   const { data, error } = await supabase
     .from("profiles")
     .select(
-      "email, full_name, phone, phone_verified, avatar_path, gstin, gst_business_name, gst_address, marketing_opt_in",
+      "email, full_name, phone, phone_verified, business_type, avatar_path, gstin, gst_business_name, gst_address, marketing_opt_in",
     )
     .eq("id", userId)
     .maybeSingle();
@@ -59,6 +62,7 @@ export async function getBuyerProfile(
     fullName: row?.full_name ?? null,
     phone: row?.phone ?? null,
     phoneVerified: row?.phone_verified ?? false,
+    businessType: row?.business_type ?? null,
     avatarPath: row?.avatar_path ?? null,
     gstin: row?.gstin ?? null,
     gstBusinessName: row?.gst_business_name ?? null,

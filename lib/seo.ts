@@ -59,7 +59,7 @@ export const FAQS: Faq[] = [
   },
   {
     question: "How do I contact Direct2Hub support?",
-    answer: `Email ${COMPANY.supportEmail} or message D2H Core on WhatsApp from any product page. The registered office is ${COMPANY.office}.`,
+    answer: `Email ${COMPANY.supportEmail} or message Direct2Hub on WhatsApp from any product page. The registered office is ${COMPANY.office}.`,
   },
 ]
 

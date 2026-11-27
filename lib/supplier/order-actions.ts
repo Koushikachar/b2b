@@ -129,8 +129,9 @@ export async function rejectOrder(
 
   const order = await loadOwnOrder(supabase, user.id, parsed.data.orderId);
   if (!order) return err("Order not found.");
-  if (!canAct(order, "reject")) {
-    return err("This order can't be rejected in its current state.");
+  // Reject (under review) or cancel (accepted, not yet shipped): same write.
+  if (!canAct(order, "reject") && !canAct(order, "cancel")) {
+    return err("This order can't be cancelled now — it has already shipped.");
   }
 
   const { error } = await supabase
@@ -148,7 +149,7 @@ export async function rejectOrder(
   }
   await recordOrderNotification(supabase, order.id, "order_rejected_buyer");
   refreshOrderPaths(order.id);
-  return ok("Order rejected. The buyer can see your reason.");
+  return ok("Order cancelled. The buyer can see your reason.");
 }
 
 const paymentSchema = z.object({

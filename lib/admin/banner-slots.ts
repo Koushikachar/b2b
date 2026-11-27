@@ -54,8 +54,8 @@ const tile = (price: number, where: string) => `Under ₹${price} tile ${where}`
 export const SLOT_PLACEMENT: Record<BannerSlot, string> = {
   hero: "Rotates at the top of the home page",
   promo: "Single strip under the category grid",
-  deal: `Wide card left of the Under ₹ tiles on tablets and desktops (about 12:5); replaces the festival artwork while active. ${ALSO_PHONES}`,
-  deal_mobile: `Tall card left of the Under ₹ tiles on phones (about 2:3). ${ALSO_DESKTOP}`,
+  deal: `Wide card left of the Under ₹ tiles on tablets and desktops (about 12:5); replaces the signup artwork while active. Add several to rotate them; with no link, a tap opens sign-up / wallet. ${ALSO_PHONES}`,
+  deal_mobile: `Tall card left of the Under ₹ tiles on phones (about 2:3). Add several to rotate them (paired in order with the desktop ones). ${ALSO_DESKTOP}`,
   under_9: `${tile(9, "on tablets and desktops (wide, about 16:5)")}. ${ALSO_PHONES}`,
   under_9_mobile: `${tile(9, "on phones (square)")}. ${ALSO_DESKTOP}`,
   under_49: `${tile(49, "on tablets and desktops (wide, about 16:5)")}. ${ALSO_PHONES}`,

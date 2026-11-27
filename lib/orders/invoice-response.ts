@@ -12,7 +12,7 @@ import { INVOICE_LOGO_PNG_BASE64 } from "@/lib/orders/invoice-logo";
 import { COMPANY } from "@/lib/company";
 
 // Only D2H Core is open for orders today (lib/store-context-types.ts).
-const STORE_NAME = "D2H Core";
+const STORE_NAME = "Direct2Hub Core";
 
 const LOGO = { bytes: Buffer.from(INVOICE_LOGO_PNG_BASE64, "base64"), type: "png" as const };
 

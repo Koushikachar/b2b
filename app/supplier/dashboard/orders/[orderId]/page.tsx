@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import type { Metadata } from "next";
 import { HugeiconsIcon } from "@hugeicons/react";
-import { ArrowLeft01Icon, Download01Icon } from "@hugeicons/core-free-icons";
+import { ArrowLeft01Icon, Download01Icon, ViewIcon } from "@hugeicons/core-free-icons";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -261,23 +261,37 @@ export default async function SupplierOrderDetailPage({
           <StatusBadge status="order" value={orderRow.status} />
           <StatusBadge status="payment" value={orderRow.payment_status} />
         </div>
-        <div className="flex items-center gap-3">
-          <p className="text-sm text-muted-foreground">
+        <div className="flex flex-wrap items-center gap-2">
+          <p className="mr-1 text-sm text-muted-foreground">
             Placed {formatDateTime(orderRow.created_at)}
           </p>
           <Button
             render={
               <a
                 href={`/supplier/dashboard/orders/${orderRow.id}/invoice`}
-                download
+                target="_blank"
+                rel="noopener noreferrer"
               />
             }
             nativeButton={false}
             variant="outline"
             size="sm"
           >
+            <HugeiconsIcon icon={ViewIcon} strokeWidth={2} />
+            See invoice
+          </Button>
+          <Button
+            render={
+              <a
+                href={`/supplier/dashboard/orders/${orderRow.id}/invoice?download=1`}
+                download
+              />
+            }
+            nativeButton={false}
+            size="sm"
+          >
             <HugeiconsIcon icon={Download01Icon} strokeWidth={2} />
-            Invoice PDF
+            Download
           </Button>
         </div>
       </div>

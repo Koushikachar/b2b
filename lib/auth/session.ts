@@ -3,7 +3,14 @@ import type { createClient } from "@/lib/supabase/server";
 
 type SupabaseServerClient = Awaited<ReturnType<typeof createClient>>;
 
-export type SessionUser = { id: string; email: string; user_type: string; isStaff: boolean } | null;
+export type SessionUser = {
+  id: string;
+  email: string;
+  user_type: string;
+  isStaff: boolean;
+  /** Answer to the one-time "what describes you" question; null = not asked yet. */
+  businessType: string | null;
+} | null;
 
 /**
  * Cached `auth.getUser()` for the current request. Layouts and pages that
@@ -37,7 +44,7 @@ export const getSessionUser = cache(async (
   const [{ data: profile }, { data: membership }] = await Promise.all([
     supabase
       .from("profiles")
-      .select("user_type")
+      .select("user_type, business_type")
       .eq("id", user.id)
       .maybeSingle(),
     supabase
@@ -52,5 +59,6 @@ export const getSessionUser = cache(async (
     email: user.email,
     user_type: profile?.user_type ?? "buyer",
     isStaff: !!membership,
+    businessType: profile?.business_type ?? null,
   };
 });

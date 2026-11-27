@@ -45,7 +45,7 @@ export const D2H_CORE: StoreProgramme = {
   heroTitle: "Core",
   heroSubtitle: "Direct2Hub's own store for ready-to-ship products",
   about:
-    "D2H Core is the official store of Direct2Hub, built to make sourcing simple, reliable, and hassle-free. We offer a curated range of quality products, managed and fulfilled directly by Direct2Hub from our warehouse in Surat, Gujarat.",
+    "Core is the official store of Direct2Hub, built to make sourcing simple, reliable, and hassle-free. We offer a curated range of quality products, managed and fulfilled directly by Direct2Hub from our warehouse in Surat, Gujarat.",
   minOrderValue: 3000,
   audience: "Beginner Friendly",
   managedLabel: "Managed & Fulfilled",
@@ -57,7 +57,7 @@ export const D2H_CORE: StoreProgramme = {
     { title: "Reliable & Secure", body: "Transparent process with buyer protection." },
   ],
   ordering: [
-    { title: "Minimum order value", body: "₹3,000 per order across any mix of D2H Core products." },
+    { title: "Minimum order value", body: "₹3,000 per order across any mix of Core products." },
     { title: "How to order", body: "Add products to your cart, choose a delivery address and place the order. The order is reviewed and confirmed before payment." },
     { title: "Payment", body: "Pay after confirmation using the payment details on your order page, then submit your payment reference (UTR)." },
     { title: "GST invoice", body: "Add your GSTIN under My Account → GST Details to receive a GST invoice." },
@@ -68,7 +68,7 @@ export const D2H_CORE: StoreProgramme = {
     { title: "Cancellations", body: "Orders can be cancelled free of charge before they are shipped." },
   ],
   orderProgress: [
-    { title: "Order placed", body: "Your order reaches the D2H Core team for review." },
+    { title: "Order placed", body: "Your order reaches the Direct2Hub team for review." },
     { title: "Confirmed", body: "Stock and pricing are confirmed and payment is requested." },
     { title: "Packed & quality checked", body: "Products are packed at the Surat warehouse after a quality check." },
     { title: "Shipped", body: "Your order is handed to the courier with tracking." },

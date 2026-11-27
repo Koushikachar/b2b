@@ -19,12 +19,14 @@ export async function RecommendedProductsSection({
   excludeIds = [],
   title = "Recommended products",
   subtitle,
+  limit = 8,
 }: {
   storeId?: string | null
   categoryIds?: string[]
   excludeIds?: string[]
   title?: string
   subtitle?: string
+  limit?: number
 }) {
   let categoryIds = givenCategoryIds
   if (!categoryIds) {
@@ -34,12 +36,17 @@ export async function RecommendedProductsSection({
   }
   const exclude = new Set(excludeIds)
   // Fetch extra when excluding, so the row stays full after removing cart items.
-  const products = (
-    await getCachedRecommendedProducts(categoryIds, storeId, 8 + exclude.size)
-  )
+  const usable = <T extends { id: string; is_out_of_stock?: boolean | null }>(list: T[]) =>
     // Never suggest something the buyer can't add to the cart.
-    .filter((product) => !exclude.has(product.id) && !product.is_out_of_stock)
-    .slice(0, 8)
+    list.filter((product) => !exclude.has(product.id) && !product.is_out_of_stock)
+  let products = usable(await getCachedRecommendedProducts(categoryIds, storeId, limit + exclude.size))
+  // Small categories: top up with the newest products so the row stays full.
+  if (products.length < limit && categoryIds.length > 0) {
+    const have = new Set(products.map((product) => product.id))
+    const extra = usable(await getCachedRecommendedProducts([], storeId, limit * 2 + exclude.size))
+    products = products.concat(extra.filter((product) => !have.has(product.id)))
+  }
+  products = products.slice(0, limit)
 
   if (products.length === 0) return null
 

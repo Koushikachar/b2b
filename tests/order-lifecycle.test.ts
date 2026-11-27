@@ -97,6 +97,15 @@ describe("available supplier actions", () => {
     expect(availableSupplierActions("cancelled")).not.toContain("mark_paid");
   });
 
+  it("lets the supplier cancel an accepted order until it ships", () => {
+    expect(availableSupplierActions("confirmed")).toContain("cancel");
+    expect(availableSupplierActions("processing")).toContain("cancel");
+    // New orders are rejected from the review step instead.
+    expect(availableSupplierActions("new")).not.toContain("cancel");
+    expect(availableSupplierActions("shipped")).not.toContain("cancel");
+    expect(availableSupplierActions("delivered")).not.toContain("cancel");
+  });
+
   it("follows the fulfilment lifecycle", () => {
     expect(availableSupplierActions("confirmed")).toContain("start_processing");
     expect(availableSupplierActions("processing")).toContain("record_shipment");

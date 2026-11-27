@@ -23,6 +23,11 @@ jobs:
             cd /var/www/app
             git pull origin master
             pnpm install
+            # Pages left open across a deploy must keep saving: one fixed key for
+            # Server Actions (created once, never leaves this server) and a
+            # per-commit deployment id so stale tabs reload instead of erroring.
+            grep -q '^NEXT_SERVER_ACTIONS_ENCRYPTION_KEY=' .env || printf '\nNEXT_SERVER_ACTIONS_ENCRYPTION_KEY=%s\n' "$(openssl rand -base64 32)" >> .env
+            export NEXT_DEPLOYMENT_ID=$(git rev-parse --short HEAD)
             pnpm run build
             pm2 restart app
 

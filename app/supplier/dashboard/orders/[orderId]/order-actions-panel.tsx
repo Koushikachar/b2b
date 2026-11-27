@@ -420,13 +420,27 @@ export function OrderActionsPanel({
             )
           })}
         </ol>
+        {/* Accepted orders can still be cancelled until they ship. */}
+        {actions.includes("cancel") ? (
+          <div className="mt-4 border-t border-border pt-3">
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={pending}
+              onClick={() => setRejectOpen(true)}
+              className="text-destructive hover:text-destructive"
+            >
+              Cancel order
+            </Button>
+          </div>
+        ) : null}
       </section>
 
       {/* Reject dialog ------------------------------------------------------------ */}
       <Dialog open={rejectOpen} onOpenChange={setRejectOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>Reject this order?</DialogTitle>
+            <DialogTitle>{reviewDone ? "Cancel this order?" : "Reject this order?"}</DialogTitle>
             <DialogDescription>
               Tell the buyer why. They will see this reason on the order.
             </DialogDescription>
@@ -459,10 +473,10 @@ export function OrderActionsPanel({
                   variant="outline"
                   onClick={() => setRejectOpen(false)}
                 >
-                  Cancel
+                  Keep order
                 </Button>
                 <Button type="submit" variant="destructive" disabled={pending}>
-                  {pending ? "Rejecting…" : "Reject order"}
+                  {pending ? "Saving…" : reviewDone ? "Cancel order" : "Reject order"}
                 </Button>
               </DialogFooter>
             </FieldGroup>

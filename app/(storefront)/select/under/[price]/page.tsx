@@ -21,7 +21,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const limit = parsePriceLimit((await params).price)
   if (!limit) return {}
   return {
-    title: `Under ₹${limit} — D2H Select`,
+    title: `Under ₹${limit} — Direct2Hub Select`,
     description: `Wholesale products priced up to ₹${limit}, from verified suppliers.`,
     alternates: { canonical: `/select/under/${limit}` },
   }
@@ -39,7 +39,7 @@ export default async function UnderPricePage({ params, searchParams }: Props) {
       <div className="mx-auto w-full max-w-[1440px] px-4 py-5">
         <Breadcrumbs
           items={[
-            { label: "D2H Select", href: "/select" },
+            { label: "Direct2Hub Select", href: "/select" },
             { label: `Under ₹${limit}` },
           ]}
         />
@@ -90,7 +90,7 @@ async function UnderPriceCatalogue({ limit, sp }: { limit: PriceLimit; sp: Catal
       }}
       basePath={`/select/under/${limit}`}
       title={`Under ₹${limit}`}
-      description={`D2H Select products up to ₹${limit}, with live wholesale pricing.`}
+      description={`Direct2Hub Select products up to ₹${limit}, with live wholesale pricing.`}
       headingLevel="h1"
       storeId={selectStoreId}
       priceExitPath="/products"

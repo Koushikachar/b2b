@@ -105,7 +105,7 @@ const SERVICES: Service[] = [
     tag: "Business Tool",
     tagIcon: ComputerIcon,
     description: "Inventory Management + Product Intelligence (AI)",
-    href: "https://super-pi-taupe.vercel.app/",
+    href: "https://superpi.space/",
     visual: <SuperPiIcon />,
     aside: <SuperPiLockup />,
   },

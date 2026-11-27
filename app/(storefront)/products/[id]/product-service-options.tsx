@@ -248,7 +248,7 @@ export function ProductServiceOptions({ whatsappHref }: { whatsappHref: string }
         </span>
         <span className="min-w-0 flex-1">
           WhatsApp Now
-          <span className="block text-xs font-normal text-whatsapp-dark/80">Quick answers from D2H Core</span>
+          <span className="block text-xs font-normal text-whatsapp-dark/80">Quick answers from Direct2Hub</span>
         </span>
         <HugeiconsIcon icon={ArrowUpRight01Icon} strokeWidth={2} className="size-4 shrink-0" />
       </a>

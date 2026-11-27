@@ -8,7 +8,7 @@ import { StoreCard } from "@/components/stores/store-card"
 
 export const metadata: Metadata = {
   title: "Stores — Direct2Hub",
-  description: "Shop Direct2Hub stores: D2H Core for ready-to-ship products. D2H Select is coming soon.",
+  description: "Shop Direct2Hub stores: Core for ready-to-ship products. Select is coming soon.",
   alternates: { canonical: "/stores" },
 }
 
@@ -37,14 +37,14 @@ export default async function StoresPage() {
           aria-disabled="true"
           className="relative flex items-center gap-4 overflow-hidden rounded-2xl border border-dashed border-border bg-card p-4"
         >
-          <Image src="/stores/d2h_select_mobile.jpg" alt="" width={89} height={56} className="h-auto w-20 shrink-0 rounded-lg object-contain opacity-70 grayscale sm:w-24" />
+          <Image src="/stores/store-select.webp" alt="" width={179} height={128} className="h-auto w-16 shrink-0 object-contain opacity-70 grayscale sm:w-20" />
           {/* Badge sits above the name so the text gets the full width on small phones. */}
           <div className="min-w-0 flex-1">
             <span className="mb-1 inline-flex items-center gap-1 rounded-md border border-border bg-muted px-2 py-1 text-xs font-bold tracking-wide text-muted-foreground uppercase">
               <HugeiconsIcon icon={Clock01Icon} strokeWidth={2} className="size-3.5" />
               Soon
             </span>
-            <h2 className="text-lg font-extrabold tracking-tight text-foreground/80">D2H Select</h2>
+            <h2 className="text-lg font-extrabold tracking-tight text-foreground/80">Select</h2>
             <p className="text-sm text-muted-foreground">Winning products, hot sellers and Under ₹9–₹99 deals.</p>
           </div>
         </div>

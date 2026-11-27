@@ -6,7 +6,7 @@ import { SectionHeader } from "@/components/storefront/section-header"
 import { ProductCard, type ProductCardData } from "@/components/storefront/product-card"
 
 export const metadata: Metadata = {
-  title: "Hot selling — D2H Select",
+  title: "Hot selling — Direct2Hub Select",
   alternates: { canonical: "/select/hot-selling" },
 }
 

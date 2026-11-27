@@ -10,6 +10,8 @@ import { getBuyerAddresses } from "@/lib/buyer/address-queries";
 import { getCheckoutPreview } from "@/lib/buyer/checkout-queries";
 import { addressDefaults, getBuyerProfile, getWallet } from "@/lib/buyer/account-queries";
 import { Button } from "@/components/ui/button";
+import { SuperpiOffer } from "@/components/storefront/superpi-offer";
+import { EbookOffer } from "@/components/storefront/ebook-offer";
 import { Card } from "@/components/ui/card";
 import { Empty, EmptyDescription, EmptyTitle } from "@/components/ui/empty";
 import { Breadcrumbs } from "@/components/layout/breadcrumbs";
@@ -78,6 +80,12 @@ export default async function CheckoutPage() {
         </div>
       )}
     </div>
+    {preview.groups.length > 0 ? (
+      <>
+        <EbookOffer />
+        <SuperpiOffer />
+      </>
+    ) : null}
     {/* Streams in after checkout renders; never delays placing the order. */}
     <Suspense fallback={null}>
       <CheckoutRecommendations buyerId={user.id} cartProductIds={cartProductIds} />
@@ -108,6 +116,7 @@ async function CheckoutRecommendations({
     <RecommendedProductsSection
       categoryIds={categoryIds}
       excludeIds={cartProductIds}
+      limit={10}
       title="You might like"
       subtitle={
         categoryIds.length > 0

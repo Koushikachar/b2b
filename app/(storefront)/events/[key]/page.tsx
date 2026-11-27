@@ -46,7 +46,7 @@ export default async function PromoEventPage({ params }: Props) {
   return (
     <div className="min-h-full bg-gradient-to-b from-brand-50 via-white to-white">
       <div className="mx-auto w-full max-w-xl px-4 py-5">
-        <Breadcrumbs items={[{ label: "D2H Select", href: "/select" }, { label: event.title }]} />
+        <Breadcrumbs items={[{ label: "Direct2Hub Select", href: "/select" }, { label: event.title }]} />
 
         <header className="mt-2 text-center">
           <h1 className="text-3xl font-extrabold tracking-tight text-foreground sm:text-4xl">
