@@ -198,9 +198,12 @@ export async function getHomeProducts(supabase: SupabaseClient, storeId?: string
 /** Showcase flags a supplier can switch on per product. */
 export type ShowcaseFlag = "is_winning" | "is_hot_selling";
 
+/** Supplier-set position per showcase (Products → Arrange); null = unranked. */
+export const SHOWCASE_RANK = { is_winning: "winning_rank", is_hot_selling: "hot_rank" } as const;
+
 /**
- * Products a supplier flagged for a showcase row (winning, hot selling,
- * …). Real flag data from the products table, never synthesized.
+ * Products a supplier flagged for a showcase row (winning, hot selling).
+ * Supplier-arranged order first, then the newest. Real flag data only.
  */
 export async function getFlaggedProducts(
   supabase: SupabaseClient,
@@ -218,6 +221,7 @@ export async function getFlaggedProducts(
     .eq(flag, true);
   if (storeId) qb = qb.eq("store_id", storeId);
   const { data } = await qb
+    .order(SHOWCASE_RANK[flag], { ascending: true, nullsFirst: false })
     .order("created_at", { ascending: false })
     .limit(limit);
 

@@ -3,12 +3,12 @@
 import { useActionState, useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { ShoppingCart01Icon } from "@hugeicons/core-free-icons";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/components/ui/toast";
 import { addToCart, type BuyerActionState } from "@/lib/buyer/cart-actions";
+import { announceCartCount } from "@/lib/cart-count-event";
 import { MIN_CART_VALUE, formatRupees, parseQuantityInput } from "@/lib/buyer/cart";
 import { useVariantSelection } from "./variant-selection";
 
@@ -34,7 +34,6 @@ export function AddToCartForm({
   variants: AddToCartVariant[];
   signedIn: boolean;
 }) {
-  const router = useRouter();
   const pathname = usePathname();
   const hideBottomNav = /^\/products\/[^/]+$/.test(pathname ?? "");
   const [state, action, pending] = useActionState(addToCart, initialState);
@@ -72,9 +71,11 @@ export function AddToCartForm({
   useEffect(() => {
     if (state.ok) {
       toast.add({ type: "success", title: "Added to cart" });
-      router.refresh();
+      // Only the cart badge changes: no page refresh, so nothing reloads or jumps.
+      announceCartCount(state.cartCount);
     }
-  }, [state.ok, router]);
+    // Each add returns a new state object, so repeat adds toast again.
+  }, [state]);
 
   const stickyBar = (
     <div

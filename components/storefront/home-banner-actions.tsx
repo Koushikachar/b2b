@@ -5,7 +5,6 @@ import { getCachedHomeBanners, getCachedPromoEvents } from "@/lib/storefront-cac
 import { publicImageUrl } from "@/lib/storage"
 import { UNDER_TILE_PRICES, underMobileSlot, underSlot, type UnderTilePrice } from "@/lib/admin/banner-slots"
 import { PROMO_EVENT_THEMES, isPromoEventLive } from "@/lib/promotions"
-import { SoftLink } from "@/components/storefront/soft-link"
 import { DealSlider } from "@/components/storefront/deal-slider"
 
 type BannerRow = { slot: string; title: string | null; link_url: string | null; image_path: string }
@@ -174,7 +173,7 @@ async function DealCard({ pairs }: { pairs: AdminPair[] }) {
 
 /**
  * Under ₹X tile: the admin's image or the built-in artwork, both carrying the
- * price in the art. Filters this page's D2H Core catalogue in place (an
+ * price in the art. Opens its own page, /under/<price> (an
  * admin-set link goes wherever it points).
  */
 function UnderTile({ price, pair }: { price: UnderTilePrice; pair: AdminPair }) {
@@ -186,14 +185,11 @@ function UnderTile({ price, pair }: { price: UnderTilePrice; pair: AdminPair }) 
     <ResponsiveArt name={`tile-under-${price}`} kind="tile" alt={label} />
   )
 
-  return link ? (
-    <Link href={link} aria-label={label} className={FILL_LINK}>
+  // Each tile opens its own page (/under/9 …), not a filter on the home page.
+  return (
+    <Link href={link || `/under/${price}`} aria-label={label} className={FILL_LINK}>
       {content}
     </Link>
-  ) : (
-    <SoftLink href={`/?maxPrice=${price}`} scrollToId="all-products" aria-label={label} className={FILL_LINK}>
-      {content}
-    </SoftLink>
   )
 }
 

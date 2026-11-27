@@ -29,6 +29,8 @@ import {
 export type BuyerActionState = {
   ok: boolean;
   message: string;
+  /** After a successful add: lines now in the cart (updates the badge without a page refresh). */
+  cartCount?: number;
 };
 
 const okState: BuyerActionState = { ok: true, message: "" };
@@ -164,7 +166,7 @@ export async function addToCart(
       buyerId: user.id,
     }),
   );
-  return okState;
+  return { ...okState, cartCount: await getCartCount(supabase, user.id) };
 }
 
 const cartItemSchema = z.object({

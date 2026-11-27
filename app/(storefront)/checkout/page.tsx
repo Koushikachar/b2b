@@ -12,6 +12,7 @@ import { addressDefaults, getBuyerProfile, getWallet } from "@/lib/buyer/account
 import { Button } from "@/components/ui/button";
 import { SuperpiOffer } from "@/components/storefront/superpi-offer";
 import { EbookOffer } from "@/components/storefront/ebook-offer";
+import { CheckoutGst } from "@/components/storefront/checkout-gst";
 import { Card } from "@/components/ui/card";
 import { Empty, EmptyDescription, EmptyTitle } from "@/components/ui/empty";
 import { Breadcrumbs } from "@/components/layout/breadcrumbs";
@@ -70,7 +71,8 @@ export default async function CheckoutPage() {
           </Empty>
         </Card>
       ) : (
-        <div className="mt-4">
+        <div className="mt-4 flex flex-col gap-4">
+          <CheckoutGst gstin={profile.gstin} businessName={profile.gstBusinessName} noGstin={profile.noGstin} />
           <CheckoutClient
             preview={preview}
             addresses={addresses}

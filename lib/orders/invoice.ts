@@ -69,7 +69,23 @@ export type InvoiceHeader = {
   storeName: string;
   delivery: DeliverySnapshot | null;
   seller?: InvoiceSeller | null;
+  /** Buyer's GST registration, printed under Bill to (for input tax credit). */
+  buyerGst?: BuyerGst | null;
 };
+
+export type BuyerGst = { gstin: string; businessName: string | null };
+
+/** "Bill to" block: delivery contact and address, then the buyer's GST details when they have them. */
+export function billToLines(delivery: DeliverySnapshot | null, buyerGst: BuyerGst | null | undefined): string[] {
+  const lines = delivery
+    ? [delivery.fullName, delivery.phone, formatDeliveryLine(delivery)]
+    : ["No delivery address recorded."];
+  if (buyerGst?.gstin) {
+    if (buyerGst.businessName) lines.push(buyerGst.businessName);
+    lines.push(`GSTIN: ${buyerGst.gstin}`);
+  }
+  return lines;
+}
 
 /** "Sold by" block: only the details the seller has filled in. */
 export function sellerLines(seller: InvoiceSeller): string[] {
@@ -232,9 +248,7 @@ export async function renderInvoicePdf(
   const sellerX = M + half + 10;
   const colWidth = half - 10;
   const d = header.delivery;
-  const billTo = d
-    ? [d.fullName, d.phone, ...wrap(formatDeliveryLine(d), font, 10, colWidth)]
-    : ["No delivery address recorded."];
+  const billTo = billToLines(d, header.buyerGst).flatMap((line) => wrap(line, font, 10, colWidth));
   const [sellerName, ...sellerRest] = header.seller ? sellerLines(header.seller) : [];
   const soldBy = sellerName
     ? [sellerName, ...sellerRest.flatMap((line) => wrap(line, font, 10, colWidth))]

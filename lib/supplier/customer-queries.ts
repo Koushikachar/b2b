@@ -116,6 +116,7 @@ export type CustomerDetail = {
   category: Exclude<CustomerTab, "all">;
   orders: {
     id: string;
+    reference: string;
     status: string;
     subtotal: number;
     created_at: string;
@@ -150,7 +151,7 @@ export async function getCustomerDetail(
         (offset, limit) =>
           supabase
             .from("orders")
-            .select("id, status, subtotal, created_at, quotations(status, version, total)")
+            .select("id, reference, status, subtotal, created_at, quotations(status, version, total)")
             .eq("supplier_id", supplierId)
             .eq("buyer_id", customer.buyer_id)
             .neq("status", "cancelled")

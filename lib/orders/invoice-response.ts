@@ -63,6 +63,7 @@ export async function orderInvoiceResponse(
     { data: items, error: itemsError },
     { data: quotations, error: quoteError },
     { data: seller, error: sellerError },
+    { data: buyer },
   ] = await Promise.all([
     supabase
       .from("orders")
@@ -84,6 +85,10 @@ export async function orderInvoiceResponse(
     "supplierId" in scope
       ? supabase.from("companies").select("gstin").eq("id", scope.supplierId).maybeSingle()
       : supabase.from("order_supplier_contact").select("gstin").eq("order_id", orderId).maybeSingle(),
+    // Buyer GSTIN for "Bill to": the buyer's own profile, or the supplier's per-order view.
+    "supplierId" in scope
+      ? supabase.from("order_buyer_details").select("gstin, gst_business_name").eq("order_id", orderId).maybeSingle()
+      : supabase.from("profiles").select("gstin, gst_business_name").eq("id", scope.buyerId).maybeSingle(),
   ]);
   const queryError = orderError ?? itemsError ?? quoteError;
   if (queryError) return failed("order", queryError.code);
@@ -154,6 +159,9 @@ export async function orderInvoiceResponse(
       storeName: STORE_NAME,
       delivery,
       seller: sellerInfo,
+      buyerGst: buyer?.gstin
+        ? { gstin: buyer.gstin as string, businessName: (buyer.gst_business_name as string | null) ?? null }
+        : null,
     },
     LOGO,
   );

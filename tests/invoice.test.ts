@@ -4,6 +4,7 @@ import {
   buildInvoiceModel,
   formatInr,
   invoiceFileName,
+  billToLines,
   renderInvoicePdf,
   sellerLines,
   type InvoiceOrder,
@@ -97,6 +98,22 @@ describe("buildInvoiceModel", () => {
       { label: "GST", amount: 1800 },
     ]);
     expect(model.total).toBe(12300);
+  });
+});
+
+describe("billToLines", () => {
+  it("adds the buyer's GSTIN and registered name under the delivery address", () => {
+    expect(billToLines(order.delivery, { gstin: "29ABCDE1234F1Z5", businessName: "Koushik Traders" })).toEqual([
+      "Koushik",
+      "9019490821",
+      "Hangluru, Vadera Hobli, Karnataka, 576200",
+      "Koushik Traders",
+      "GSTIN: 29ABCDE1234F1Z5",
+    ]);
+  });
+
+  it("leaves GST lines out for buyers without a GSTIN", () => {
+    expect(billToLines(order.delivery, null)).toEqual(["Koushik", "9019490821", "Hangluru, Vadera Hobli, Karnataka, 576200"]);
   });
 });
 

@@ -1,13 +1,13 @@
 "use client";
 
 import { useActionState, useEffect } from "react";
-import { useRouter } from "next/navigation";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { Clock01Icon, ShoppingCart01Icon } from "@hugeicons/core-free-icons";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { toast } from "@/components/ui/toast";
 import { addToCart, type BuyerActionState } from "@/lib/buyer/cart-actions";
+import { announceCartCount } from "@/lib/cart-count-event";
 
 const initialState: BuyerActionState = { ok: false, message: "" };
 
@@ -27,17 +27,17 @@ export function CardAddButton({
   compact?: boolean;
   outOfStock?: boolean;
 }) {
-  const router = useRouter();
   const [state, action, pending] = useActionState(addToCart, initialState);
 
   useEffect(() => {
     if (state.ok) {
       toast.add({ type: "success", title: "Added to cart" });
-      router.refresh();
+      // Only the cart badge changes: no page refresh, so nothing reloads or jumps.
+      announceCartCount(state.cartCount);
     } else if (state.message) {
       toast.add({ type: "error", title: "Could not add to cart", description: state.message });
     }
-  }, [state, router]);
+  }, [state]);
 
   if (outOfStock) {
     // Plain muted bar: clearly unavailable without looking broken.
