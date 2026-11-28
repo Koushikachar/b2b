@@ -32,6 +32,7 @@ import { Breadcrumbs } from "@/components/layout/breadcrumbs"
 import { ProductCard, type ProductCardData } from "@/components/storefront/product-card"
 import { ProductImage } from "@/components/storefront/product-image"
 import { ProductGridSkeleton } from "@/components/storefront/skeletons"
+import { DEFAULT_OG_IMAGE } from "@/lib/seo"
 
 type Props = { params: Promise<{ slug: string }> }
 
@@ -43,10 +44,11 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const store = getStoreProgramme((await params).slug)
   if (!store) return {}
   return {
-    title: `${store.name} — ${store.heroSubtitle}`,
+    // Owner's SEO brief: "Direct2Hub Core – Online Wholesale Products".
+    title: { absolute: `Direct2Hub ${store.name} – Online Wholesale Products` },
     description: store.summary,
     alternates: { canonical: `/stores/${store.slug}` },
-    openGraph: { title: store.name, description: store.summary, url: `/stores/${store.slug}` },
+    openGraph: { title: store.name, description: store.summary, url: `/stores/${store.slug}`, images: [DEFAULT_OG_IMAGE] },
   }
 }
 

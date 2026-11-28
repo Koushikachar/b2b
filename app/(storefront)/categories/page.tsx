@@ -25,6 +25,7 @@ import { Separator } from "@/components/ui/separator"
 import { Skeleton } from "@/components/ui/skeleton"
 import { ProductImage } from "@/components/storefront/product-image"
 import { CategoryPageGridSkeleton } from "@/components/storefront/skeletons"
+import { DEFAULT_OG_IMAGE } from "@/lib/seo"
 
 const CATEGORY_GRID = "grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-4"
 
@@ -42,6 +43,7 @@ export const metadata: Metadata = {
     title: "Wholesale Product Categories",
     description: CATEGORIES_DESCRIPTION,
     url: "/categories",
+    images: [DEFAULT_OG_IMAGE],
   },
 }
 

@@ -15,6 +15,7 @@ import { ProductGridSkeleton } from "@/components/storefront/skeletons";
 import { createClient } from "@/lib/supabase/server";
 import { fetchCustomerPriceMap } from "@/lib/storefront";
 import { publicTransformedImageUrl } from "@/lib/storage";
+import { DEFAULT_OG_IMAGE } from "@/lib/seo";
 
 type StorePageProps = {
   params: Promise<{ companyId: string }>;
@@ -57,6 +58,7 @@ export async function generateMetadata({ params }: StorePageProps): Promise<Meta
       description: `Shop wholesale products from ${store.business_name}${location ? `, ${location}` : ""} — a verified supplier with live pricing and MOQs.`,
       url: `/store/${companyId}`,
       type: "website",
+      images: [DEFAULT_OG_IMAGE],
     },
   };
 }

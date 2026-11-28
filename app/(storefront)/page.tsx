@@ -15,6 +15,8 @@ import { RecentlyViewedSection } from "@/components/storefront/home-recently-vie
 import { FrequentlyBoughtSection } from "@/components/storefront/frequently-bought"
 import { RecommendedProductsSection } from "@/components/storefront/home-recommended"
 import { HomeShowcaseSection } from "@/components/storefront/home-showcase"
+import { HomeFaq } from "@/components/storefront/home-faq"
+import { DEFAULT_OG_IMAGE } from "@/lib/seo"
 import {
   CatalogueSkeleton,
   HomeHeroSkeleton,
@@ -24,16 +26,19 @@ import {
   TopCategoriesSkeleton,
 } from "@/components/storefront/skeletons"
 
-const HOME_TITLE = "Direct2Hub — Wholesale Marketplace India | Bulk Buying from Verified Suppliers"
+// Owner's SEO brief (2026-11-28). Title under 60 and description under 160
+// characters so Google shows them whole. "Hot selling" replaces the brief's
+// "trending": that section was removed from the site.
+const HOME_TITLE = "Direct2Hub – Wholesale Products & Ecommerce Sourcing India"
 const HOME_DESCRIPTION =
-  "Buy car accessories, kitchen, home, beauty and travel products wholesale from verified Indian suppliers. Low MOQs, GST invoices, 5–7 day delivery."
+  "Source wholesale products for your ecommerce business with Direct2Hub. Explore winning products, hot selling items and affordable products across 13 categories."
 
 export const metadata: Metadata = {
   // absolute: the brand already leads, so skip the "| Direct2Hub" suffix.
   title: { absolute: HOME_TITLE },
   description: HOME_DESCRIPTION,
   alternates: { canonical: "/" },
-  openGraph: { title: HOME_TITLE, description: HOME_DESCRIPTION, url: "/" },
+  openGraph: { title: HOME_TITLE, description: HOME_DESCRIPTION, url: "/", images: [DEFAULT_OG_IMAGE] },
 }
 
 type BannerRow = { slot: string; title: string | null; link_url: string | null; image_path: string }
@@ -131,6 +136,9 @@ export default async function HomePage({
       >
         <AllProductsSection searchParams={sp} storeId={coreStoreId} />
       </Suspense>
+
+      {/* Most asked questions: answers people and AI answer engines can read. */}
+      <HomeFaq />
     </div>
   )
 }

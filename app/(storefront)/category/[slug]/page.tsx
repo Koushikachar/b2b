@@ -34,6 +34,10 @@ import {
   type ProductCardData,
 } from "@/components/storefront/product-card"
 import { ProductGridSkeleton } from "@/components/storefront/skeletons"
+import { DEFAULT_OG_IMAGE, listingJsonLd } from "@/lib/seo"
+import { serializeJsonLd } from "@/lib/json-ld"
+import { SITE_URL } from "@/lib/site"
+import { categorySeoDescription, categorySeoTitle } from "@/lib/category-seo"
 
 export async function generateMetadata({
   params,
@@ -43,25 +47,29 @@ export async function generateMetadata({
   const { slug } = await params
   const category = await getCachedCategoryBySlug(slug)
   const name = (category?.name as string | undefined) ?? slug
-  const title = `${name} — Wholesale Products`
+  const title = categorySeoTitle(slug, name)
+  const description = categorySeoDescription(name)
   return {
     title,
-    description: `Source wholesale ${name} products with live pricing and MOQs from verified Indian suppliers.`,
+    description,
     alternates: { canonical: `/category/${slug}` },
     openGraph: {
       title,
-      description: `Source wholesale ${name} products with live pricing and MOQs from verified Indian suppliers.`,
+      description,
       url: `/category/${slug}`,
+      images: [DEFAULT_OG_IMAGE],
     },
   }
 }
 
 async function CategoryProductListings({
   slug,
+  name,
   page,
   listings,
 }: {
   slug: string
+  name: string
   page: number
   listings: ReturnType<typeof getCachedProducts>
 }) {
@@ -93,6 +101,19 @@ async function CategoryProductListings({
         </div>
       ) : (
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
+          {/* The listed products + breadcrumbs, for search and AI engines. */}
+          <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: serializeJsonLd(listingJsonLd({
+                siteUrl: SITE_URL,
+                path: `/category/${slug}`,
+                name: `Wholesale ${name}`,
+                crumbs: [
+                  { name: "Home", path: "/" },
+                  { name: "Categories", path: "/categories" },
+                  { name, path: `/category/${slug}` },
+                ],
+                products: products.map((p) => ({ id: p.id as string, title: p.title as string })),
+              })) }}
+          />
           {products.map((product, index) => (
             <ProductCard
               key={product.id}
@@ -215,7 +236,7 @@ export default async function CategoryPage({
       <Separator className="mb-5" />
 
       <Suspense fallback={<ProductGridSkeleton count={20} />}>
-        <CategoryProductListings slug={slug} page={page} listings={listings} />
+        <CategoryProductListings slug={slug} name={category.name as string} page={page} listings={listings} />
       </Suspense>
     </div>
   )

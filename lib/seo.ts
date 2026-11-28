@@ -7,16 +7,55 @@ import { stripHtml } from "@/lib/supplier/rich-text"
 
 const rupees = (n: number) => `₹${n.toLocaleString("en-IN")}`
 
-export type Faq = { question: string; answer: string }
+/**
+ * Share image for pages that set their own openGraph: Next.js replaces the
+ * whole openGraph object, which drops app/opengraph-image unless it is listed
+ * again (those pages showed no picture when shared on WhatsApp / social).
+ */
+export const DEFAULT_OG_IMAGE = {
+  url: "/opengraph-image",
+  width: 1200,
+  height: 630,
+  alt: "Direct2Hub — Wholesale sourcing from verified Indian suppliers",
+}
+
+/** home: also shown in the home page FAQ (the most asked questions). */
+export type Faq = { question: string; answer: string; home?: boolean }
 
 /** Shown on /faq and sent as FAQPage schema. Short, self-contained answers AI engines can quote. */
 export const FAQS: Faq[] = [
   {
     question: "What is Direct2Hub?",
-    answer: `Direct2Hub is an Indian online wholesale marketplace run by ${COMPANY.legalName} from Kundapura, Karnataka. Shops, resellers and businesses buy products in bulk from verified suppliers at wholesale prices — car accessories, kitchen and dining, home essentials, beauty and personal care, travel, tools and more.`,
+    answer: `Direct2Hub is an Indian B2B ecommerce sourcing and enablement platform run by ${COMPANY.legalName} from Kundapura, Karnataka. It helps ecommerce sellers, resellers, retailers, dropshippers and small business owners source wholesale products across 13 categories, including home essentials, kitchen and dining, beauty and personal care, electronics accessories, automotive accessories and toys.`,
+    home: true,
+  },
+  {
+    question: "Who can buy from Direct2Hub?",
+    answer:
+      "Ecommerce sellers, retail shop owners, resellers, dropshippers and small business owners can buy from Direct2Hub. Create a free account with your email or Google account and start ordering.",
+    home: true,
+  },
+  {
+    question: "What is Direct2Hub Core?",
+    answer:
+      "Direct2Hub Core is Direct2Hub's own wholesale store of ready-to-ship products. Orders are managed and fulfilled by Direct2Hub from its warehouse in Surat, Gujarat.",
+    home: true,
+  },
+  {
+    question: "Does Direct2Hub have winning products?",
+    answer:
+      "Yes. Direct2Hub highlights winning and hot selling products picked by sellers, to help ecommerce sellers and resellers find products worth reselling. See them under Winning Products and Hot Selling Products on the home page.",
+    home: true,
+  },
+  {
+    question: "Can I source products for Amazon, Flipkart and Meesho?",
+    answer:
+      "Yes. Marketplace sellers source wholesale products on Direct2Hub for their online stores, including Amazon, Flipkart, Meesho and Instagram shops. Check each marketplace's own rules for the products you list there.",
+    home: true,
   },
   {
     question: "What is the minimum order value on Direct2Hub?",
+    home: true,
     answer: `The minimum cart value is ${rupees(MIN_CART_VALUE)} per order. Each product also shows its own minimum order quantity (MOQ), and many products can be ordered from a single piece, so you can mix several products to reach ${rupees(MIN_CART_VALUE)}.`,
   },
   {
@@ -26,10 +65,12 @@ export const FAQS: Faq[] = [
   },
   {
     question: "How long does delivery take and what does shipping cost?",
+    home: true,
     answer: `Orders are shipped through ${COMPANY.shippingPartner} and usually arrive in 5–7 days, depending on your location. Shipping is charged separately from the product price; the stated rate is ₹60 under ${COMPANY.shippingPartner}'s volumetric-weight billing, and the final charge depends on the shipment.`,
   },
   {
     question: "Are shipments protected against damage?",
+    home: true,
     answer: `Yes. Eligible orders shipped through ${COMPANY.shippingPartner} include free delivery damage protection covering up to 100% of eligible damage, subject to its terms. Customers outside Surat must record a clear, uninterrupted parcel-opening video showing the sealed parcel from all sides to support a claim.`,
   },
   {
@@ -139,6 +180,51 @@ export function productJsonLd(p: ProductSeoInput, siteUrl: string) {
   }
 }
 
+/**
+ * CollectionPage + ItemList + BreadcrumbList for a listing page (category,
+ * Winning / Hot Selling, Under ₹X): which products the page lists, in order.
+ * Names and links only: no prices, ratings or offers are claimed here.
+ */
+export function listingJsonLd(input: {
+  siteUrl: string
+  path: string
+  name: string
+  crumbs: { name: string; path: string }[]
+  products: { id: string; title: string }[]
+}) {
+  const url = `${input.siteUrl}${input.path}`
+  return {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "CollectionPage",
+        url,
+        name: input.name,
+        isPartOf: { "@id": `${input.siteUrl}#website` },
+        mainEntity: {
+          "@type": "ItemList",
+          numberOfItems: input.products.length,
+          itemListElement: input.products.map((product, i) => ({
+            "@type": "ListItem",
+            position: i + 1,
+            url: `${input.siteUrl}/products/${product.id}`,
+            name: product.title,
+          })),
+        },
+      },
+      {
+        "@type": "BreadcrumbList",
+        itemListElement: input.crumbs.map((crumb, i) => ({
+          "@type": "ListItem",
+          position: i + 1,
+          name: crumb.name,
+          item: `${input.siteUrl}${crumb.path}`,
+        })),
+      },
+    ],
+  }
+}
+
 /** Organization + WebSite for every page (who runs the site, how to search it). */
 export function siteJsonLd(siteUrl: string) {
   return {
@@ -150,6 +236,8 @@ export function siteJsonLd(siteUrl: string) {
         name: COMPANY.brand,
         legalName: COMPANY.legalName,
         url: siteUrl,
+        // Who Direct2Hub is, in one paragraph AI engines can quote (owner's brief).
+        description: `Direct2Hub is an Indian B2B ecommerce sourcing and enablement platform for ecommerce sellers, resellers, retailers, dropshippers and small business owners. Businesses source wholesale products across 13 categories, including winning and hot selling products, with an estimated 5–7 day delivery and delivery damage protection on eligible orders through its logistics partner, ${COMPANY.shippingPartner}.`,
         logo: `${siteUrl}/logo.png`,
         email: COMPANY.supportEmail,
         founder: { "@type": "Person", name: COMPANY.founder },

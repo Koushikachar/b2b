@@ -59,8 +59,15 @@ mkdir -p /var/www/direct2hub/{shared,releases} && chown -R deploy:deploy /var/ww
    NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=...
    SUPABASE_SERVICE_ROLE_KEY=...
    NEXT_PUBLIC_APP_URL=https://direct2hub.in
+   # Mobile login + number verification by SMS (MSG91). All three are needed;
+   # until they are set the "Mobile number" login option stays hidden.
+   MSG91_AUTH_KEY=...            # MSG91 → Auth Key
+   MSG91_OTP_TEMPLATE_ID=...     # MSG91 → OTP template id (DLT-approved)
+   SEND_SMS_HOOK_SECRET=v1,whsec_...   # Supabase → Auth → Hooks → Send SMS
    ```
    Never put `SUPABASE_ACCESS_TOKEN` here. Then `chmod 600 /var/www/direct2hub/shared/.env`.
+   The deploy adds `NEXT_SERVER_ACTIONS_ENCRYPTION_KEY` and `NEXT_DEPLOYMENT_ID`
+   to this file itself.
 
 4. **Start pm2 on boot:** run `pm2 startup` and execute the `sudo …` line it prints
    (as root), then after the first deploy `pm2 save`.

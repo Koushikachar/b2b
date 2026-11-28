@@ -128,7 +128,7 @@ export function ProfileForm({
           {errors.phone ? (
             <FieldError>{errors.phone}</FieldError>
           ) : (
-            <FieldDescription>Changing your number marks it as not verified until our team confirms it.</FieldDescription>
+            <FieldDescription>Save your number, then verify it with an SMS code. Changing it later needs a new check.</FieldDescription>
           )}
         </Field>
         <Field data-invalid={Boolean(errors.businessType) || undefined}>

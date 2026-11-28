@@ -10,44 +10,56 @@ import {
 import { getSafeNextPath } from "@/lib/auth/paths";
 import { AuthShell } from "../shell";
 import { VerifyOtpForm } from "./verify-form";
+import { toIndianE164 } from "@/lib/auth/sms";
 
 export const metadata: Metadata = {
-  title: "Verify your email",
-  description: "Enter the six-digit code we emailed you to finish logging in.",
+  title: "Enter your code",
+  description: "Enter the six-digit code we sent you to finish logging in.",
   robots: { index: false, follow: false },
 };
 
 type VerifyPageProps = {
-  searchParams: Promise<{ email?: string; next?: string }>;
+  searchParams: Promise<{ email?: string; phone?: string; next?: string }>;
 };
 
 export default async function VerifyPage({ searchParams }: VerifyPageProps) {
-  const { email, next } = await searchParams;
+  const { email, phone: rawPhone, next } = await searchParams;
+  // Only a well-formed Indian mobile is accepted from the URL.
+  const phone = rawPhone ? toIndianE164(rawPhone) ?? undefined : undefined;
 
-  if (!email) {
+  if (!email && !phone) {
     redirect("/auth/login");
   }
+  const sentTo = phone ? phone.replace(/^\+91/, "+91 ") : email;
 
   return (
     <AuthShell
       heading="One code stands between you and the marketplace."
-      steps={[
-        "Open the latest email we sent — earlier codes no longer work.",
-        "Enter the 6 digits here, or click the login link in the email.",
-        "Codes expire quickly. Request a fresh one if this one fails.",
-      ]}
+      steps={
+        phone
+          ? [
+              "Open the latest SMS we sent — earlier codes no longer work.",
+              "Enter the 6 digits here.",
+              "Codes expire quickly. Go back and request a fresh one if this one fails.",
+            ]
+          : [
+              "Open the latest email we sent — earlier codes no longer work.",
+              "Enter the 6 digits here, or click the login link in the email.",
+              "Codes expire quickly. Request a fresh one if this one fails.",
+            ]
+      }
     >
       <Card className="w-full max-w-sm">
         <CardHeader>
-          <CardTitle>Check your inbox</CardTitle>
+          <CardTitle>{phone ? "Check your SMS" : "Check your inbox"}</CardTitle>
           <CardDescription>
-            Enter the 6-digit code sent to {email}.
+            Enter the 6-digit code sent to {sentTo}.
           </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
-          <VerifyOtpForm email={email} next={getSafeNextPath(next)} />
+          <VerifyOtpForm email={email} phone={phone} next={getSafeNextPath(next)} />
           <p className="text-xs text-muted-foreground">
-            Use the latest email — each new code expires the previous ones.
+            Use the latest {phone ? "SMS" : "email"} — each new code expires the previous ones.
           </p>
         </CardContent>
       </Card>

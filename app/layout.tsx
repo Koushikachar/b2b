@@ -18,11 +18,11 @@ export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   applicationName: SITE_NAME,
   title: {
-    default: `${SITE_NAME} — Wholesale Marketplace India | Bulk Buying from Verified Suppliers`,
+    default: `${SITE_NAME} — Direct2Hub – Wholesale Products & Ecommerce Sourcing India`,
     template: `%s | ${SITE_NAME}`,
   },
   description:
-    "Buy wholesale in bulk from verified Indian suppliers on Direct2Hub. Low MOQs, ₹3,000 minimum order, GST invoices, 5–7 day delivery and free damage protection.",
+    "Source wholesale products for your ecommerce business with Direct2Hub. Explore winning products, trending items and affordable products across multiple categories",
   category: "shopping",
   openGraph: {
     siteName: SITE_NAME,
@@ -38,7 +38,12 @@ export const metadata: Metadata = {
   robots: {
     index: true,
     follow: true,
-    googleBot: { index: true, follow: true, "max-image-preview": "large", "max-snippet": -1 },
+    googleBot: {
+      index: true,
+      follow: true,
+      "max-image-preview": "large",
+      "max-snippet": -1,
+    },
   },
 }
 
@@ -92,7 +97,7 @@ export default function RootLayout({
 }>) {
   return (
     <html
-      lang="en"
+      lang="en-IN"
       className={cn(
         "light",
         "antialiased",

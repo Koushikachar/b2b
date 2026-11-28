@@ -27,6 +27,8 @@ const SECURITY_HEADERS = [
  * They stay private regardless: every one requires sign-in.
  */
 export const PRIVATE_PREFIXES = ["/account", "/cart", "/checkout", "/orders", "/auth", "/supplier", "/admin", "/api"]
+/** Stores not launched yet ("coming soon"): out of search until they have real content. */
+export const UPCOMING_PREFIXES = ["/select"]
 const NOINDEX = [{ key: "X-Robots-Tag", value: "noindex, nofollow" }]
 
 const nextConfig: NextConfig = {
@@ -34,7 +36,7 @@ const nextConfig: NextConfig = {
   async headers() {
     return [
       { source: "/:path*", headers: SECURITY_HEADERS },
-      ...PRIVATE_PREFIXES.flatMap((prefix) => [
+      ...[...PRIVATE_PREFIXES, ...UPCOMING_PREFIXES].flatMap((prefix) => [
         { source: prefix, headers: NOINDEX },
         { source: `${prefix}/:path*`, headers: NOINDEX },
       ]),

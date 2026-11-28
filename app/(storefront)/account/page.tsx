@@ -135,7 +135,16 @@ export default async function AccountPage({
               <p className="mt-1 flex items-center gap-2 text-sm text-muted-foreground">
                 <HugeiconsIcon icon={Call02Icon} strokeWidth={2} className="size-4 shrink-0" />
                 {profile.phone ? (
-                  <span className="truncate tabular-nums">{formatPhone(profile.phone)}</span>
+                  <>
+                    <span className="truncate tabular-nums">{formatPhone(profile.phone)}</span>
+                    {profile.phoneVerified ? (
+                      <span className="shrink-0 text-xs font-semibold text-success">✓ Verified</span>
+                    ) : (
+                      <Link href="/account/profile" className="shrink-0 text-xs font-semibold text-primary hover:underline">
+                        Verify
+                      </Link>
+                    )}
+                  </>
                 ) : (
                   <Link href="/account/profile" className="font-medium text-primary hover:underline">
                     Add mobile number

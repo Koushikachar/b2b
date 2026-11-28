@@ -12,7 +12,8 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { signInWithGoogle } from "@/lib/auth/actions";
 import { getSafeNextPath } from "@/lib/auth/paths";
 import { AuthShell } from "../shell";
-import { RequestOtpForm } from "./login-form";
+import { LoginMethods } from "./login-form";
+import { isSmsEnabled } from "@/lib/auth/sms";
 
 export const metadata: Metadata = {
   title: "Log in or sign up",
@@ -68,7 +69,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
               </AlertDescription>
             </Alert>
           ) : null}
-          <RequestOtpForm next={safeNext} />
+          <LoginMethods next={safeNext} smsEnabled={isSmsEnabled()} />
           <div className="flex items-center gap-3">
             <Separator className="flex-1" />
             <span className="text-xs text-muted-foreground">or</span>

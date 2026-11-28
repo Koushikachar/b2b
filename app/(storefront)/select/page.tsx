@@ -5,6 +5,7 @@ import { SelectPromotionalCollections } from "@/components/storefront/select-pro
 import { TopCategoriesSection } from "@/components/storefront/home-categories"
 import { FrequentlyBoughtSection } from "@/components/storefront/frequently-bought"
 import { RecommendedProductsSection } from "@/components/storefront/home-recommended"
+import { DEFAULT_OG_IMAGE } from "@/lib/seo"
 import {
   PromotionalCollectionsSkeleton,
   RecommendedProductsSkeleton,
@@ -15,7 +16,7 @@ export const metadata: Metadata = {
   title: "Direct2Hub Select — Curated wholesale picks",
   description: "Curated winning products, hot selling items and price-based deals from verified suppliers.",
   alternates: { canonical: "/select" },
-  openGraph: { title: "Direct2Hub Select", url: "/select" },
+  openGraph: { title: "Direct2Hub Select", url: "/select", images: [DEFAULT_OG_IMAGE] },
 }
 
 export default async function SelectPage() {
