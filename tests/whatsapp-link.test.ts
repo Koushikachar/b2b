@@ -40,8 +40,13 @@ describe("whatsappContactLink", () => {
 const text = (href: string) => new URL(href).searchParams.get("text");
 
 describe("d2hWhatsappLink", () => {
-  it("opens a chat with the D2H Core number", () => {
-    expect(d2hWhatsappLink({}).startsWith("https://wa.me/917483274168?")).toBe(true);
+  it("support questions and product pages go to the support number", () => {
+    expect(d2hWhatsappLink({}).startsWith("https://wa.me/919187166233?")).toBe(true);
+    expect(d2hWhatsappLink({ productTitle: "Car Seat Belt Cover" }).startsWith("https://wa.me/919187166233?")).toBe(true);
+  });
+
+  it("anything about an order goes to the orders number", () => {
+    expect(d2hWhatsappLink({ orderReference: "D2H-100118" }).startsWith("https://wa.me/919187166230?")).toBe(true);
   });
 
   it("names the order once the buyer has placed it", () => {

@@ -19,43 +19,36 @@ export const DEFAULT_OG_IMAGE = {
   alt: "Direct2Hub — Wholesale sourcing from verified Indian suppliers",
 }
 
-/** home: also shown in the home page FAQ (the most asked questions). */
-export type Faq = { question: string; answer: string; home?: boolean }
+export type Faq = { question: string; answer: string }
 
 /** Shown on /faq and sent as FAQPage schema. Short, self-contained answers AI engines can quote. */
 export const FAQS: Faq[] = [
   {
     question: "What is Direct2Hub?",
     answer: `Direct2Hub is an Indian B2B ecommerce sourcing and enablement platform run by ${COMPANY.legalName} from Kundapura, Karnataka. It helps ecommerce sellers, resellers, retailers, dropshippers and small business owners source wholesale products across 13 categories, including home essentials, kitchen and dining, beauty and personal care, electronics accessories, automotive accessories and toys.`,
-    home: true,
   },
   {
     question: "Who can buy from Direct2Hub?",
     answer:
       "Ecommerce sellers, retail shop owners, resellers, dropshippers and small business owners can buy from Direct2Hub. Create a free account with your email or Google account and start ordering.",
-    home: true,
   },
   {
     question: "What is Direct2Hub Core?",
     answer:
       "Direct2Hub Core is Direct2Hub's own wholesale store of ready-to-ship products. Orders are managed and fulfilled by Direct2Hub from its warehouse in Surat, Gujarat.",
-    home: true,
   },
   {
     question: "Does Direct2Hub have winning products?",
     answer:
       "Yes. Direct2Hub highlights winning and hot selling products picked by sellers, to help ecommerce sellers and resellers find products worth reselling. See them under Winning Products and Hot Selling Products on the home page.",
-    home: true,
   },
   {
     question: "Can I source products for Amazon, Flipkart and Meesho?",
     answer:
       "Yes. Marketplace sellers source wholesale products on Direct2Hub for their online stores, including Amazon, Flipkart, Meesho and Instagram shops. Check each marketplace's own rules for the products you list there.",
-    home: true,
   },
   {
     question: "What is the minimum order value on Direct2Hub?",
-    home: true,
     answer: `The minimum cart value is ${rupees(MIN_CART_VALUE)} per order. Each product also shows its own minimum order quantity (MOQ), and many products can be ordered from a single piece, so you can mix several products to reach ${rupees(MIN_CART_VALUE)}.`,
   },
   {
@@ -65,12 +58,10 @@ export const FAQS: Faq[] = [
   },
   {
     question: "How long does delivery take and what does shipping cost?",
-    home: true,
     answer: `Orders are shipped through ${COMPANY.shippingPartner} and usually arrive in 5–7 days, depending on your location. Shipping is charged separately from the product price; the stated rate is ₹60 under ${COMPANY.shippingPartner}'s volumetric-weight billing, and the final charge depends on the shipment.`,
   },
   {
     question: "Are shipments protected against damage?",
-    home: true,
     answer: `Yes. Eligible orders shipped through ${COMPANY.shippingPartner} include free delivery damage protection covering up to 100% of eligible damage, subject to its terms. Customers outside Surat must record a clear, uninterrupted parcel-opening video showing the sealed parcel from all sides to support a claim.`,
   },
   {

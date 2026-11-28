@@ -15,7 +15,6 @@ import { RecentlyViewedSection } from "@/components/storefront/home-recently-vie
 import { FrequentlyBoughtSection } from "@/components/storefront/frequently-bought"
 import { RecommendedProductsSection } from "@/components/storefront/home-recommended"
 import { HomeShowcaseSection } from "@/components/storefront/home-showcase"
-import { HomeFaq } from "@/components/storefront/home-faq"
 import { DEFAULT_OG_IMAGE } from "@/lib/seo"
 import {
   CatalogueSkeleton,
@@ -136,9 +135,6 @@ export default async function HomePage({
       >
         <AllProductsSection searchParams={sp} storeId={coreStoreId} />
       </Suspense>
-
-      {/* Most asked questions: answers people and AI answer engines can read. */}
-      <HomeFaq />
     </div>
   )
 }

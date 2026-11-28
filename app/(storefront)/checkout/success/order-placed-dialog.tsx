@@ -14,7 +14,7 @@ import {
 /**
  * Opens once when the buyer lands on the order confirmation page: the order
  * is placed and the D2B team will be in touch. When a support WhatsApp number
- * is configured (NEXT_PUBLIC_SUPPORT_WHATSAPP), the buyer can message the team
+ * is configured (ORDERS_WHATSAPP in lib/site.ts), the buyer can message the team
  * straight away with the order reference pre-filled.
  */
 export function OrderPlacedDialog({
