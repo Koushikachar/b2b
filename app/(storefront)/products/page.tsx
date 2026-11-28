@@ -4,6 +4,7 @@ import type { CatalogueSearchParams } from "@/lib/catalogue"
 import { Breadcrumbs } from "@/components/layout/breadcrumbs"
 import { CatalogueSection } from "@/components/storefront/catalogue-section"
 import { CatalogueSkeleton } from "@/components/storefront/skeletons"
+import { DEFAULT_OG_IMAGE } from "@/lib/seo"
 
 export const metadata: Metadata = {
   title: "Browse Wholesale Products",
@@ -15,6 +16,7 @@ export const metadata: Metadata = {
     description:
       "Browse wholesale products with live pricing and MOQs from verified Indian suppliers. Filter by category, price, MOQ and availability.",
     url: "/products",
+    images: [DEFAULT_OG_IMAGE],
   },
 }
 

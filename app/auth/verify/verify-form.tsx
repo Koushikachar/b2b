@@ -8,16 +8,18 @@ import {
   InputOTPSlot,
 } from "@/components/ui/input-otp";
 import { verifyOtp, type AuthActionState } from "@/lib/auth/actions";
+import { verifyPhoneLogin } from "@/lib/auth/phone-actions";
 
 const initialState: AuthActionState = { ok: false, message: "" };
 
-export function VerifyOtpForm({ email, next }: { email: string; next: string }) {
+/** One form for both: an emailed code (email) or an SMS code (phone). */
+export function VerifyOtpForm({ email, phone, next }: { email?: string; phone?: string; next: string }) {
   const [value, setValue] = useState("");
-  const [state, action, pending] = useActionState(verifyOtp, initialState);
+  const [state, action, pending] = useActionState(phone ? verifyPhoneLogin : verifyOtp, initialState);
 
   return (
     <form action={action} className="flex flex-col gap-4">
-      <input type="hidden" name="email" value={email} />
+      {phone ? <input type="hidden" name="phone" value={phone} /> : <input type="hidden" name="email" value={email} />}
       <input type="hidden" name="next" value={next} />
       <input type="hidden" name="token" value={value} />
       <InputOTP maxLength={6} value={value} onChange={setValue}>

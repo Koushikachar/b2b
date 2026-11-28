@@ -4,7 +4,7 @@ import { CompanyDetails, LegalList, LegalPage } from "@/components/storefront/le
 import { COMPANY } from "@/lib/company"
 
 export const metadata: Metadata = {
-  title: "About Direct2Hub",
+  title: { absolute: "About Direct2Hub — B2B Wholesale Sourcing Platform" },
   description:
     "Direct2Hub is a B2B ecommerce sourcing and enablement platform: source smarter, sell better, grow faster.",
   alternates: { canonical: "/about" },

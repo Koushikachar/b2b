@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { FAQS, faqJsonLd, llmsTxt, productJsonLd } from "@/lib/seo"
+import { FAQS, faqJsonLd, listingJsonLd, llmsTxt, productJsonLd } from "@/lib/seo"
 
 const product = {
   id: "p1",
@@ -84,3 +84,36 @@ describe("llmsTxt", () => {
     expect(txt).not.toContain("localhost")
   })
 })
+
+describe("listingJsonLd (collection pages: product list + breadcrumbs)", () => {
+  const data = listingJsonLd({
+    siteUrl: "https://direct2hub.in",
+    path: "/collections/winning",
+    name: "Winning Products",
+    crumbs: [{ name: "Home", path: "/" }, { name: "Winning Products", path: "/collections/winning" }],
+    products: [
+      { id: "p1", title: "Shoe Cleaning Wipes" },
+      { id: "p2", title: "Mini Portable Wipes" },
+    ],
+  });
+  const graph = data["@graph"] as Record<string, unknown>[];
+
+  it("describes the page as a collection whose main content is an ordered product list", () => {
+    const page = graph.find((n) => n["@type"] === "CollectionPage") as { url: string; mainEntity: { "@type": string; itemListElement: unknown[] } };
+    expect(page.url).toBe("https://direct2hub.in/collections/winning");
+    expect(page.mainEntity["@type"]).toBe("ItemList");
+    expect(page.mainEntity.itemListElement).toEqual([
+      { "@type": "ListItem", position: 1, url: "https://direct2hub.in/products/p1", name: "Shoe Cleaning Wipes" },
+      { "@type": "ListItem", position: 2, url: "https://direct2hub.in/products/p2", name: "Mini Portable Wipes" },
+    ]);
+  });
+
+  it("adds breadcrumbs with absolute URLs", () => {
+    const crumbs = graph.find((n) => n["@type"] === "BreadcrumbList") as { itemListElement: unknown[] };
+    expect(crumbs.itemListElement[1]).toEqual({ "@type": "ListItem", position: 2, name: "Winning Products", item: "https://direct2hub.in/collections/winning" });
+  });
+
+  it("never invents ratings, reviews or offers", () => {
+    expect(JSON.stringify(data)).not.toMatch(/aggregateRating|review|offers/i);
+  });
+});

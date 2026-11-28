@@ -27,3 +27,12 @@ describe("search engines and private areas", () => {
     }
   });
 });
+
+describe("stores that are not launched yet", () => {
+  it("Select (coming soon) is kept out of search", async () => {
+    const headers = await nextConfig.headers!();
+    for (const source of ["/select", "/select/:path*"]) {
+      expect(headers.find((h) => h.source === source)?.headers).toContainEqual({ key: "X-Robots-Tag", value: "noindex, nofollow" });
+    }
+  });
+});

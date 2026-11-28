@@ -7,7 +7,7 @@ import { getCachedProducts, getCachedStoreId } from "@/lib/storefront-cache"
 import { StoreCard } from "@/components/stores/store-card"
 
 export const metadata: Metadata = {
-  title: "Stores — Direct2Hub",
+  title: "Wholesale Stores",
   description: "Shop Direct2Hub stores: Core for ready-to-ship products. Select is coming soon.",
   alternates: { canonical: "/stores" },
 }

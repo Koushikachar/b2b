@@ -4,6 +4,8 @@ import { getBuyerProfile } from "@/lib/buyer/account-queries"
 import { publicTransformedImageUrl } from "@/lib/storage"
 import { AccountPage, AccountPageHeader } from "@/components/account/account-page-header"
 import { EmailChangeForm, ProfileForm } from "./profile-form"
+import { PhoneVerify } from "./phone-verify"
+import { isSmsEnabled } from "@/lib/auth/sms"
 
 export const metadata: Metadata = { title: "Edit profile", robots: { index: false } }
 
@@ -26,7 +28,9 @@ export default async function ProfilePage() {
               : null
           }
         />
-        <EmailChangeForm email={user.email} />
+        {/* SMS verification appears once a number is saved and MSG91 is set up. */}
+        {profile.phone && !profile.phoneVerified && isSmsEnabled() ? <PhoneVerify phone={profile.phone} /> : null}
+        {user.email ? <EmailChangeForm email={user.email} /> : null}
       </div>
     </AccountPage>
   )
