@@ -33,7 +33,7 @@ const CATEGORY_IMAGE_SIZES =
   "(min-width: 1280px) 25vw, (min-width: 768px) 33vw, 50vw"
 
 const CATEGORIES_DESCRIPTION =
-  "Shop wholesale by category: car accessories, kitchen & dining, home essentials, beauty & personal care, travel, tools and more, from verified Indian suppliers."
+  "Shop wholesale by category: car accessories, kitchen & dining, home essentials, beauty & personal care, toys, tools and more, from verified Indian suppliers."
 
 export const metadata: Metadata = {
   title: "Wholesale Product Categories",
