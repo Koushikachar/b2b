@@ -1,4 +1,4 @@
-import { SUPPORT_WHATSAPP } from "@/lib/site";
+import { ORDERS_WHATSAPP, SUPPORT_WHATSAPP } from "@/lib/site";
 
 // Buyer -> Direct2Hub WhatsApp contact link.
 //
@@ -40,8 +40,9 @@ export function whatsappContactLink(
 }
 
 /**
- * Chat with D2H Core on its WhatsApp number (SUPPORT_WHATSAPP). The order
- * number is included only once the buyer has actually placed that order.
+ * Chat with Direct2Hub on WhatsApp: anything about an order goes to the
+ * orders number, product and general questions to support. The order number
+ * is included only once the buyer has actually placed that order.
  */
 export function d2hWhatsappLink({
   orderReference,
@@ -55,6 +56,7 @@ export function d2hWhatsappLink({
     : productTitle
       ? `Hi Direct2Hub, I'm interested in ${productTitle}.`
       : "Hi Direct2Hub, I have a question.";
-  // SUPPORT_WHATSAPP always has the D2H Core default, so this never returns null.
-  return whatsappContactLink(SUPPORT_WHATSAPP, message) ?? "https://wa.me/917483274168";
+  const number = orderReference ? ORDERS_WHATSAPP : SUPPORT_WHATSAPP;
+  // Both numbers are fixed, valid mobiles, so this never returns null.
+  return whatsappContactLink(number, message) ?? `https://wa.me/91${number}`;
 }

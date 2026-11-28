@@ -19,7 +19,11 @@ export const SITE_URL = resolveSiteUrl(process.env.NEXT_PUBLIC_APP_URL, process.
 export const SITE_NAME = COMPANY.brand;
 // Customer support channels shown on Account → Contact Us. Configure per
 // deployment; a channel that is not set is simply not shown.
-// D2H Core's WhatsApp number is the default; an env value overrides it.
-export const SUPPORT_WHATSAPP = process.env.NEXT_PUBLIC_SUPPORT_WHATSAPP || "7483274168";
+// WhatsApp numbers (owner, 2026-11-28). Set here, not from env, so a stale
+// NEXT_PUBLIC_SUPPORT_WHATSAPP on a server can never show the old number.
+/** Support, product pages and everything else. */
+export const SUPPORT_WHATSAPP = "9187166233";
+/** The store section and orders (order page, after placing an order). */
+export const ORDERS_WHATSAPP = "9187166230";
 export const SUPPORT_EMAIL = process.env.NEXT_PUBLIC_SUPPORT_EMAIL ?? "";
 export const SUPPORT_PHONE = process.env.NEXT_PUBLIC_SUPPORT_PHONE ?? "";

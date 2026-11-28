@@ -26,7 +26,7 @@ import { STORE_PROGRAMMES, getStoreProgramme } from "@/lib/stores"
 import { getCachedHomeCategories, getCachedProducts, getCachedStoreId } from "@/lib/storefront-cache"
 import { publicTransformedImageUrl } from "@/lib/storage"
 import { formatRupees } from "@/lib/format"
-import { SUPPORT_WHATSAPP } from "@/lib/site"
+import { ORDERS_WHATSAPP } from "@/lib/site"
 import { normalizeUserPhone } from "@/lib/user-phone"
 import { Breadcrumbs } from "@/components/layout/breadcrumbs"
 import { ProductCard, type ProductCardData } from "@/components/storefront/product-card"
@@ -83,8 +83,9 @@ export default async function StoreProgrammePage({ params }: Props) {
   const storeId = (await getCachedStoreId(store.slug)) ?? undefined
 
   const catalogue = await getCachedProducts({ perPage: 1, sort: "newest", storeId })
-  const whatsapp = SUPPORT_WHATSAPP
-    ? `https://wa.me/91${normalizeUserPhone(SUPPORT_WHATSAPP)}?text=${encodeURIComponent(`Hi, I have a question about ${store.name}.`)}`
+  // Store section: the orders number (owner, 2026-11-28).
+  const whatsapp = ORDERS_WHATSAPP
+    ? `https://wa.me/91${normalizeUserPhone(ORDERS_WHATSAPP)}?text=${encodeURIComponent(`Hi, I have a question about ${store.name}.`)}`
     : null
 
   const stats: { icon: IconSvgElement; value: string; label: string }[] = [

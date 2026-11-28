@@ -10,6 +10,8 @@ import { SITE_NAME, SITE_URL } from "@/lib/site"
 import { serializeJsonLd } from "@/lib/json-ld"
 import { siteJsonLd } from "@/lib/seo"
 import { AnalyticsConsent } from "@/components/layout/analytics-consent"
+import { NavigationProgress } from "@/components/layout/navigation-progress"
+import { Suspense } from "react"
 
 // Organization + WebSite schema (knowledge panel, entity for AI engines, site search).
 const SITE_JSON_LD = siteJsonLd(SITE_URL)
@@ -116,6 +118,9 @@ export default function RootLayout({
         />
         {/* Motion honours prefers-reduced-motion app-wide (apple-design §14). */}
         <MotionConfig reducedMotion="user">
+          <Suspense fallback={null}>
+            <NavigationProgress />
+          </Suspense>
           {children}
           <Toaster />
           <AnalyticsConsent />
